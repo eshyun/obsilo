@@ -1,6 +1,12 @@
-import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
+import { AgentSettingsTab } from './ui/AgentSettingsTab';
+import { ToolRegistry } from './core/tools/ToolRegistry';
+import { ToolExecutionPipeline } from './core/tool-execution/ToolExecutionPipeline';
+import { buildApiHandler } from './api/index';
+import type { ApiHandler } from './api/types';
+import type { ToolUse, ToolCallbacks } from './core/tools/types';
 // import { AgentProvider } from './core/AgentProvider';
 // import { McpHub } from './services/mcp/McpHub';
 // import { GlobalCheckpointService } from './services/checkpoints/GlobalCheckpointService';
@@ -24,6 +30,8 @@ import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView
  */
 export default class ObsidianAgentPlugin extends Plugin {
     settings: ObsidianAgentSettings;
+    toolRegistry: ToolRegistry;
+    apiHandler: ApiHandler | null = null;
     // provider: AgentProvider;
     // mcpHub: McpHub;
     // checkpointService: GlobalCheckpointService;
@@ -47,6 +55,12 @@ export default class ObsidianAgentPlugin extends Plugin {
         await this.loadSettings();
 
         // 2. Initialize core services
+        // Phase 1: Tool registry (ToolExecutionPipeline created per-task)
+        this.toolRegistry = new ToolRegistry(this);
+
+        // Phase 4: LLM provider (null if no API key configured)
+        this.initApiHandler();
+
         // TODO: Phase 1 - Uncomment when services are implemented
         // this.provider = new AgentProvider(this);
         // this.mcpHub = new McpHub(this.provider);
@@ -66,11 +80,21 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => this.activateView()
         });
 
-        // 5. Initialize MCP connections
+        // Development: Test tool execution
+        this.addCommand({
+            id: 'test-tool-execution',
+            name: 'Test Tool Execution',
+            callback: () => this.testToolExecution()
+        });
+
+        // 5. Register settings tab
+        this.addSettingTab(new AgentSettingsTab(this.app, this));
+
+        // 7. Initialize MCP connections
         // TODO: Phase 6 - Uncomment when MCP is implemented
         // await this.mcpHub.initialize();
 
-        // 6. Start semantic indexing (background)
+        // 8. Start semantic indexing (background)
         // TODO: Phase 7 - Uncomment when semantic index is implemented
         // this.semanticIndex.startIndexing();
 
@@ -100,10 +124,43 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /**
-     * Save plugin settings to disk
+     * Save plugin settings to disk and reinitialize API handler
      */
     async saveSettings() {
         await this.saveData(this.settings);
+        this.initApiHandler();
+    }
+
+    /**
+     * Initialize the API handler from current settings.
+     * Called on load and whenever settings change.
+     */
+    initApiHandler(): void {
+        const providerKey = this.settings.defaultProvider;
+        const providerConfig = this.settings.providers[providerKey];
+
+        if (!providerConfig) {
+            console.warn('[Plugin] No provider config found for:', providerKey);
+            this.apiHandler = null;
+            return;
+        }
+
+        // Require API key for cloud providers
+        if ((providerConfig.type === 'anthropic' || providerConfig.type === 'openai') && !providerConfig.apiKey) {
+            if (this.settings.debugMode) {
+                console.log('[Plugin] API key not configured for', providerKey);
+            }
+            this.apiHandler = null;
+            return;
+        }
+
+        try {
+            this.apiHandler = buildApiHandler(providerConfig);
+            console.log(`[Plugin] API handler initialized: ${providerKey} / ${providerConfig.model}`);
+        } catch (error) {
+            console.error('[Plugin] Failed to initialize API handler:', error);
+            this.apiHandler = null;
+        }
     }
 
     /**
@@ -132,6 +189,72 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Reveal the view
         if (leaf) {
             workspace.revealLeaf(leaf);
+        }
+    }
+
+    /**
+     * Test tool execution (Development only)
+     */
+    async testToolExecution() {
+        console.log('=== Testing Tool Execution ===');
+        new Notice('Testing tool execution...');
+
+        // Create a pipeline instance for testing
+        const pipeline = new ToolExecutionPipeline(
+            this,
+            this.toolRegistry,
+            'test-task-001',
+            'ask'
+        );
+
+        // Create callbacks to collect results
+        const results: string[] = [];
+        const callbacks: ToolCallbacks = {
+            pushToolResult: (content: string) => {
+                results.push(content);
+                console.log('Tool result:', content);
+            },
+            handleError: async (toolName: string, error: unknown) => {
+                console.error(`Error in ${toolName}:`, error);
+            },
+            log: (message: string) => {
+                console.log('Tool log:', message);
+            }
+        };
+
+        try {
+            // Test 1: Write then read to test roundtrip
+            console.log('\n--- Test 1: Write test file ---');
+            const writeTool: ToolUse = {
+                type: 'tool_use',
+                id: 'test-write-001',
+                name: 'write_file',
+                input: {
+                    path: 'obsidian-agent-test.md',
+                    content: `# Tool Execution Test\n\nTimestamp: ${new Date().toISOString()}\n\nAll systems operational!`
+                }
+            };
+            await pipeline.executeTool(writeTool, callbacks);
+
+            // Then read it back
+            console.log('\n--- Test 2: Read back the test file ---');
+            const readTool: ToolUse = {
+                type: 'tool_use',
+                id: 'test-read-001',
+                name: 'read_file',
+                input: { path: 'obsidian-agent-test.md' }
+            };
+
+            const readResult = await pipeline.executeTool(readTool, callbacks);
+            console.log('Read result (content populated):', readResult.content.substring(0, 100) + '...');
+
+            console.log('\n=== Tool Execution Test Complete ===');
+            console.log('Results collected:', results.length);
+
+            new Notice('Tool execution test complete! Check console and vault.');
+        } catch (error) {
+            console.error('Tool execution test failed:', error);
+            new Notice('Tool execution test failed! Check console.');
         }
     }
 }
