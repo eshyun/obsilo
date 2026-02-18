@@ -5,430 +5,211 @@
 
 ---
 
-## Sprint 1 — Kritische Blocker
+## Sprint 1 — Kritische Blocker ✅ Abgeschlossen
 
 ### 1.1 Diff-basiertes Editing
 - [x] **`edit_file` Tool** (`src/core/tools/vault/EditFileTool.ts`)
   - Parameter: `path`, `old_str`, `new_str`, `expected_replacements?`
   - Fuzzy-Matching Fallback bei Whitespace-Unterschieden
-  - Fehler bei: not found / Ambiguität
   - `isWriteOperation: true` → Checkpoint vor Ausführung
-  - In `ToolRegistry` registriert, in `systemPrompt.ts` beschrieben
 - [x] **`append_to_file` Tool** (`src/core/tools/vault/AppendToFileTool.ts`)
   - Parameter: `path`, `content`, `separator?` (default: `\n`)
-  - `isWriteOperation: true`
-- [ ] **Settings: Diff-Editing Toggle + Match Precision Slider** *(UI — Sprint 2)*
+- [x] **Settings: Diff-Editing Toggle** (in Settings → Advanced implementiert)
 
 ### 1.2 Agent-Control-Tools
 - [x] **`ask_followup_question` Tool** (`src/core/tools/agent/AskFollowupQuestionTool.ts`)
-  - Parameter: `question`, `options?: string[]`
-  - Unterbricht Loop via Promise → wartet auf User-Antwort
-  - Callback-Architektur in `AgentTask` + `ToolExecutionContext` verdrahtet
+  - Unterbricht Loop via Promise → wartet auf User-Antwort via Approval-Card
 - [x] **`attempt_completion` Tool** (`src/core/tools/agent/AttemptCompletionTool.ts`)
-  - Parameter: `result`
-  - Beendet AgentTask-Loop sofort (setzt Flag), `onAttemptCompletion` Callback
-- [ ] **UI: Question-Card + Completion-Card in `AgentSidebarView.ts`** *(UI — Sprint 2)*
+  - Beendet AgentTask-Loop, triggert Todo-Auto-Complete im UI
+- [x] **`switch_mode` Tool** (`src/core/tools/agent/SwitchModeTool.ts`)
+  - Wechselt Mode innerhalb laufendem Task, rebuilt System Prompt
+- [x] **UI: Question-Card + Todo-Box + Approval-Card in `AgentSidebarView.ts`**
 
 ### 1.3 Auto-Approve System
 - [x] **`AutoApprovalConfig` Typ in `settings.ts`**
-  - `{ enabled, showMenuInChat, read, write, web, mcp, mode, subtasks, question, todo }`
-  - Default: `enabled: false`, reads=true, alle anderen false
 - [x] **Approval-Logik in `ToolExecutionPipeline.ts`**
-  - `checkApproval()` mit Tool-Gruppe-Mapping (read/write/web/agent/mcp)
-  - `onApprovalRequired` Callback in `ContextExtensions` verdrahtet
-- [ ] **Approval-Card UI in `AgentSidebarView.ts`** *(UI — Sprint 2)*
-- [ ] **Auto-Approve-Leiste im Chat** *(UI — Sprint 2)*
-- [ ] **Settings: Behaviour-Tab — Auto-Approve Sektion** *(Settings-UI — Sprint 2)*
+- [x] **Approval-Card UI in `AgentSidebarView.ts`** (inline mit Allow / Enable Always / Deny)
+- [x] **Settings: Behaviour-Tab — Auto-Approve Sektion** (read/write/web/mcp/subtasks/todo)
 
 ### 1.4 Checkpoints (isomorphic-git)
-> Original-Scope: ADR-003 — Shadow-Repo in `.obsidian-agent/checkpoints/` via isomorphic-git
-
-- [x] **`isomorphic-git` als Dependency** (`npm install isomorphic-git`)
 - [x] **`GitCheckpointService`** (`src/core/checkpoints/GitCheckpointService.ts`)
-  - Shadow-Repo: `.obsidian/plugins/obsidian-agent/checkpoints/`
-  - `snapshot(taskId, files[])` — staged commit vor erstem Write
-  - `restore(checkpoint)` — Dateien aus Commit wiederherstellen
-  - `diff(checkpoint)` — Zusammenfassung der Änderungen
-  - Timeout-Support, Auto-Cleanup konfigurierbar
-- [x] **Integration in `ToolExecutionPipeline.ts`**
-  - Snapshot vor erstem schreibenden Tool-Call des Tasks
-- [x] **Integration in `main.ts`** — Service wird beim Plugin-Start initialisiert
-- [ ] **Diff-Anzeige + Undo-Button in `AgentSidebarView.ts`** *(UI — Sprint 2)*
-- [ ] **Settings: Behaviour-Tab — Checkpoints Sektion** *(Settings-UI — Sprint 2)*
-
-### 1.6 Governance: Ignore & Protected Files
-> Original-Scope: GOV-02, nicht-verhandelbare technische Constraints
-
-- [x] **`IgnoreService`** (`src/core/governance/IgnoreService.ts`)
-  - Liest `.obsidian-agentignore` (gitignore-Syntax) + `.obsidian-agentprotected`
-  - `isIgnored(path): boolean` — prüft vor jedem Tool-Call
-  - `isProtected(path): boolean` — harte Sperre für schreibende Ops
-  - Default-geblockt: `.git/`, `.obsidian/workspace`, Governance-Dateien selbst
-  - Gitignore-Syntax: `*`, `**`, Verzeichnis-Matches, Kommentare
-- [x] **Integration in `ToolExecutionPipeline.ts`**
-  - VOR Approval-Check: Ignore-Check + Protected-Check für Schreiboperationen
-- [x] **Integration in `main.ts`** — Service wird beim Plugin-Start geladen
-- [ ] **Settings: Behaviour-Tab — Governance Sektion** *(Settings-UI — Sprint 2)*
-
-### 1.7 Operation Logging / Audit Trail
-> Original-Scope: GOV-02 — Jeder Tool-Call wird persistent geloggt
-
-- [x] **`OperationLogger`** (`src/core/governance/OperationLogger.ts`)
-  - Speicherort: `.obsidian/plugins/obsidian-agent/logs/YYYY-MM-DD.jsonl`
-  - Format: `{ timestamp, taskId, mode, tool, params, success, durationMs, error? }`
-  - 30-Tage-Rotation (älteste Dateien automatisch gelöscht)
-  - `readLog(date)` + `getLogDates()` + `clearLogs()` APIs
-- [x] **Integration in `ToolExecutionPipeline.ts`**
-  - Nach jedem `tool.execute()`: `operationLogger.log(entry)`
-- [x] **Integration in `main.ts`** — Service wird beim Plugin-Start initialisiert
-- [ ] **Log-Viewer in Settings (About-Tab)** *(Settings-UI — Sprint 2)*
+  - Shadow-Repo in `.obsidian/plugins/obsidian-agent/checkpoints/`
+  - `snapshot(taskId, files[])`, `restore(checkpoint)`, `diff(checkpoint)`
+- [x] **Integration in `ToolExecutionPipeline.ts`** — Snapshot vor erstem Write
+- [x] **Undo-Bar in `AgentSidebarView.ts`** — erscheint nach Write-Ops, "Undo all changes"
+- [x] **Settings: Behaviour-Tab — Checkpoints Sektion** (Enable, Timeout, Auto-Cleanup)
 
 ### 1.5 Advanced API Settings
-- [x] **`AdvancedApiSettings` Typ in `settings.ts`**
-  - `{ useCustomTemperature, temperature, consecutiveMistakeLimit, rateLimitMs }`
-  - In `DEFAULT_SETTINGS` mit sinnvollen Defaults
-- [ ] **Temperature-Support in `AnthropicProvider` + `OpenAiProvider`** *(Sprint 1.5b)*
-- [ ] **Error/Repetition Detector in `AgentTask.ts`** *(Sprint 1.5b)*
-- [ ] **Rate Limiting in `AgentTask.ts`** *(Sprint 1.5b)*
-- [ ] **Settings: Behaviour-Tab — Advanced API Sektion** *(Settings-UI — Sprint 2)*
+- [x] **Temperature-Support** per Model (in Model-Config-Modal)
+- [x] **`consecutiveMistakeLimit`** in `AgentTask.ts` verdrahtet
+- [x] **`rateLimitMs`** (Sleep zwischen Iterationen) in `AgentTask.ts` verdrahtet
+- [x] **Settings: Advanced-Tab** (Consecutive Error Limit, Rate Limit Ms)
+
+### 1.6 Governance: Ignore & Protected Files
+- [x] **`IgnoreService`** (`src/core/governance/IgnoreService.ts`)
+- [x] **Integration in `ToolExecutionPipeline.ts`** — VOR Approval-Check
+
+### 1.7 Operation Logging / Audit Trail
+- [x] **`OperationLogger`** (`src/core/governance/OperationLogger.ts`)
+  - Speicherort: `.obsidian/plugins/obsidian-agent/logs/YYYY-MM-DD.jsonl`
+- [x] **Integration in `ToolExecutionPipeline.ts`**
+- [ ] **Log-Viewer in Settings (About-Tab)** *(noch offen)*
 
 ---
 
-## Sprint 2 — Display & Context
+## Sprint 2 — Display & Context (teilweise fertig)
 
 ### 2.1 Display Settings
-- [ ] **`DisplaySettings` Typ in `settings.ts`**
-  ```typescript
-  { collapseThinkingByDefault, showTaskTimeline, showTimestamps, showDiffStats,
-    sendWithEnter, hideCostBelowCents }
-  ```
-- [ ] **Timestamps in `AgentSidebarView.ts`**
-  - Kleiner grauer Zeitstempel unter jeder Message
-  - Sichtbar wenn `showTimestamps: true`
-- [ ] **Thinking-Blöcke collapsible**
-  - `<details><summary>💭 Denkt nach...</summary>...</details>`
-  - Default-State: `collapseThinkingByDefault` Setting
-- [ ] **Diff-Stats nach Write-Ops**
-  - "+12 Zeilen hinzugefügt, -3 entfernt" Badge
-  - Sichtbar wenn `showDiffStats: true`
-- [ ] **Task-Timeline (optional)**
-  - Horizontale Leiste mit farbigen Punkten pro Message-Typ
-  - Sichtbar wenn `showTaskTimeline: true`
-- [ ] **Enter-to-Send Verhalten**
-  - Wenn `sendWithEnter: true`: Enter sendet, Shift+Enter = Newline
-  - Default: true (wie Kilo Code)
-- [ ] **Cost-Threshold**
-  - Kosten unter X Cent ausblenden
-  - Default: 0 (immer zeigen)
-- [ ] **Settings: Behaviour-Tab — Display Sektion**
+- [x] **Timestamps** — im Message-Footer (Tool-Zeit + Abschlusszeit)
+- [x] **Thinking-Blöcke collapsible** — mit Spinner während Reasoning, kollabierend bei Text-Start
+- [x] **Tool I/O expandierbar** — `<details>` pro Tool-Call, auto-expand während läuft, collapse bei Erfolg
+- [x] **Token-Usage** — `{input} in · {output} out` im Footer, akkumuliert über Iterationen
+- [x] **Enter-to-Send** — `sendWithEnter` Setting implementiert
+- [ ] **Diff-Stats Badge** nach Write-Ops (`+12 / -3 Zeilen`) *(offen)*
+- [ ] **Cost-Threshold** (Kosten unter X Cent ausblenden) *(zurückgestellt)*
+- [ ] **Task-Timeline** (horizontale Leiste) *(zurückgestellt — Todo-Box erfüllt ähnlichen Zweck)*
 
 ### 2.2 Context Settings
-- [ ] **`ContextSettings` Typ in `settings.ts`**
-  ```typescript
-  { maxConcurrentFileReads, allowVeryLargeFileReads, includeCurrentTimeInContext,
-    condensingEnabled, condensingTriggerThreshold, maxVaultFilesInContext }
-  ```
-- [ ] **Current Time im System Prompt** (`src/core/systemPrompt.ts`)
-  - Wenn `includeCurrentTimeInContext: true` → Datum+Zeit+Timezone injizieren
-- [ ] **Max concurrent file reads** in `ReadFileTool.ts`
-  - Wenn mehrere read_file in einem Turn → Semaphore / Limit
-- [ ] **Large file guard** in `ReadFileTool.ts`
-  - Warnung wenn Datei > 80% Kontext-Fenster, außer `allowVeryLargeFileReads: true`
-- [ ] **Condensing Trigger Threshold** in `AgentTask.ts`
-  - Token-Schätzung nach jeder Message
-  - Bei > Threshold% → auto-condense (separater LLM-Call)
-- [ ] **Settings: Behaviour-Tab — Context Sektion**
+- [x] **Current Time im System Prompt** — ganz oben, ISO + Human-Readable + Timezone
+- [x] **Large-File-Guard** — Warnung bei Dateien > 80% Kontext (in ReadFileTool)
+- [ ] **Max concurrent file reads / Semaphore** *(offen — → Sprint parallel execution)*
+- [ ] **Condensing Trigger** (Auto-Komprimierung wenn Kontext voll) *(offen — Sprint 7)*
 
 ### 2.3 Support Prompts (Quick Actions)
-- [ ] **`SupportPrompts` Typ in `settings.ts`**
-  - `enhancePrompt`, `summarize`, `explain`, `fix` — je ein String-Template
-- [ ] **✨ Button im Chat-Input** (`AgentSidebarView.ts`)
-  - Öffnet Dropdown: Prompt verbessern / Zusammenfassen / Erklären / Beheben
-  - Injiziert Template (mit aktuellem Prompt / offener Note) in Input-Feld
-- [ ] **Settings: Behaviour-Tab — Prompts Sektion**
-  - Editierbare Textareas je Quick-Action
+- [ ] **✨ Button im Chat-Input** — Dropdown: Prompt verbessern / Zusammenfassen / Erklären / Beheben *(offen)*
+- [ ] **Settings: editierbare Templates je Quick-Action** *(offen)*
 
 ### 2.4 Chat Autocomplete
-- [ ] **`/` → Workflow-Autocomplete im Input**
-  - Tippen von `/` → Dropdown mit verfügbaren Workflows
-  - Dateiname + erste Zeile als Beschreibung
-  - Tab/Enter/Klick: Workflow-Content in Message injizieren
-- [ ] **`@` → Datei-Mention (optional)**
-  - Tippen von `@` → Vault-Dateisuche
-  - Gewählte Datei als Kontext zum nächsten Message hinzufügen
-- [ ] **Settings: Toggle "Chat-Autocomplete aktivieren"**
+- [ ] **`/` → Workflow-Auswahl** im Input-Dropdown *(offen — hängt an Sprint 3.3)*
+- [ ] **`@` → Datei-Mention** (Vault-Dateisuche, Datei als Kontext hinzufügen) *(offen)*
 
 ---
 
-## Sprint 3 — Modes & Agent Behaviour
+## Sprint 3 — Modes & Agent Behaviour (teilweise fertig)
 
 ### 3.1 Custom Modes + Mode Editor
-- [ ] **`ModeConfig` Typ** (`src/types/modes.ts`)
-  ```typescript
-  { slug, name, roleDefinition, shortDescription?, whenToUse?,
-    customInstructions?, groups, apiConfig?, iconName?, source }
-  ```
-- [ ] **`TOOL_GROUP_TOOLS` Mapping**
-  - `read | edit | web | agent | mcp` → Tool-Namen
-- [ ] **5 Built-in Modes in `systemPrompt.ts` überarbeiten**
-  - ask, writer, architect, researcher, orchestrator
-- [ ] **Mode-Selector in `AgentSidebarView.ts` dynamisieren**
-  - Zeigt alle built-in + custom Modes
-  - Short Description als Tooltip
-- [ ] **Tool-Filterung in `AgentTask.ts`**
-  - Nur Tools die zum Mode's `groups` gehören an LLM übergeben
-- [ ] **Mode Editor Settings-Tab**
-  - Liste aller Modes: Icon, Name, Beschreibung
-  - Built-in: nur `customInstructions` editierbar
-  - Custom: full CRUD + Export/Import
-  - Felder: Name, Slug, Role Definition, Short Desc, When to Use, Tool Groups, API Config
-- [ ] **Mode-Export/Import** (JSON/YAML)
-- [ ] **`switch_mode` Tool** (`src/core/tools/agent/SwitchModeTool.ts`)
-  - Validiert slug, Approval, lädt neuen System Prompt in laufendem Task
+- [x] **`ModeConfig` Typ** in `settings.ts`
+- [x] **5 Built-in Modes** (ask, writer, architect, librarian, orchestrator)
+- [x] **Mode-Selector** im Chat dynamisiert (alle built-in + custom)
+- [x] **Tool-Filterung je Mode** (ToolGroups in AgentTask + ModeService)
+- [x] **Mode Editor Settings-Tab** — full CRUD, Icon, Name, Slug, Role, Custom Instructions
+- [x] **Global Modes** (vault-übergreifend gespeichert)
+- [x] **Per-Mode API-Config** (eigenes Modell je Mode wählbar)
+- [ ] **Mode-Export/Import** (JSON/YAML) *(offen)*
 
 ### 3.2 Rules
-- [ ] **`RulesLoader`** (`src/core/context/RulesLoader.ts`)
-  - Liest `.obsidian/plugins/obsidian-agent/rules/` + konfig. Vault-Ordner
-  - Filtert nach `.md`/`.txt`, respektiert `settings.rulesToggles`
-  - Mode-spezifische Rules: `rules-{slug}/` Unterordner
-- [ ] **Integration in `systemPrompt.ts`**
-  - Aktive Rules ans Ende des System Prompts anhängen
-- [ ] **Settings-Tab "Rules"**
-  - Global Rules + Vault Rules je mit Toggle/Edit/Delete
-  - "+ Neue Regel" → Textarea-Modal → speichert als Datei
+- [ ] **`RulesLoader`** (`src/core/context/RulesLoader.ts`) *(offen)*
+- [ ] **Integration in `systemPrompt.ts`** *(offen)*
+- [ ] **Settings-Tab „Rules"** (UI-Placeholder existiert, Logik fehlt) *(offen)*
 
 ### 3.3 Workflows (Slash-Commands)
-- [ ] **`WorkflowLoader`** (`src/core/context/WorkflowLoader.ts`)
-  - Liest `.obsidian/plugins/obsidian-agent/workflows/`
-  - Listet Dateien mit Name + erster Zeile als Beschreibung
-  - Respektiert `settings.workflowToggles`
-- [ ] **Slash-Command Processing** in `AgentSidebarView.ts`
-  - Bei Absenden: `/name` in Message erkennen
-  - Workflow-Inhalt als `<explicit_instructions>` prefixen
-- [ ] **Settings-Tab "Workflows"**
-  - Global + Vault Workflows mit Toggle/Edit/Delete
-  - "+ Neuer Workflow" → Editor-Modal
+- [ ] **`WorkflowLoader`** (`src/core/context/WorkflowLoader.ts`) *(offen)*
+- [ ] **Slash-Command Processing** in `AgentSidebarView.ts` *(offen)*
+- [ ] **Settings-Tab „Workflows"** (UI-Placeholder existiert, Logik fehlt) *(offen)*
 
 ### 3.4 Skills
-- [ ] **`SkillsManager`** (`src/core/context/SkillsManager.ts`)
-  - Entdeckt `SKILL.md` Dateien in `skills/` Unterverzeichnissen
-  - Parsed Frontmatter: `name`, `description`, `mode?`
-  - Keyword-Matching: User-Message vs. alle `description`-Felder
-- [ ] **Integration in `AgentTask.ts`**
-  - Vor jedem LLM-Call: relevante Skills in System Prompt injizieren
-- [ ] **Settings-Tab "Skills"**
-  - Entdeckte Skills mit Name + Description + Source
-  - "+ Neuen Skill erstellen" → Wizard
+- [ ] **`SkillsManager`** (`src/core/context/SkillsManager.ts`) *(offen)*
+- [ ] **Integration in `AgentTask.ts`** *(offen)*
+- [ ] **Settings-Tab „Skills"** (UI-Placeholder existiert, Logik fehlt) *(offen)*
 
 ---
 
-## Sprint 4 — Orchestrierung & Multi-Agent
+## Sprint 4 — Orchestrierung & Multi-Agent (teilweise fertig)
 
 ### 4.1 Todo-Listen
-- [ ] **`update_todo_list` Tool** (`src/core/tools/agent/UpdateTodoListTool.ts`)
-  - Parameter: `todos` (Markdown-Checklist: `[ ]`, `[~]`, `[x]`)
-  - Speichert in `AgentTask.currentTodos`
-  - Callback: `onTodoUpdate(todos)` → UI
-- [ ] **Todo-Box UI in `AgentSidebarView.ts`**
-  - Persistent sichtbar über den Chat-Messages
-  - Live-Update bei `update_todo_list`-Calls
-  - ✅ / ⏳ / ☐ Icons je Status
-- [ ] **Settings: "Todo-Listen-Tool aktivieren" Toggle**
+- [x] **`update_todo_list` Tool** (`src/core/tools/agent/UpdateTodoListTool.ts`)
+- [x] **Todo-Box UI** in `AgentSidebarView.ts` — live-update, auto-complete bei `attempt_completion`
 
 ### 4.2 Multi-Agent / Orchestrator
-- [ ] **`new_task` Tool** (`src/core/tools/agent/NewTaskTool.ts`)
-  - Parameter: `mode`, `message`
-  - Erstellt Kind-`AgentTask` mit eigenem Mode + Tool-Set
-  - Eltern wartet auf `attempt_completion` des Kinds
-  - Max 3 Tiefenebenen (prüfen via `parentTask` chain)
-- [ ] **`AgentTask`: `parentTask?` Referenz** + Tiefen-Check
-- [ ] **Orchestrator Mode** als Built-in hinzufügen
-  - `groups: ['agent']` only
-  - System Prompt auf Koordination ausgerichtet
-- [ ] **Multi-Agent UI in `AgentSidebarView.ts`**
-  - Verschachtelte Task-Anzeige: Einrückung + Mode-Label
-  - Status-Icons je Subtask
+- [ ] **`new_task` Tool** (`src/core/tools/agent/NewTaskTool.ts`) *(offen)*
+- [ ] **`AgentTask`: `parentTask?` Referenz + Tiefen-Check** *(offen)*
+- [ ] **Multi-Agent UI** (verschachtelte Task-Anzeige) *(offen)*
 
 ---
 
-## Sprint 5 — Web & Vault-Intelligence
+## Sprint 5 — Web & Vault-Intelligence (teilweise fertig)
 
 ### 5.1 Web-Tools
-- [ ] **`web_fetch` Tool** (`src/core/tools/web/WebFetchTool.ts`)
-  - Parameter: `url`, `selector?`
-  - `requestUrl()` → HTML → Markdown (eigene Implementierung)
-  - Max 8.000 Zeichen Output
-  - `isWriteOperation: false`
-- [ ] **`web_search` Tool** (`src/core/tools/web/WebSearchTool.ts`)
-  - Parameter: `query`, `num_results?`
-  - Provider-Dispatch: Brave / Tavily / DuckDuckGo
-  - Gibt `[{ title, url, snippet }]` zurück
-- [ ] **Settings: Behaviour-Tab — Web Sektion**
-  - "Web-Tools aktivieren" Toggle
-  - Provider-Dropdown + API Key
-  - "Remote Browser" Stub (deaktiviert, "Kommt bald")
-- [ ] **Web-Provider in `ToolRegistry` registrieren** (nur wenn enabled)
+- [x] **`web_fetch` Tool** (`src/core/tools/web/WebFetchTool.ts`)
+- [x] **`web_search` Tool** (`src/core/tools/web/WebSearchTool.ts`) — Brave/Tavily/None
+- [x] **Settings: Web-Tab** (Enable Toggle, Provider-Dropdown, API Key)
 
 ### 5.2 Canvas Generation
-> Original-Scope: VIS-01 — P0-Feature; Obsidian Canvas als Ausgabeformat für Wissensstrukturen
-
-- [ ] **`generate_canvas` Tool** (`src/core/tools/vault/GenerateCanvasTool.ts`)
-  - Parameter: `path` (Ausgabe-Canvas-Datei), `source_folder?`, `filter_tags?`, `layout?: 'force'|'grid'`
-  - Liest `metadataCache` für alle Wikilinks zwischen Notizen
-  - Produziert `.canvas` JSON (Obsidian Canvas Format):
-    ```json
-    { "nodes": [{ "id", "type": "file", "file": "path.md", "x", "y", "width", "height" }],
-      "edges": [{ "id", "fromNode", "toNode", "fromSide", "toSide" }] }
-    ```
-  - Layout-Algorithmen: Grid (einfach) oder Force-Directed (iterativ, keine externe Lib nötig)
-  - Filtert nach `filter_tags` wenn angegeben (nur Notizen mit diesen Tags)
-  - Einschränkung auf `source_folder` wenn angegeben
-  - `isWriteOperation: true`
-- [ ] **Canvas-Hilfsfunktionen** (`src/core/tools/vault/canvasLayout.ts`)
-  - `gridLayout(nodes): positions` — einfaches Raster
-  - `forceLayout(nodes, edges): positions` — vereinfachter Force-Directed Algorithmus
+- [ ] **`generate_canvas` Tool** *(offen — P0-Feature)*
+- [ ] **Canvas-Hilfsfunktionen** (`canvasLayout.ts` — Grid + Force-Directed) *(offen)*
 
 ### 5.3 Obsidian Bases Tools
-> Obsidian Bases (Core Plugin, ab Obsidian 1.8+) — strukturierte Datenbank-Ansichten auf Basis von Properties
-
-- [ ] **`create_base` Tool** (`src/core/tools/vault/CreateBaseTool.ts`)
-  - Parameter: `path` (Ausgabe-`.base`-Datei), `filters?`, `sort?`, `group_by?`, `columns?`, `view?: 'table'|'list'|'gallery'`
-  - Schreibt valides `.base` JSON (Obsidian Bases Format):
-    ```json
-    { "viewType": "table",
-      "filter": { "operator": "and", "conditions": [{"field", "operator", "value"}] },
-      "sort": [{ "field": "modified", "direction": "desc" }],
-      "columns": [{ "id", "field", "type", "width" }] }
-    ```
-  - `isWriteOperation: true`
-- [ ] **`update_base` Tool** (`src/core/tools/vault/UpdateBaseTool.ts`)
-  - Parameter: `path`, `filters?`, `sort?`, `group_by?`, `add_column?`, `remove_column?`
-  - Liest bestehende `.base` Datei, merged Änderungen, schreibt zurück
-  - Validiert gegen bekanntes Bases-Schema
-  - `isWriteOperation: true`
-- [ ] **`query_base` Tool** (`src/core/tools/vault/QueryBaseTool.ts`)
-  - Parameter: `path` (`.base`-Datei), `limit?: number`
-  - Zwei Strategien (je nach Verfügbarkeit):
-    1. **API-Pfad**: `app.internalPlugins.getPluginById('bases')` → Query-Engine aufrufen
-    2. **Fallback**: Filter-Logik selbst auswerten gegen `metadataCache` Properties
-  - Gibt zurück: `[{ file, properties: Record<string, any> }]` — die Notizen die die Base-Filter erfüllen
-  - Ermöglicht dem Agent, strukturierte Vault-Daten als Kontext zu nutzen
+- [ ] **`create_base` Tool** *(offen)*
+- [ ] **`update_base` Tool** *(offen)*
+- [ ] **`query_base` Tool** *(offen)*
 
 ### 5.4 Vault-Intelligence Tools
-- [ ] **`get_vault_stats` Tool**
-  - `metadataCache.getTags()`, `vault.getFiles()`
-  - Gibt: `{ fileCount, folderCount, topTags, recentFiles }`
-- [ ] **`search_by_tag` Tool**
-  - Parameter: `tags[]`, `match: 'all'|'any'`
-  - Iteriert `metadataCache`, filtert nach Frontmatter-Tags
-- [ ] **`get_frontmatter` Tool**
-  - Parameter: `path`
-  - Nutzt `metadataCache.getFileCache()`
-- [ ] **`update_frontmatter` Tool**
-  - Parameter: `path`, `updates: Record<string, any>`
-  - Nutzt `app.fileManager.processFrontMatter()`
-  - `isWriteOperation: true`
-- [ ] **`get_linked_notes` Tool**
-  - Parameter: `path`
-  - `metadataCache.getBacklinksForFile()` + outlinks
-- [ ] **`open_note` Tool**
-  - Parameter: `path`
-  - `workspace.openLinkText(path, '')`
-- [ ] **`get_daily_note` Tool**
-  - Parameter: `offset?: number` (0=heute, -1=gestern)
-  - Periodic Notes Plugin falls vorhanden, sonst eigene Logik
+- [x] **`get_vault_stats` Tool** — fileCount, folderCount, topTags, recentFiles
+- [x] **`search_by_tag` Tool** — tags[], match: all|any
+- [x] **`get_frontmatter` Tool** — metadataCache
+- [x] **`update_frontmatter` Tool** — processFrontMatter()
+- [x] **`get_linked_notes` Tool** — Backlinks + Outlinks
+- [x] **`open_note` Tool** — öffnet Datei im Editor
+- [x] **`get_daily_note` Tool** — offset (heute/-1/+1), create-Flag
 
 ---
 
 ## Sprint 6 — Power Features & Experimental
 
 ### 6.1 Power Steering
-- [ ] **Mode-Reminder in `AgentTask.ts`**
-  - Alle N Iterationen: kurze Mode-Definition in User-Message prefixen
-- [ ] **Settings: "Power Steering" Toggle + Frequenz**
+- [ ] **Mode-Reminder** alle N Iterationen in `AgentTask.ts` *(offen)*
+- [ ] **Settings: „Power Steering" Toggle + Frequenz** *(offen)*
 
 ### 6.2 Experimental Toggles
-- [ ] **Concurrent File Edits** — mehrere `write_file`/`edit_file` parallel
-- [ ] **Model-initiated Slash Commands** — Agent kann selbst `/workflow` aufrufen
-- [ ] **Custom Tools** — `.obsidian/plugins/obsidian-agent/tools/*.ts` laden
-- [ ] **Settings: Experimental-Sektion**
+- [ ] **Concurrent File Edits** *(offen — verwandt mit #9 Parallel Execution)*
+- [ ] **Custom Tools** (`.ts` Dateien im Plugin-Ordner laden) *(offen)*
 
 ### 6.3 Speech-to-Text (optional)
-- [ ] **Mikrofon-Button** im Chat-Input
-- [ ] **OpenAI Whisper** via `requestUrl()` + MediaRecorder API
-- [ ] **Settings: STT Toggle** (Experimental)
+- [ ] **Mikrofon-Button + Whisper** *(zurückgestellt)*
 
 ---
 
 ## Sprint 7 — Infrastruktur
 
 ### 7.1 Context-Condensing
-- [ ] **Token-Schätzer** in `AgentTask.ts`
-  - `estimateTokens(messages): number` → Schätzung
-  - Vergleich gegen aktives Model's `contextWindow`
-- [ ] **Condense-Logik**
-  - Separater LLM-Call: "Fasse Konversation zusammen"
-  - Ersetzt älteste Messages, behält letzte 4
-- [ ] **UI-Indikator** "Konversation komprimiert (Kontext: 45%)"
+- [ ] **Token-Schätzer** in `AgentTask.ts` *(offen)*
+- [ ] **Condense-Logik** (separater LLM-Call, behält letzte 4 Messages) *(offen)*
+- [ ] **UI-Indikator** „Konversation komprimiert" *(offen)*
 
 ### 7.2 MCP-Integration
-- [ ] **`McpClient`** (`src/core/mcp/McpClient.ts`)
-  - HTTP-SSE oder stdio Verbindung
-  - Tool-Registrierung in `ToolRegistry`
-- [ ] **`use_mcp_tool` Tool**
-- [ ] **Settings-Tab "MCP"**
-  - Server-Liste mit Toggle/Refresh/Delete
-  - MCP Marketplace (kuratierte Liste)
-  - Global/Workspace MCP Config (JSON-Editor)
+- [ ] **`McpClient`** (`src/core/mcp/McpClient.ts`) *(offen — UI-Placeholder vorhanden)*
+- [ ] **`use_mcp_tool` Tool** *(offen)*
+- [ ] **Settings-Tab „MCP"** (Placeholder existiert, Logik fehlt) *(offen)*
 
 ### 7.3 Task-Persistenz
-- [ ] **History-Speicher** (`src/core/persistence/TaskHistory.ts`)
-  - Speicherort: `.obsidian/plugins/obsidian-agent/history/`
-  - Format: JSON pro Gespräch
-- [ ] **History-UI** in `AgentSidebarView.ts`
-  - Button "Letzte Gespräche" → Liste
-  - "Fortsetzen" lädt History in neuen Task
-- [ ] **Auto-Save** nach jeder Completion
+- [ ] **`TaskHistory`** (`src/core/persistence/TaskHistory.ts`) *(offen)*
+- [ ] **History-UI** in `AgentSidebarView.ts` *(offen)*
 
 ### 7.4 Notifications
-- [ ] **System-Notification** bei Task-Completion (Electron / Notice)
-- [ ] **Settings: "Notifications aktivieren" Toggle**
-
-### 7.5 Language / i18n
-- [ ] **Sprach-Strings auslagern** (`src/i18n/de.ts`, `src/i18n/en.ts`)
-- [ ] **Settings: Sprach-Dropdown** (Deutsch / English)
+- [ ] **System-Notification bei Task-Completion** *(offen)*
 
 ### 7.5b Semantic Index (lokal)
-> Original-Scope: AI-02 — Vault-weite semantische Suche ohne Cloud-Dienste
-
-- [ ] **Lokale Vektor-Datenbank** — `vectra` npm Package (reines TypeScript, kein WASM nötig)
-  - `npm install vectra` — In-Memory + JSON-Persistenz auf Disk
-  - Kein Chromium, kein native Module, läuft in Obsidian/Electron
-- [ ] **`SemanticIndexService`** (`src/core/semantic/SemanticIndexService.ts`)
-  - Index-Speicherort: `.obsidian/plugins/obsidian-agent/semantic-index/`
-  - `buildIndex()` — alle Vault-Markdown-Dateien in Chunks (500 Token, 50 Token Overlap)
-  - `updateFile(path)` — einzelne Datei neu indexieren (bei Vault-Änderung)
-  - `search(query, topK): SemanticSearchResult[]` — Embedding-Query → nächste K Chunks
-  - Embedding via konfiguriertem Embedding-Model (Anthropic/OpenAI/Ollama/LM Studio)
-  - Hintergrund-Indizierung beim Plugin-Start (nicht blockierend)
-- [ ] **`semantic_search` Tool** (`src/core/tools/vault/SemanticSearchTool.ts`)
-  - Parameter: `query`, `top_k?: number` (default: 5)
-  - Gibt `[{ path, excerpt, score }]` zurück
-  - Ergebnis im Chat als kompakte Liste
-- [ ] **Index-Status in `AgentSidebarView.ts`**
-  - Badge: "Semantic Index: 1.240 Dokumente" / "Indiziere..." Spinner
-- [ ] **Settings: Behaviour-Tab — Semantic Index Sektion**
-  - "Semantic Index aktivieren" Toggle
-  - "Embedding Model" Dropdown (aus konfigurierten Embedding-Models)
-  - "Chunk-Größe (Token)" Number-Input (default: 500)
-  - "Jetzt neu indizieren" Button + letzter Index-Zeitstempel
-  - "Index löschen" Button
+- [ ] **`vectra` npm Package** — In-Memory + JSON-Persistenz *(offen)*
+- [ ] **`SemanticIndexService`** (`src/core/semantic/SemanticIndexService.ts`) *(offen)*
+- [ ] **`semantic_search` Tool** *(offen)*
+- [ ] **Index-Status-Badge in `AgentSidebarView.ts`** *(offen)*
+- [ ] **Settings: Semantic Index Sektion** *(offen)*
 
 ### 7.6 Export / Import / Reset
-- [ ] **Export** — `plugin.settings` → JSON-Download
-- [ ] **Import** — JSON einlesen + validieren
-- [ ] **Reset** — `DEFAULT_SETTINGS` mit Bestätigungs-Dialog
-- [ ] **About-Tab** mit diesen Aktionen + Plugin-Version + Links
+- [ ] **Export/Import/Reset Settings** *(offen)*
+- [ ] **About-Tab** mit Plugin-Version + Links *(offen)*
+
+---
+
+## Offene Querschnitts-Tasks
+
+### #9 Parallel Tool Execution *(neu — hohe Priorität)*
+- [ ] **Parallele Read-Tools** in `AgentTask.ts` — `Promise.all()` für unabhängige Reads
+  - Sicher parallel: `read_file`, `list_files`, `search_files`, `get_frontmatter`, `get_linked_notes`, `search_by_tag`, `web_fetch`, `web_search`
+  - Weiterhin sequenziell: alle Write-Tools (Konfliktrisiko)
+
+### Log-Viewer (1.7 Rest)
+- [ ] **Log-Viewer in Settings (About-Tab)** — JSONL-Logs lesbar machen
 
 ---
 
@@ -441,19 +222,14 @@
 - Jedes neue Tool: in `ToolRegistry.registerInternalTools()` registrieren
 
 ### Kilo Code Referenzen
-- edit_file: `forked-kilocode/src/core/tools/EditFileTool.ts`
-- ask_followup: `forked-kilocode/src/core/tools/AskFollowupQuestionTool.ts`
-- attempt_completion: `forked-kilocode/src/core/tools/AttemptCompletionTool.ts`
 - new_task: `forked-kilocode/src/core/tools/NewTaskTool.ts`
-- update_todo_list: `forked-kilocode/src/core/tools/UpdateTodoListTool.ts`
-- switch_mode: `forked-kilocode/src/core/tools/SwitchModeTool.ts`
 - skills: `forked-kilocode/src/services/skills/SkillsManager.ts`
-- auto-approve: `forked-kilocode/packages/core-schemas/src/config/auto-approval.ts`
+- rules: `forked-kilocode/src/core/context/RulesLoader.ts`
 - modes: `forked-kilocode/packages/types/src/mode.ts`
 
 ### Nach jedem Abschnitt
 ```bash
-npm run build  # TypeScript prüfen
-npm run deploy # In Vault deployen
+npx tsc --noEmit      # TypeScript prüfen
+node esbuild.config.mjs production  # Build + Deploy in Vault
 # → Obsidian neu laden + testen
 ```

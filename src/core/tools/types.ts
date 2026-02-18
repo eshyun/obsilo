@@ -141,6 +141,12 @@ export interface ToolExecutionContext {
      * The new mode takes effect from the next AgentTask iteration.
      */
     switchMode?: (slug: string) => void;
+
+    /**
+     * Spawn a child task and return its accumulated response text.
+     * Used by new_task tool for multi-agent delegation.
+     */
+    spawnSubtask?: (mode: string, message: string) => Promise<string>;
 }
 
 /**

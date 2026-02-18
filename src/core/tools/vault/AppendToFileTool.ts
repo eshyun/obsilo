@@ -72,8 +72,10 @@ export class AppendToFileTool extends BaseTool<'append_to_file'> {
                 const currentContent = await this.app.vault.read(existing);
                 const newContent = currentContent ? currentContent + separator + content : content;
                 await this.app.vault.modify(existing, newContent);
+                const appendedLines = content.split('\n').length;
                 callbacks.pushToolResult(
-                    this.formatSuccess(`Appended to ${path} (+${content.split('\n').length} lines)`)
+                    this.formatSuccess(`Appended to ${path} (+${appendedLines} lines)`) +
+                    `\n<diff_stats added="${appendedLines}" removed="0"/>`
                 );
             } else {
                 // File doesn't exist — create it
@@ -82,8 +84,10 @@ export class AppendToFileTool extends BaseTool<'append_to_file'> {
                     await this.ensureFolderExists(parentPath);
                 }
                 await this.app.vault.create(path, content);
+                const newLines = content.split('\n').length;
                 callbacks.pushToolResult(
-                    this.formatSuccess(`Created and wrote to ${path} (${content.split('\n').length} lines)`)
+                    this.formatSuccess(`Created and wrote to ${path} (${newLines} lines)`) +
+                    `\n<diff_stats added="${newLines}" removed="0"/>`
                 );
             }
 

@@ -78,6 +78,8 @@ export interface ContextExtensions {
     updateTodos?: (items: import('../tools/agent/UpdateTodoListTool').TodoItem[]) => void;
     /** Switch the active mode (called by switch_mode tool) */
     switchMode?: (slug: string) => void;
+    /** Spawn a child task (called by new_task tool) */
+    spawnSubtask?: (mode: string, message: string) => Promise<string>;
 }
 
 export class ToolExecutionPipeline {
@@ -168,6 +170,7 @@ export class ToolExecutionPipeline {
                 signalCompletion: extensions?.signalCompletion,
                 updateTodos: extensions?.updateTodos,
                 switchMode: extensions?.switchMode,
+                spawnSubtask: extensions?.spawnSubtask,
             };
 
             await tool.execute(toolCall.input, context);

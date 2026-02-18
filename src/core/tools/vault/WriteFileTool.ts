@@ -70,9 +70,15 @@ export class WriteFileTool extends BaseTool<'write_file'> {
                     throw new Error(`Path exists but is not a file: ${path}`);
                 }
 
+                const existingContent = await this.app.vault.read(existingFile);
                 await this.app.vault.modify(existingFile, content);
+                const beforeLines = existingContent.split('\n').length;
+                const afterLines = content.split('\n').length;
+                const added = Math.max(0, afterLines - beforeLines);
+                const removed = Math.max(0, beforeLines - afterLines);
                 callbacks.pushToolResult(
-                    this.formatSuccess(`File updated: ${path} (${content.length} chars)`)
+                    this.formatSuccess(`File updated: ${path} (${content.length} chars)`) +
+                    `\n<diff_stats added="${added}" removed="${removed}"/>`
                 );
                 callbacks.log(`Successfully updated file: ${path}`);
             } else {
@@ -84,8 +90,10 @@ export class WriteFileTool extends BaseTool<'write_file'> {
                 }
 
                 await this.app.vault.create(path, content);
+                const newLines = content.split('\n').length;
                 callbacks.pushToolResult(
-                    this.formatSuccess(`File created: ${path} (${content.length} chars)`)
+                    this.formatSuccess(`File created: ${path} (${content.length} chars)`) +
+                    `\n<diff_stats added="${newLines}" removed="0"/>`
                 );
                 callbacks.log(`Successfully created file: ${path}`);
             }

@@ -92,10 +92,10 @@ export class EditFileTool extends BaseTool<'edit_file'> {
                 if (normalized !== null) {
                     await this.app.vault.modify(file, normalized);
                     const stats = this.diffStats(content, normalized);
+                    const { added, removed } = this.diffNums(content, normalized);
                     callbacks.pushToolResult(
-                        this.formatSuccess(
-                            `Edited ${path} (fuzzy match applied): ${stats}`
-                        )
+                        this.formatSuccess(`Edited ${path} (fuzzy match applied): ${stats}`) +
+                        `\n<diff_stats added="${added}" removed="${removed}"/>`
                     );
                     return;
                 }
@@ -118,8 +118,10 @@ export class EditFileTool extends BaseTool<'edit_file'> {
 
             const stats = this.diffStats(content, newContent);
             const replWord = expected_replacements === 1 ? 'replacement' : 'replacements';
+            const { added, removed } = this.diffNums(content, newContent);
             callbacks.pushToolResult(
-                this.formatSuccess(`Edited ${path} (${expected_replacements} ${replWord}): ${stats}`)
+                this.formatSuccess(`Edited ${path} (${expected_replacements} ${replWord}): ${stats}`) +
+                `\n<diff_stats added="${added}" removed="${removed}"/>`
             );
             callbacks.log(`Successfully edited file: ${path}`);
         } catch (error) {
@@ -191,5 +193,17 @@ export class EditFileTool extends BaseTool<'edit_file'> {
         if (diff > 0) return `+${diff} lines`;
         if (diff < 0) return `${diff} lines`;
         return 'same line count';
+    }
+
+    /**
+     * Return numeric added/removed line counts for diff badge
+     */
+    private diffNums(before: string, after: string): { added: number; removed: number } {
+        const beforeLines = before.split('\n').length;
+        const afterLines = after.split('\n').length;
+        return {
+            added: Math.max(0, afterLines - beforeLines),
+            removed: Math.max(0, beforeLines - afterLines),
+        };
     }
 }

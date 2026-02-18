@@ -1,4 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon, Menu, MarkdownRenderer, MarkdownView, Notice, TFile } from 'obsidian';
+import type { HistoryMessage } from '../core/ChatHistoryService';
 import type ObsidianAgentPlugin from '../main';
 import { AgentTask } from '../core/AgentTask';
 import { ModeService } from '../core/modes/ModeService';
@@ -54,6 +55,11 @@ export class AgentSidebarView extends ItemView {
     // Attachments pending for the next sent message
     private pendingAttachments: AttachmentItem[] = [];
     private attachmentChipBar: HTMLElement | null = null;
+
+    // Autocomplete dropdown (Sprint B3)
+    private autocompleteDropdown: HTMLElement | null = null;
+    private autocompleteItems: { label: string; sub?: string; onSelect: () => void }[] = [];
+    private autocompleteIndex = 0;
 
     constructor(leaf: WorkspaceLeaf, plugin: ObsidianAgentPlugin) {
         super(leaf);
@@ -137,7 +143,7 @@ export class AgentSidebarView extends ItemView {
             cls: 'header-button',
             attr: { 'aria-label': 'New chat' },
         });
-        setIcon(newChatBtn, 'square-pen');
+        setIcon(newChatBtn, 'message-circle-plus');
         newChatBtn.addEventListener('click', () => this.clearConversation());
     }
 
@@ -161,9 +167,38 @@ export class AgentSidebarView extends ItemView {
             attr: { placeholder: 'Type your message here...', rows: '3' },
         });
 
-        this.textarea.addEventListener('input', () => this.autoResizeTextarea());
+        this.textarea.addEventListener('input', () => {
+            this.autoResizeTextarea();
+            this.handleAutocompleteInput();
+        });
 
         this.textarea.addEventListener('keydown', (e: KeyboardEvent) => {
+            // Autocomplete navigation takes priority
+            if (this.autocompleteDropdown) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this.autocompleteIndex = Math.min(this.autocompleteIndex + 1, this.autocompleteItems.length - 1);
+                    this.renderAutocompleteDropdown();
+                    return;
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.autocompleteIndex = Math.max(this.autocompleteIndex - 1, 0);
+                    this.renderAutocompleteDropdown();
+                    return;
+                }
+                if (e.key === 'Tab' || (e.key === 'Enter' && this.autocompleteDropdown)) {
+                    e.preventDefault();
+                    this.autocompleteItems[this.autocompleteIndex]?.onSelect();
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.hideAutocompleteDropdown();
+                    return;
+                }
+            }
+
             if (e.key === 'Enter') {
                 const sendWithEnter = this.plugin.settings.sendWithEnter ?? true;
                 if (sendWithEnter && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -224,13 +259,21 @@ export class AgentSidebarView extends ItemView {
         this.updateModelButton();
         this.modelButton.addEventListener('click', (e) => this.showModelMenu(e));
 
-        // Attach file button (opens file picker)
+        // Attach file button (ghost style)
         const attachBtn = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button attach-button',
+            cls: 'toolbar-button toolbar-ghost attach-button',
             attr: { 'aria-label': 'Attach file' },
         });
         setIcon(attachBtn.createSpan('toolbar-icon'), 'paperclip');
         attachBtn.addEventListener('click', () => this.openFilePicker());
+
+        // Ellipsis options menu button
+        const ellipsisBtn = toolbarLeft.createEl('button', {
+            cls: 'toolbar-button toolbar-ghost ellipsis-button',
+            attr: { 'aria-label': 'More options' },
+        });
+        setIcon(ellipsisBtn.createSpan('toolbar-icon'), 'ellipsis');
+        ellipsisBtn.addEventListener('click', (e) => this.showOptionsMenu(e));
 
         // Feature 3: Stop button (hidden by default, shown when task is running)
         this.stopButton = toolbarRight.createEl('button', {
@@ -454,6 +497,25 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             messageToSend = textWithContext;
         }
 
+        // Process slash commands (Sprint 3.3) — if text starts with /workflow-slug,
+        // replace with workflow content as explicit instructions (plain string only;
+        // attachment blocks are passed through unchanged).
+        if (typeof messageToSend === 'string' && text.startsWith('/')) {
+            const workflowLoader = (this.plugin as any).workflowLoader;
+            if (workflowLoader) {
+                const processedText = await workflowLoader.processSlashCommand(
+                    text,
+                    this.plugin.settings.workflowToggles ?? {},
+                );
+                if (processedText !== text) {
+                    // Re-add active file context after workflow expansion
+                    messageToSend = processedText + (activeFile
+                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                        : '');
+                }
+            }
+        }
+
         // Resolve mode-specific model (Sticky Models: each mode remembers its last-used model)
         const currentModeSlug = this.modeService.getActiveMode().slug;
         const modeModelKey = this.plugin.settings.modeModelKeys?.[currentModeSlug] || this.plugin.settings.activeModelKey;
@@ -644,6 +706,26 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                     const queue = toolElsByName.get(name);
                     const el = queue?.shift() ?? null;
                     if (!el) return;
+
+                    // Parse and strip <diff_stats added="X" removed="Y"/> tag
+                    let displayContent = content;
+                    const diffMatch = content.match(/<diff_stats added="(\d+)" removed="(\d+)"\/>/);
+                    if (diffMatch && !isError) {
+                        const diffAdded = parseInt(diffMatch[1], 10);
+                        const diffRemoved = parseInt(diffMatch[2], 10);
+                        displayContent = content.replace(/\n?<diff_stats[^/]*\/>/g, '');
+                        if (diffAdded > 0 || diffRemoved > 0) {
+                            const summary = el.querySelector('summary');
+                            if (summary) {
+                                const badge = summary.createSpan('tool-diff-badge');
+                                const parts: string[] = [];
+                                if (diffAdded > 0) parts.push(`+${diffAdded}`);
+                                if (diffRemoved > 0) parts.push(`-${diffRemoved}`);
+                                badge.setText(parts.join(' / '));
+                            }
+                        }
+                    }
+
                     const statusEl = el.querySelector('.tool-status');
                     if (statusEl) {
                         statusEl.removeClass('tool-running');
@@ -651,10 +733,10 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                         statusEl.setText(isError ? '✗' : '✓');
                     }
                     const outputEl = el.querySelector('.tool-call-output');
-                    if (outputEl && content) {
-                        const truncated = content.length > 2000
-                            ? content.slice(0, 2000) + '\n…(truncated)'
-                            : content;
+                    if (outputEl && displayContent) {
+                        const truncated = displayContent.length > 2000
+                            ? displayContent.slice(0, 2000) + '\n…(truncated)'
+                            : displayContent;
                         outputEl.createEl('pre').setText(truncated);
                     }
                     // Collapse successful tools to keep the chat tidy; errors stay expanded
@@ -669,9 +751,23 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                     lastTodoItems = items;
                     this.renderTodoBox(toolsEl, items);
                 },
+                onContextCondensed: () => {
+                    // Show a subtle badge in the footer to indicate condensing happened
+                    if (footerEl) {
+                        const badge = footerEl.createSpan('context-condensed-badge');
+                        badge.setText('context condensed');
+                        footerEl.style.display = '';
+                    }
+                },
                 onModeSwitch: (newModeSlug) => {
                     this.updateModeButton();
                     new Notice(`Switched to ${this.getModeDisplayName(newModeSlug)} mode`);
+                    // Auto-index on mode switch if configured
+                    if (this.plugin.settings.semanticAutoIndex === 'mode-switch' && this.plugin.semanticIndex) {
+                        this.plugin.semanticIndex.buildIndex().catch((e) =>
+                            console.warn('[AgentSidebarView] Auto-index on mode switch failed:', e)
+                        );
+                    }
                 },
                 onQuestion: (question, options, resolve) => {
                     this.showQuestionCard(question, options, resolve);
@@ -679,17 +775,21 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                 onApprovalRequired: async (toolName, input) => {
                     return this.showApprovalCard(toolName, input, toolsEl);
                 },
-                onAttemptCompletion: (result) => {
+                onAttemptCompletion: () => {
                     // Auto-complete any unfinished todo items — agent often skips
                     // a final update_todo_list call before attempt_completion
                     if (lastTodoItems.length > 0) {
                         const allDone = lastTodoItems.map((i) => ({ ...i, status: 'done' as const }));
                         this.renderTodoBox(toolsEl, allDone);
                     }
-                    this.showCompletionBanner(toolsEl, result);
                     scheduleScroll();
                 },
                 onComplete: () => {
+                    // Auto-complete todos on natural task end (mirrors onAttemptCompletion)
+                    if (lastTodoItems.length > 0) {
+                        const allDone = lastTodoItems.map((i) => ({ ...i, status: 'done' as const }));
+                        this.renderTodoBox(toolsEl, allDone);
+                    }
                     // Replace the raw streaming text with the properly formatted Markdown.
                     // This fires exactly once — giving us instant streaming + clean final output.
                     streamingPara = null;
@@ -714,6 +814,28 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                     if (taskWriteCount > 0 && (this.plugin.settings.enableCheckpoints ?? true)) {
                         this.showUndoBar(taskId, taskWriteCount);
                     }
+                    // Notify when sidebar is not the active (focused) view
+                    if (this.app.workspace.getMostRecentLeaf()?.view !== this) {
+                        new Notice('Agent task complete', 3000);
+                    }
+                    // Auto-save conversation to history (if folder configured)
+                    const svc = this.plugin.chatHistoryService;
+                    if (svc && this.conversationHistory.length > 0) {
+                        const histMsgs: HistoryMessage[] = this.conversationHistory
+                            .filter((m) => m.role === 'user' || m.role === 'assistant')
+                            .map((m) => ({
+                                role: m.role as 'user' | 'assistant',
+                                content: typeof m.content === 'string'
+                                    ? m.content
+                                    : (m.content as any[])
+                                        .filter((b: any) => b.type === 'text')
+                                        .map((b: any) => b.text)
+                                        .join(''),
+                            }));
+                        svc.save(histMsgs).catch((e) =>
+                            console.warn('[ChatHistory] Save failed:', e)
+                        );
+                    }
                 },
                 // Feature 5: Styled error display with friendly messages
                 onError: (error) => {
@@ -731,7 +853,25 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             this.modeService,
             this.plugin.settings.advancedApi.consecutiveMistakeLimit,
             this.plugin.settings.advancedApi.rateLimitMs,
+            this.plugin.settings.advancedApi.condensingEnabled ?? false,
+            this.plugin.settings.advancedApi.condensingThreshold ?? 80,
+            this.plugin.settings.advancedApi.powerSteeringFrequency ?? 0,
         );
+
+        // Load enabled rules for this task (Sprint 3.2)
+        const rulesLoader = (this.plugin as any).rulesLoader;
+        const rulesContent = rulesLoader
+            ? await rulesLoader.loadEnabledRules(this.plugin.settings.rulesToggles ?? {})
+            : undefined;
+
+        // Load relevant skills for this message (Sprint 3.4)
+        const skillsManager = (this.plugin as any).skillsManager;
+        const userMessageText = typeof messageToSend === 'string'
+            ? messageToSend
+            : (messageToSend as any[]).find((b: any) => b.type === 'text')?.text ?? '';
+        const skillsSection = skillsManager
+            ? await skillsManager.getRelevantSkills(userMessageText)
+            : undefined;
 
         // Feature 1: Pass the shared history — it accumulates across messages
         // Feature 4: Pass messageToSend (with active file context) instead of raw text
@@ -743,6 +883,8 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             this.currentAbortController.signal,
             this.plugin.settings.globalCustomInstructions || undefined,
             this.plugin.settings.includeCurrentTimeInContext ?? true,
+            rulesContent || undefined,
+            skillsSection || undefined,
         );
     }
 
@@ -946,6 +1088,235 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             return;
         }
         this.renderAttachmentChips();
+    }
+
+    // ── Autocomplete (Sprint B3) ────────────────────────────────────────────
+
+    /**
+     * Called on every textarea input event.
+     * Decides whether to show the / or @ autocomplete dropdown.
+     */
+    private async handleAutocompleteInput(): Promise<void> {
+        if (!this.textarea) return;
+        const value = this.textarea.value;
+
+        // / at the very start → workflow autocomplete
+        if (value.startsWith('/')) {
+            const query = value.slice(1).split(' ')[0].toLowerCase();
+            const workflowLoader = (this.plugin as any).workflowLoader;
+            if (!workflowLoader) { this.hideAutocompleteDropdown(); return; }
+            const workflows: { slug: string; displayName: string }[] = await workflowLoader.discoverWorkflows();
+            const filtered = workflows.filter((w: { slug: string }) =>
+                query === '' || w.slug.startsWith(query)
+            );
+            if (filtered.length === 0) { this.hideAutocompleteDropdown(); return; }
+            this.autocompleteItems = filtered.map((w: { slug: string; displayName: string }) => ({
+                label: w.displayName,
+                sub: `/${w.slug}`,
+                onSelect: () => {
+                    if (!this.textarea) return;
+                    // Replace the /query with /slug + space so handleSendMessage can expand it
+                    const rest = value.includes(' ') ? value.slice(value.indexOf(' ') + 1) : '';
+                    this.textarea.value = `/${w.slug}${rest ? ' ' + rest : ''}`;
+                    this.hideAutocompleteDropdown();
+                    this.textarea.focus();
+                },
+            }));
+            this.autocompleteIndex = 0;
+            this.renderAutocompleteDropdown();
+            return;
+        }
+
+        // @ anywhere in the text → file mention autocomplete
+        const cursorPos = this.textarea.selectionStart ?? value.length;
+        const beforeCursor = value.slice(0, cursorPos);
+        const atIdx = beforeCursor.lastIndexOf('@');
+        if (atIdx !== -1 && (atIdx === 0 || /\s/.test(beforeCursor[atIdx - 1]))) {
+            const query = beforeCursor.slice(atIdx + 1).toLowerCase();
+            const allFiles = this.app.vault.getMarkdownFiles();
+            const filtered = allFiles
+                .filter((f) => f.path.toLowerCase().includes(query))
+                .slice(0, 10);
+            if (filtered.length === 0) { this.hideAutocompleteDropdown(); return; }
+            this.autocompleteItems = filtered.map((f) => ({
+                label: f.basename,
+                sub: f.path,
+                onSelect: async () => {
+                    if (!this.textarea) return;
+                    // Remove @query from textarea, add file as attachment
+                    const newValue = value.slice(0, atIdx) + value.slice(atIdx + 1 + query.length);
+                    this.textarea.value = newValue.trim();
+                    this.hideAutocompleteDropdown();
+                    await this.addVaultFileAttachment(f);
+                    this.textarea.focus();
+                },
+            }));
+            this.autocompleteIndex = 0;
+            this.renderAutocompleteDropdown();
+            return;
+        }
+
+        this.hideAutocompleteDropdown();
+    }
+
+    private renderAutocompleteDropdown(): void {
+        if (!this.inputArea) return;
+
+        if (!this.autocompleteDropdown) {
+            this.autocompleteDropdown = this.inputArea.createDiv('autocomplete-dropdown');
+            // Click outside to close
+            document.addEventListener('click', (e) => {
+                if (this.autocompleteDropdown && !this.autocompleteDropdown.contains(e.target as Node)) {
+                    this.hideAutocompleteDropdown();
+                }
+            }, { once: true });
+        }
+
+        this.autocompleteDropdown.empty();
+        this.autocompleteItems.forEach((item, idx) => {
+            const row = this.autocompleteDropdown!.createDiv({
+                cls: `autocomplete-item${idx === this.autocompleteIndex ? ' active' : ''}`,
+            });
+            row.createSpan({ cls: 'autocomplete-label', text: item.label });
+            if (item.sub) row.createSpan({ cls: 'autocomplete-sub', text: item.sub });
+            row.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                item.onSelect();
+            });
+        });
+    }
+
+    private hideAutocompleteDropdown(): void {
+        this.autocompleteDropdown?.remove();
+        this.autocompleteDropdown = null;
+        this.autocompleteItems = [];
+        this.autocompleteIndex = 0;
+    }
+
+    // ── Ellipsis options menu ─────────────────────────────────────────────────
+
+    private showOptionsMenu(e: MouseEvent): void {
+        const menu = new Menu();
+        const settings = this.plugin.settings;
+
+        // Refresh Index (current file)
+        menu.addItem((item) => {
+            item.setTitle('Refresh Index (Current File)');
+            item.setIcon('refresh-cw');
+            item.onClick(async () => {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile) { new Notice('No active file'); return; }
+                if (!this.plugin.semanticIndex) { new Notice('Semantic index is disabled'); return; }
+                await this.plugin.semanticIndex.updateFile(activeFile.path);
+                new Notice('Index refreshed for current file');
+            });
+        });
+
+        // Force Reindex Vault
+        menu.addItem((item) => {
+            item.setTitle('Force Reindex Vault');
+            item.setIcon('database');
+            item.onClick(async () => {
+                if (!this.plugin.semanticIndex) { new Notice('Semantic index is disabled'); return; }
+                if (this.plugin.semanticIndex.building) { new Notice('Indexing already in progress'); return; }
+                new Notice('Reindexing vault in background...');
+                this.plugin.semanticIndex.buildIndex(undefined, true).then(() =>
+                    new Notice('Vault index rebuilt')
+                ).catch((e) => new Notice(`Reindex failed: ${e.message}`));
+            });
+        });
+
+        // Cancel Indexing (only shown while building)
+        if (this.plugin.semanticIndex?.building) {
+            menu.addItem((item) => {
+                item.setTitle('Cancel Indexing');
+                item.setIcon('x-circle');
+                item.onClick(() => {
+                    this.plugin.semanticIndex?.cancelBuild();
+                    new Notice('Indexing cancelled — partial progress saved.');
+                });
+            });
+        }
+
+        menu.addSeparator();
+
+        // Add Open Note in Context (toggle)
+        menu.addItem((item) => {
+            const enabled = settings.autoAddActiveFileContext;
+            item.setTitle('Add Open Note in Context');
+            item.setIcon(enabled ? 'check' : 'file-text');
+            item.setChecked(enabled);
+            item.onClick(async () => {
+                settings.autoAddActiveFileContext = !enabled;
+                await this.plugin.saveSettings();
+                this.updateContextBadge();
+            });
+        });
+
+        // Auto-accept Edits (toggle)
+        menu.addItem((item) => {
+            const enabled = settings.autoApproval.noteEdits && settings.autoApproval.vaultChanges;
+            item.setTitle('Auto-accept Edits');
+            item.setIcon(enabled ? 'check' : 'pencil');
+            item.setChecked(enabled);
+            item.onClick(async () => {
+                const newVal = !enabled;
+                settings.autoApproval.noteEdits = newVal;
+                settings.autoApproval.vaultChanges = newVal;
+                await this.plugin.saveSettings();
+                new Notice(`Auto-accept edits: ${newVal ? 'on' : 'off'}`);
+            });
+        });
+
+        menu.addSeparator();
+
+        // Chat History (wired in F6)
+        menu.addItem((item) => {
+            item.setTitle('Chat History');
+            item.setIcon('history');
+            item.onClick(() => this.openChatHistory());
+        });
+
+        menu.showAtMouseEvent(e);
+    }
+
+    /** Open the Chat History modal. */
+    openChatHistory(): void {
+        const svc = this.plugin.chatHistoryService;
+        if (!svc) {
+            new Notice('Chat History: set a folder in Settings → Advanced → Interface first');
+            return;
+        }
+        import('../ui/ChatHistoryModal').then(({ ChatHistoryModal }) => {
+            new ChatHistoryModal(this.app, svc, (msgs) => this.loadConversationHistory(msgs)).open();
+        });
+    }
+
+    /** Load a saved conversation into the current chat panel. */
+    loadConversationHistory(messages: HistoryMessage[]): void {
+        this.clearConversation();
+        for (const msg of messages) {
+            if (msg.role === 'user') {
+                this.addUserMessage(msg.content);
+            }
+        }
+    }
+
+
+    /**
+     * Add an Obsidian vault file as a text attachment (for @ mentions).
+     */
+    private async addVaultFileAttachment(file: TFile): Promise<void> {
+        try {
+            const content = await this.app.vault.read(file);
+            this.pendingAttachments.push({
+                name: file.path,
+                block: { type: 'text', text: `<attached_file name="${file.path}">\n${content}\n</attached_file>` },
+            });
+            this.renderAttachmentChips();
+        } catch {
+            new Notice(`Could not read "${file.path}"`);
+        }
     }
 
     private renderAttachmentChips(): void {
@@ -1209,6 +1580,12 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
         input: Record<string, any>,
         container?: HTMLElement,
     ): Promise<'auto' | 'approved' | 'rejected'> {
+        // For note-edit tools, show the diff modal instead of the inline banner
+        const DIFF_TOOLS = new Set(['write_file', 'edit_file', 'append_to_file']);
+        if (DIFF_TOOLS.has(toolName)) {
+            return this.showDiffApproval(toolName, input);
+        }
+
         return new Promise((resolve) => {
             const target = container ?? this.chatContainer;
             if (!target) { resolve('approved'); return; }
@@ -1249,6 +1626,48 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
         });
     }
 
+    /**
+     * Show a diff-based approval modal for note write/edit operations.
+     * Computes old vs. new content and presents the diff to the user.
+     */
+    private async showDiffApproval(
+        toolName: string,
+        input: Record<string, any>,
+    ): Promise<'auto' | 'approved' | 'rejected'> {
+        const filePath: string = input.path ?? '';
+
+        // Compute old content (empty string if file doesn't exist yet)
+        let oldContent = '';
+        try {
+            const file = this.app.vault.getFileByPath(filePath);
+            if (file) oldContent = await this.app.vault.read(file);
+        } catch { /* new file */ }
+
+        // Compute new content depending on tool
+        let newContent = oldContent;
+        if (toolName === 'write_file') {
+            newContent = input.content ?? '';
+        } else if (toolName === 'edit_file') {
+            const oldStr: string = input.old_string ?? '';
+            const newStr: string = input.new_string ?? '';
+            newContent = oldContent.replace(oldStr, newStr);
+        } else if (toolName === 'append_to_file') {
+            newContent = oldContent + (input.content ?? '');
+        }
+
+        return new Promise((resolve) => {
+            import('./ApproveEditModal').then(({ ApproveEditModal }) => {
+                new ApproveEditModal(
+                    this.app,
+                    filePath,
+                    oldContent,
+                    newContent,
+                    (accepted) => resolve(accepted ? 'approved' : 'rejected'),
+                ).open();
+            });
+        });
+    }
+
     private getToolGroup(toolName: string): 'note-edit' | 'vault-change' | 'web' | 'mcp' | 'read' {
         const webTools = ['web_fetch', 'web_search'];
         const mcpTools = ['use_mcp_tool'];
@@ -1268,18 +1687,6 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
         if (group === 'web') return 'web';
         if (group === 'mcp') return 'mcp';
         return null;
-    }
-
-    // -------------------------------------------------------------------------
-    // Completion banner (attempt_completion result)
-    // -------------------------------------------------------------------------
-
-    private showCompletionBanner(toolsEl: HTMLElement, result: string): void {
-        const banner = toolsEl.createDiv('completion-banner');
-        const header = banner.createDiv('completion-banner-header');
-        setIcon(header.createSpan('completion-banner-icon'), 'check-circle');
-        header.createSpan('completion-banner-title').setText('Task Complete');
-        banner.createDiv('completion-banner-result').setText(result);
     }
 
     // -------------------------------------------------------------------------

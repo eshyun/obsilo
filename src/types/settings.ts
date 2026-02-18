@@ -269,6 +269,12 @@ export interface AdvancedApiSettings {
     consecutiveMistakeLimit: number;
     /** Minimum milliseconds between API requests (0 = no limit) */
     rateLimitMs: number;
+    /** Automatically summarize conversation when estimated tokens exceed threshold */
+    condensingEnabled: boolean;
+    /** Percentage of model context window at which to trigger condensing (50–95) */
+    condensingThreshold: number;
+    /** Inject a mode-role reminder every N iterations to keep the model on track (0 = disabled) */
+    powerSteeringFrequency: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +314,11 @@ export interface ObsidianAgentSettings {
     embeddingModel: string; // legacy — kept for backwards compat
     embeddingModels: CustomModel[];
     activeEmbeddingModelKey: string;
+    semanticBatchSize: number;
+    semanticAutoIndex: 'startup' | 'mode-switch' | 'never';
+    semanticExcludedFolders: string[];
+    semanticStorageLocation: 'obsidian-sync' | 'local';
+    semanticIndexPdfs: boolean;
 
     // Checkpoints (Sprint 1.4)
     enableCheckpoints: boolean;
@@ -321,10 +332,19 @@ export interface ObsidianAgentSettings {
     sidebarPosition: 'left' | 'right';
     showWelcomeMessage: boolean;
     autoAddActiveFileContext: boolean;
+    /** Vault folder for saved chat history JSON files. Empty string = disabled. */
+    chatHistoryFolder: string;
     /** Press Enter to send (Shift+Enter for newline). When false, Ctrl/Cmd+Enter sends. */
     sendWithEnter: boolean;
     /** Inject current date and time into the system prompt */
     includeCurrentTimeInContext: boolean;
+
+    // Rules (Sprint 3.2) — per-file enabled/disabled toggles
+    // key: vault-relative path, value: true=enabled (default), false=disabled
+    rulesToggles: Record<string, boolean>;
+
+    // Workflows (Sprint 3.3) — per-file enabled/disabled toggles
+    workflowToggles: Record<string, boolean>;
 
     // Advanced
     debugMode: boolean;
@@ -367,12 +387,20 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     advancedApi: {
         consecutiveMistakeLimit: 3,
         rateLimitMs: 0,
+        condensingEnabled: false,
+        condensingThreshold: 80,
+        powerSteeringFrequency: 0,
     },
 
     enableSemanticIndex: false,
     embeddingModel: 'Xenova/all-MiniLM-L6-v2',
     embeddingModels: [],
     activeEmbeddingModelKey: '',
+    semanticBatchSize: 20,
+    semanticAutoIndex: 'never',
+    semanticExcludedFolders: [],
+    semanticStorageLocation: 'obsidian-sync',
+    semanticIndexPdfs: false,
 
     enableCheckpoints: true,
     checkpointTimeoutSeconds: 30,
@@ -388,7 +416,10 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     sidebarPosition: 'right',
     showWelcomeMessage: true,
     autoAddActiveFileContext: true,
+    chatHistoryFolder: '',
     sendWithEnter: true,
     includeCurrentTimeInContext: true,
+    rulesToggles: {},
+    workflowToggles: {},
     debugMode: false,
 };

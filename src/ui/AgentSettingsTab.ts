@@ -1165,13 +1165,14 @@ export class ModelConfigModal extends Modal {
 // Settings Tab
 // ---------------------------------------------------------------------------
 
-type TabId = 'providers' | 'agent-behaviour' | 'behaviour' | 'web' | 'checkpoints' | 'advanced';
+type TabId = 'providers' | 'agent-behaviour' | 'vault' | 'advanced';
 
 export class AgentSettingsTab extends PluginSettingTab {
     plugin: ObsidianAgentPlugin;
     private activeTab: TabId = 'providers';
     private activeProvidersSubTab: string = 'models';
     private activeAgentSubTab: string = 'modes';
+    private activeAdvancedSubTab: string = 'interface';
 
 
     constructor(app: App, plugin: ObsidianAgentPlugin) {
@@ -1195,12 +1196,10 @@ export class AgentSettingsTab extends PluginSettingTab {
     private buildTabNav(container: HTMLElement): void {
         const nav = container.createDiv('agent-settings-nav');
         const tabs: { id: TabId; label: string; icon: string }[] = [
-            { id: 'providers',       label: 'Providers',       icon: 'cpu'         },
-            { id: 'agent-behaviour', label: 'Agent Behaviour', icon: 'sliders'     },
-            { id: 'behaviour',       label: 'Behaviour',       icon: 'toggle-left' },
-            { id: 'web',             label: 'Web',             icon: 'globe'       },
-            { id: 'checkpoints',     label: 'Checkpoints',     icon: 'git-commit'  },
-            { id: 'advanced',        label: 'Advanced',        icon: 'wrench'      },
+            { id: 'providers',       label: 'Providers',       icon: 'plug'         },
+            { id: 'agent-behaviour', label: 'Agent Behaviour', icon: 'users-round'  },
+            { id: 'vault',           label: 'Vault',           icon: 'hard-drive'   },
+            { id: 'advanced',        label: 'Advanced',        icon: 'settings-2'   },
         ];
         tabs.forEach(({ id, label, icon }) => {
             const btn = nav.createEl('button', {
@@ -1224,10 +1223,32 @@ export class AgentSettingsTab extends PluginSettingTab {
         const content = container.createDiv('agent-settings-content');
         if (this.activeTab === 'providers')       this.buildProvidersTab(content);
         if (this.activeTab === 'agent-behaviour') this.buildAgentBehaviourTab(content);
-        if (this.activeTab === 'behaviour')       this.buildBehaviourTab(content);
-        if (this.activeTab === 'web')             this.buildWebTab(content);
-        if (this.activeTab === 'checkpoints')     this.buildCheckpointsTab(content);
+        if (this.activeTab === 'vault')           this.buildVaultTab(content);
         if (this.activeTab === 'advanced')        this.buildAdvancedTab(content);
+    }
+
+    // ---------------------------------------------------------------------------
+    // UI helpers
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Append a small info icon button to a setting's name cell.
+     * Clicking it opens a Modal with a title and explanatory body text.
+     */
+    private addInfoButton(setting: Setting, title: string, body: string): void {
+        setting.nameEl.createEl('button', {
+            cls: 'setting-info-btn',
+            attr: { 'aria-label': 'More information', title },
+        }, (btn) => {
+            setIcon(btn, 'info');
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const modal = new Modal(this.app);
+                modal.titleEl.setText(title);
+                modal.contentEl.createEl('p', { text: body, cls: 'setting-info-body' });
+                modal.open();
+            });
+        });
     }
 
     // ---------------------------------------------------------------------------
@@ -1236,7 +1257,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
     private buildSubTabNav(
         container: HTMLElement,
-        tabs: { id: string; label: string }[],
+        tabs: { id: string; label: string; icon?: string }[],
         activeId: string,
         onSelect: (id: string) => void,
     ): void {
@@ -1244,8 +1265,12 @@ export class AgentSettingsTab extends PluginSettingTab {
         for (const tab of tabs) {
             const btn = nav.createEl('button', {
                 cls: `agent-settings-subtab${tab.id === activeId ? ' active' : ''}`,
-                text: tab.label,
             });
+            if (tab.icon) {
+                const iconEl = btn.createSpan({ cls: 'subtab-icon' });
+                setIcon(iconEl, tab.icon);
+            }
+            btn.createSpan({ text: tab.label });
             btn.addEventListener('click', () => onSelect(tab.id));
         }
     }
@@ -1270,13 +1295,18 @@ export class AgentSettingsTab extends PluginSettingTab {
     private buildProvidersTab(container: HTMLElement): void {
         this.buildSubTabNav(
             container,
-            [{ id: 'models', label: 'Models' }, { id: 'embeddings', label: 'Embeddings' }],
+            [
+                { id: 'models',      label: 'Models',     icon: 'cpu'      },
+                { id: 'embeddings',  label: 'Embeddings', icon: 'database' },
+                { id: 'web-search',  label: 'Web Search', icon: 'globe'    },
+            ],
             this.activeProvidersSubTab,
             (id) => { this.activeProvidersSubTab = id; this.display(); },
         );
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
-        if (this.activeProvidersSubTab === 'models') this.buildModelsTab(content);
-        else this.buildEmbeddingsTab(content);
+        if (this.activeProvidersSubTab === 'models')     this.buildModelsTab(content);
+        if (this.activeProvidersSubTab === 'embeddings') this.buildEmbeddingsTab(content);
+        if (this.activeProvidersSubTab === 'web-search') this.buildWebSearchTab(content);
     }
 
     // ---------------------------------------------------------------------------
@@ -1285,44 +1315,484 @@ export class AgentSettingsTab extends PluginSettingTab {
 
     private buildAgentBehaviourTab(container: HTMLElement): void {
         const subTabs = [
-            { id: 'modes',       label: 'Modes'       },
-            { id: 'mcp-servers', label: 'MCP Servers' },
-            { id: 'rules',       label: 'Rules'        },
-            { id: 'workflows',   label: 'Workflows'    },
-            { id: 'skills',      label: 'Skills'       },
+            { id: 'modes',       label: 'Modes',       icon: 'braces'       },
+            { id: 'permissions', label: 'Permissions', icon: 'shield-check' },
+            { id: 'loop',        label: 'Loop',        icon: 'repeat-2'     },
+            { id: 'rules',       label: 'Rules',       icon: 'landmark'     },
+            { id: 'workflows',   label: 'Workflows',   icon: 'route'        },
+            { id: 'skills',      label: 'Skills',      icon: 'sparkles'     },
+            { id: 'mcp-servers', label: 'MCP',         icon: 'unplug'       },
         ];
         this.buildSubTabNav(container, subTabs, this.activeAgentSubTab,
             (id) => { this.activeAgentSubTab = id; this.display(); });
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
         if (this.activeAgentSubTab === 'modes')       this.buildModesTab(content);
-        if (this.activeAgentSubTab === 'mcp-servers') this.buildMcpServersTab(content);
+        if (this.activeAgentSubTab === 'permissions') this.buildPermissionsTab(content);
+        if (this.activeAgentSubTab === 'loop')        this.buildLoopTab(content);
         if (this.activeAgentSubTab === 'rules')       this.buildRulesTab(content);
         if (this.activeAgentSubTab === 'workflows')   this.buildWorkflowsTab(content);
         if (this.activeAgentSubTab === 'skills')      this.buildSkillsTab(content);
+        if (this.activeAgentSubTab === 'mcp-servers') this.buildMcpServersTab(content);
     }
 
     private buildMcpServersTab(container: HTMLElement): void {
-        this.renderComingSoon(container, 'plug',
+        this.renderComingSoon(container, 'unplug',
             'MCP Servers',
             'Connect external tools and data sources via the Model Context Protocol. Configuration coming in a future update.');
     }
 
+    // ---------------------------------------------------------------------------
+    // Permissions tab — Auto-Approve
+    // ---------------------------------------------------------------------------
+
+    private buildPermissionsTab(container: HTMLElement): void {
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Control which tool categories the agent can run without asking for your approval first.',
+        });
+
+        new Setting(container)
+            .setName('Enable auto-approve')
+            .setDesc('When on, the agent can perform approved actions without stopping to ask you each time.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.enabled).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.enabled = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Show approval bar in chat')
+            .setDesc('Show a row of quick-toggle buttons above the chat input for easy access.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.showMenuInChat).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.showMenuInChat = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Per-category' });
+
+        new Setting(container)
+            .setName('Read operations')
+            .setDesc('Reading and searching notes. These operations never change your vault, so they are safe to always allow.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.read).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.read = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Note edits')
+            .setDesc('Writing or modifying note content. When off, you approve each change before it is saved.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.noteEdits).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.noteEdits = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Vault structure changes')
+            .setDesc('Creating folders, moving files, or deleting notes. These structural changes are harder to undo.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.vaultChanges).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.vaultChanges = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Web access')
+            .setDesc('Fetching pages or running web searches. Disable if you want to review every external request.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.web).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.web = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('MCP tool calls')
+            .setDesc('Calls to external tools connected via Model Context Protocol servers.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.mcp).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.mcp = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Mode switching')
+            .setDesc('Let the agent switch between modes (e.g. from Librarian to Writer) on its own.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.mode).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.mode = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Subtasks')
+            .setDesc('Allow the agent to spawn sub-agents to handle parts of a larger task independently.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.subtasks).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.subtasks = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Follow-up questions')
+            .setDesc('Let the agent ask you clarifying questions during a task without needing separate approval.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.question).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.question = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Todo list updates')
+            .setDesc('Allow the agent to update its task checklist while working.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.autoApproval.todo).onChange(async (v) => {
+                    this.plugin.settings.autoApproval.todo = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+    }
+
+    // ---------------------------------------------------------------------------
+    // Loop tab — Agent loop tuning + context condensing + power steering
+    // ---------------------------------------------------------------------------
+
+    private buildLoopTab(container: HTMLElement): void {
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Control how the agent loop runs, how long context is kept, and how reliably the agent stays on task.',
+        });
+
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Agent Loop' });
+
+        new Setting(container)
+            .setName('Consecutive error limit')
+            .setDesc('Stop the task after this many tool errors in a row. Prevents the agent from getting stuck in a loop. Set to 0 to never stop automatically.')
+            .addText((t) =>
+                t
+                    .setValue(String(this.plugin.settings.advancedApi.consecutiveMistakeLimit))
+                    .onChange(async (v) => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0) {
+                            this.plugin.settings.advancedApi.consecutiveMistakeLimit = n;
+                            await this.plugin.saveSettings();
+                        }
+                    }),
+            );
+
+        new Setting(container)
+            .setName('Pause between requests (ms)')
+            .setDesc('Wait this many milliseconds between API calls. Useful if you hit rate limits on your API plan. Set to 0 for no delay.')
+            .addText((t) =>
+                t
+                    .setValue(String(this.plugin.settings.advancedApi.rateLimitMs))
+                    .onChange(async (v) => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0) {
+                            this.plugin.settings.advancedApi.rateLimitMs = n;
+                            await this.plugin.saveSettings();
+                        }
+                    }),
+            );
+
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Context Condensing' });
+
+        const condensingSetting = new Setting(container)
+            .setName('Enable context condensing')
+            .setDesc('When a conversation gets very long, automatically summarize older messages to stay within the model\'s memory limit. The summary replaces older messages but keeps key facts intact.');
+        this.addInfoButton(condensingSetting, 'Context Condensing', 'AI models can only hold a limited amount of text in memory at once. When your conversation approaches that limit, Context Condensing automatically creates a summary of what was discussed so far, then continues the conversation with that summary instead of all the original messages. This lets you work on very large tasks without hitting context limits.');
+        condensingSetting.addToggle((t) =>
+            t.setValue(this.plugin.settings.advancedApi.condensingEnabled ?? false).onChange(async (v) => {
+                this.plugin.settings.advancedApi.condensingEnabled = v;
+                await this.plugin.saveSettings();
+                thresholdSetting.settingEl.style.display = v ? '' : 'none';
+            }),
+        );
+
+        const thresholdSetting = new Setting(container)
+            .setName('Condensing threshold')
+            .setDesc('Start condensing when the conversation reaches this percentage of the model\'s memory limit. Lower = condenses more often; higher = waits longer before condensing.')
+            .addSlider((s) =>
+                s
+                    .setLimits(50, 95, 5)
+                    .setValue(this.plugin.settings.advancedApi.condensingThreshold ?? 80)
+                    .setDynamicTooltip()
+                    .onChange(async (v) => {
+                        this.plugin.settings.advancedApi.condensingThreshold = v;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+        thresholdSetting.settingEl.style.display =
+            (this.plugin.settings.advancedApi.condensingEnabled ?? false) ? '' : 'none';
+
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Power Steering' });
+
+        const powerSteeringSetting = new Setting(container)
+            .setName('Power Steering frequency')
+            .setDesc('Every N steps, remind the agent of its current mode instructions. Helps keep long tasks on track. Set to 0 to disable. Recommended: 4.');
+        this.addInfoButton(powerSteeringSetting, 'Power Steering', 'During long tasks, the agent can gradually lose track of its role and instructions. Power Steering periodically re-injects the current mode\'s system prompt into the conversation, keeping the agent focused on its intended purpose. A frequency of 4 means the reminder is sent every 4 conversation turns.');
+        powerSteeringSetting.addText((t) =>
+            t
+                .setValue(String(this.plugin.settings.advancedApi.powerSteeringFrequency ?? 0))
+                .onChange(async (v) => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 0) {
+                        this.plugin.settings.advancedApi.powerSteeringFrequency = n;
+                        await this.plugin.saveSettings();
+                        }
+                    }),
+            );
+    }
+
     private buildRulesTab(container: HTMLElement): void {
-        this.renderComingSoon(container, 'shield-check',
-            'Rules',
-            'Define persistent rules that are injected into every agent session. Coming soon.');
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Rules are injected into the system prompt of every agent session. ' +
+                  'Store rule files as .md or .txt in your vault at .obsidian-agent/rules/.',
+        });
+
+        const rulesLoader = (this.plugin as any).rulesLoader;
+
+        // ── Create new rule ────────────────────────────────────────────────
+        const createRow = container.createDiv({ cls: 'agent-rules-create-row' });
+        const nameInput = createRow.createEl('input', {
+            type: 'text', placeholder: 'Rule name (e.g. "always-use-iso-dates")',
+            cls: 'agent-rules-name-input',
+        });
+        const createBtn = createRow.createEl('button', { text: 'Create rule', cls: 'mod-cta' });
+
+        // ── Rule list ──────────────────────────────────────────────────────
+        const listEl = container.createDiv({ cls: 'agent-rules-list' });
+
+        const refreshList = async () => {
+            listEl.empty();
+            if (!rulesLoader) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'Rules loader not available.' });
+                return;
+            }
+            const paths: string[] = await rulesLoader.discoverRules();
+            if (paths.length === 0) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'No rules yet. Create one above.' });
+                return;
+            }
+            for (const rPath of paths) {
+                const row = listEl.createDiv({ cls: 'agent-rules-row' });
+                const label = row.createSpan({ cls: 'agent-rules-label' });
+
+                const enabled = this.plugin.settings.rulesToggles?.[rPath] !== false;
+                const toggle = label.createEl('input', { type: 'checkbox' });
+                (toggle as HTMLInputElement).checked = enabled;
+                toggle.addEventListener('change', async () => {
+                    this.plugin.settings.rulesToggles ??= {};
+                    this.plugin.settings.rulesToggles[rPath] = (toggle as HTMLInputElement).checked;
+                    await this.plugin.saveSettings();
+                });
+
+                const { RulesLoader } = await import('../core/context/RulesLoader');
+                label.createSpan({ text: RulesLoader.displayName(rPath) });
+
+                const actions = row.createDiv({ cls: 'agent-rules-actions' });
+                const editBtn = actions.createEl('button', { text: 'Edit', cls: 'agent-rules-edit-btn' });
+                editBtn.addEventListener('click', async () => {
+                    const file = this.app.vault.getAbstractFileByPath(rPath);
+                    if (file) {
+                        await this.app.workspace.getLeaf().openFile(file as any);
+                    }
+                });
+
+                const delBtn = actions.createEl('button', { text: 'Delete', cls: 'agent-rules-delete-btn' });
+                delBtn.addEventListener('click', async () => {
+                    await rulesLoader.deleteRule(rPath);
+                    this.plugin.settings.rulesToggles ??= {};
+                    delete this.plugin.settings.rulesToggles[rPath];
+                    await this.plugin.saveSettings();
+                    await refreshList();
+                });
+            }
+        };
+
+        createBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name || !rulesLoader) return;
+            await rulesLoader.createRule(name, `# ${name}\n\n`);
+            nameInput.value = '';
+            await refreshList();
+        });
+
+        refreshList();
     }
 
     private buildWorkflowsTab(container: HTMLElement): void {
-        this.renderComingSoon(container, 'play-circle',
-            'Workflows',
-            'Create slash-command workflows to automate recurring tasks in your vault. Coming soon.');
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Workflows are triggered by typing /workflow-name in the chat. ' +
+                  'Store workflow files as .md or .txt in your vault at .obsidian-agent/workflows/.',
+        });
+
+        const workflowLoader = (this.plugin as any).workflowLoader;
+
+        // ── Create new workflow ────────────────────────────────────────────
+        const createRow = container.createDiv({ cls: 'agent-rules-create-row' });
+        const nameInput = createRow.createEl('input', {
+            type: 'text', placeholder: 'Workflow name (e.g. "daily-review")',
+            cls: 'agent-rules-name-input',
+        });
+        const createBtn = createRow.createEl('button', { text: 'Create workflow', cls: 'mod-cta' });
+
+        // ── Workflow list ──────────────────────────────────────────────────
+        const listEl = container.createDiv({ cls: 'agent-rules-list' });
+
+        const refreshList = async () => {
+            listEl.empty();
+            if (!workflowLoader) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'Workflow loader not available.' });
+                return;
+            }
+            const workflows: { path: string; slug: string; displayName: string }[] =
+                await workflowLoader.discoverWorkflows();
+            if (workflows.length === 0) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'No workflows yet. Create one above.' });
+                return;
+            }
+            for (const wf of workflows) {
+                const row = listEl.createDiv({ cls: 'agent-rules-row' });
+                const label = row.createSpan({ cls: 'agent-rules-label' });
+
+                const enabled = this.plugin.settings.workflowToggles?.[wf.path] !== false;
+                const toggle = label.createEl('input', { type: 'checkbox' });
+                (toggle as HTMLInputElement).checked = enabled;
+                toggle.addEventListener('change', async () => {
+                    this.plugin.settings.workflowToggles ??= {};
+                    this.plugin.settings.workflowToggles[wf.path] = (toggle as HTMLInputElement).checked;
+                    await this.plugin.saveSettings();
+                });
+
+                const nameSpan = label.createSpan({ text: wf.displayName });
+                const slugSpan = label.createSpan({ cls: 'agent-workflow-slug', text: `/${wf.slug}` });
+                nameSpan; slugSpan; // suppress unused warnings
+
+                const actions = row.createDiv({ cls: 'agent-rules-actions' });
+                const editBtn = actions.createEl('button', { text: 'Edit', cls: 'agent-rules-edit-btn' });
+                editBtn.addEventListener('click', async () => {
+                    const file = this.app.vault.getAbstractFileByPath(wf.path);
+                    if (file) {
+                        await this.app.workspace.getLeaf().openFile(file as any);
+                    }
+                });
+
+                const delBtn = actions.createEl('button', { text: 'Delete', cls: 'agent-rules-delete-btn' });
+                delBtn.addEventListener('click', async () => {
+                    await workflowLoader.deleteWorkflow(wf.path);
+                    this.plugin.settings.workflowToggles ??= {};
+                    delete this.plugin.settings.workflowToggles[wf.path];
+                    await this.plugin.saveSettings();
+                    await refreshList();
+                });
+            }
+        };
+
+        createBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name || !workflowLoader) return;
+            await workflowLoader.createWorkflow(name, `# ${name}\n\n`);
+            nameInput.value = '';
+            await refreshList();
+        });
+
+        refreshList();
     }
 
     private buildSkillsTab(container: HTMLElement): void {
-        this.renderComingSoon(container, 'zap',
-            'Skills',
-            'Skills are automatically injected into the system prompt when relevant to your request. Coming soon.');
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Skills are automatically injected into the system prompt when relevant to the user\'s message. ' +
+                  'Each skill lives in a subfolder at .obsidian-agent/skills/{name}/SKILL.md with frontmatter: name, description.',
+        });
+
+        const skillsManager = (this.plugin as any).skillsManager;
+
+        // ── Create new skill ──────────────────────────────────────────────
+        const createRow = container.createDiv({ cls: 'agent-rules-create-row' });
+        const nameInput = createRow.createEl('input', {
+            type: 'text', placeholder: 'Skill name (e.g. "daily-template")',
+            cls: 'agent-rules-name-input',
+        });
+        const createBtn = createRow.createEl('button', { text: 'Create skill', cls: 'mod-cta' });
+
+        // ── Skill list ─────────────────────────────────────────────────────
+        const listEl = container.createDiv({ cls: 'agent-rules-list' });
+
+        const refreshList = async () => {
+            listEl.empty();
+            if (!skillsManager) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'Skills manager not available.' });
+                return;
+            }
+            const skills: { path: string; name: string; description: string }[] =
+                await skillsManager.discoverSkills();
+            if (skills.length === 0) {
+                listEl.createEl('p', { cls: 'agent-settings-desc', text: 'No skills yet. Create one above.' });
+                return;
+            }
+            for (const skill of skills) {
+                const row = listEl.createDiv({ cls: 'agent-rules-row' });
+                const label = row.createSpan({ cls: 'agent-rules-label' });
+                label.createSpan({ text: skill.name });
+                label.createSpan({ cls: 'agent-workflow-slug', text: skill.description });
+
+                const actions = row.createDiv({ cls: 'agent-rules-actions' });
+                const editBtn = actions.createEl('button', { text: 'Edit', cls: 'agent-rules-edit-btn' });
+                editBtn.addEventListener('click', async () => {
+                    const file = this.app.vault.getAbstractFileByPath(skill.path);
+                    if (file) {
+                        await this.app.workspace.getLeaf().openFile(file as any);
+                    }
+                });
+
+                const delBtn = actions.createEl('button', { text: 'Delete', cls: 'agent-rules-delete-btn' });
+                delBtn.addEventListener('click', async () => {
+                    try {
+                        await this.app.vault.adapter.remove(skill.path);
+                        await refreshList();
+                    } catch {
+                        new Notice('Could not delete skill file');
+                    }
+                });
+            }
+        };
+
+        createBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name || !skillsManager) return;
+            const safeName = name.replace(/[^a-zA-Z0-9\-_ ]/g, '').trim();
+            const dir = `${skillsManager.skillsDir}/${safeName}`;
+            try {
+                const exists = await this.app.vault.adapter.exists(dir);
+                if (!exists) await this.app.vault.adapter.mkdir(dir);
+                const skillPath = `${dir}/SKILL.md`;
+                await this.app.vault.adapter.write(
+                    skillPath,
+                    `---\nname: ${safeName}\ndescription: Describe when this skill applies\n---\n\n# ${safeName}\n\n`,
+                );
+                nameInput.value = '';
+                await refreshList();
+            } catch {
+                new Notice('Could not create skill');
+            }
+        });
+
+        refreshList();
     }
 
     // ---------------------------------------------------------------------------
@@ -1946,6 +2416,234 @@ export class AgentSettingsTab extends PluginSettingTab {
                 this.display();
             }, true /* forEmbedding */).open();
         });
+
+        // ── Semantic Index ────────────────────────────────────────────────────
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Semantic Index' });
+
+        const activeEmbModel = this.plugin.getActiveEmbeddingModel();
+        const embModelDesc = activeEmbModel
+            ? `Using ${activeEmbModel.displayName ?? activeEmbModel.name} (${activeEmbModel.provider}) for embeddings.`
+            : 'No API model active above — falls back to local all-MiniLM-L6-v2 (no data leaves your device).';
+
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: `Builds a local vector index of all notes for semantic_search. ${embModelDesc}`,
+        });
+
+        const statusEl = container.createDiv('agent-semantic-status');
+        const getIdx = () => (this.plugin as any).semanticIndex;
+
+        const refreshStatus = () => {
+            statusEl.empty();
+            if (!this.plugin.settings.enableSemanticIndex) {
+                statusEl.setText('Semantic index is disabled.');
+                return;
+            }
+            const idx = getIdx();
+            if (!idx) {
+                statusEl.setText('Not initialized. Toggle off/on to reload.');
+                return;
+            }
+            if (idx.building) {
+                const p = idx.progressIndexed ?? idx.docCount;
+                const t = idx.progressTotal ?? '?';
+                statusEl.setText(`Building… (${p} / ${t} files)`);
+                return;
+            }
+            if (idx.isIndexed) {
+                statusEl.setText(`Ready: ${idx.docCount} notes · Built: ${(idx.lastBuiltAt as Date).toLocaleString()}`);
+            } else {
+                statusEl.setText('Not built yet. Click "Build Index" to start.');
+            }
+        };
+        refreshStatus();
+
+        // Poll every second so status stays current (e.g. when build was started
+        // from the sidebar menu, not from this tab).
+        const pollInterval = window.setInterval(refreshStatus, 1000);
+        // Clean up when the container is removed from DOM (tab switch / close)
+        const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                for (const node of Array.from(m.removedNodes)) {
+                    if (node === container || (node as HTMLElement).contains?.(container)) {
+                        window.clearInterval(pollInterval);
+                        observer.disconnect();
+                    }
+                }
+            }
+        });
+        if (container.parentElement) observer.observe(container.parentElement, { childList: true });
+
+        const semanticEnableSetting = new Setting(container)
+            .setName('Enable semantic index')
+            .setDesc('Lets the agent find relevant notes by meaning, not just exact keywords. Requires an embedding model. First build may take a few minutes for large vaults.');
+        this.addInfoButton(semanticEnableSetting, 'Semantic Index', 'The Semantic Index reads all your notes, breaks them into small sections, and converts each section into a mathematical representation of its meaning (called an "embedding"). When you ask the agent a question, it searches for notes with similar meaning rather than just matching words. This is called Retrieval-Augmented Generation (RAG) and makes the agent much better at finding relevant context in your vault.');
+        semanticEnableSetting.addToggle((t) =>
+            t.setValue(this.plugin.settings.enableSemanticIndex ?? false).onChange(async (v) => {
+                this.plugin.settings.enableSemanticIndex = v;
+                await this.plugin.saveSettings();
+                if (v) {
+                    const { SemanticIndexService } = await import('../core/semantic/SemanticIndexService');
+                    const pluginDir = `.obsidian/plugins/${this.plugin.manifest.id}`;
+                    const svc = new SemanticIndexService(this.plugin.app.vault, pluginDir);
+                    const embModel = this.plugin.getActiveEmbeddingModel();
+                    if (embModel) svc.setEmbeddingModel(embModel);
+                    (this.plugin as any).semanticIndex = svc;
+                    await svc.initialize().catch(console.warn);
+                } else {
+                    (this.plugin as any).semanticIndex = null;
+                }
+                refreshStatus();
+            }),
+        );
+
+        new Setting(container)
+            .setName('Index PDF attachments')
+            .setDesc('Also index PDF files in your vault. Text is extracted from PDFs and indexed alongside your notes. Image-only (scanned) PDFs are skipped automatically.')
+            .addToggle((t) =>
+                t.setValue(this.plugin.settings.semanticIndexPdfs ?? false).onChange(async (v) => {
+                    this.plugin.settings.semanticIndexPdfs = v;
+                    getIdx()?.configure({ indexPdfs: v });
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(container)
+            .setName('Build index')
+            .setDesc('Index new and modified notes. Already-indexed notes are skipped. Use "Force Rebuild" to reindex everything from scratch.')
+            .addButton((btn) => {
+                btn.setButtonText('Build Index').onClick(async () => {
+                    const idx = getIdx();
+                    if (!idx) { new Notice('Enable semantic index first.'); return; }
+                    if (idx.building) { new Notice('Already building…'); return; }
+                    idx.setEmbeddingModel(this.plugin.getActiveEmbeddingModel() ?? null);
+                    btn.setButtonText('Building…').setDisabled(true);
+                    cancelBtn.setDisabled(false);
+                    statusEl.setText('Building index…');
+                    try {
+                        await idx.buildIndex((indexed: number, total: number) => {
+                            statusEl.setText(`Building… (${indexed}/${total})`);
+                        });
+                        refreshStatus();
+                    } catch (e) {
+                        statusEl.setText(`Build failed: ${(e as Error).message}`);
+                    } finally {
+                        btn.setButtonText('Build Index').setDisabled(false);
+                        cancelBtn.setDisabled(true);
+                    }
+                });
+            })
+            .addButton((btn) => {
+                btn.setButtonText('Force Rebuild').setWarning().onClick(async () => {
+                    const idx = getIdx();
+                    if (!idx) { new Notice('Enable semantic index first.'); return; }
+                    if (idx.building) { new Notice('Already building…'); return; }
+                    idx.setEmbeddingModel(this.plugin.getActiveEmbeddingModel() ?? null);
+                    btn.setButtonText('Rebuilding…').setDisabled(true);
+                    cancelBtn.setDisabled(false);
+                    statusEl.setText('Force rebuild…');
+                    try {
+                        await idx.buildIndex((indexed: number, total: number) => {
+                            statusEl.setText(`Rebuilding… (${indexed}/${total})`);
+                        }, true);
+                        refreshStatus();
+                    } catch (e) {
+                        statusEl.setText(`Rebuild failed: ${(e as Error).message}`);
+                    } finally {
+                        btn.setButtonText('Force Rebuild').setDisabled(false);
+                        cancelBtn.setDisabled(true);
+                    }
+                });
+            });
+
+        let cancelBtn: any;
+        new Setting(container)
+            .setName('Cancel indexing')
+            .setDesc('Stop the current indexing run. Progress is saved to disk — the next build will resume from where it left off.')
+            .addButton((btn) => {
+                cancelBtn = btn;
+                btn.setButtonText('Cancel').setDisabled(true).onClick(() => {
+                    getIdx()?.cancelBuild();
+                    btn.setDisabled(true);
+                    statusEl.setText('Cancelling…');
+                });
+            });
+
+        new Setting(container)
+            .setName('Delete index')
+            .setDesc('Remove the on-disk index. Notes are not affected.')
+            .addButton((btn) => {
+                btn.setButtonText('Delete Index').setWarning().onClick(async () => {
+                    const idx = getIdx();
+                    if (idx) await idx.deleteIndex();
+                    refreshStatus();
+                });
+            });
+
+        // ── Index configuration ───────────────────────────────────────────────
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Index Configuration' });
+
+        const batchSetting = new Setting(container)
+            .setName('Checkpoint interval')
+            .setDesc('How many files to index before saving progress to disk. Smaller = more frequent checkpoints, safer on slow disks. Larger = fewer writes, slightly faster. Default: 20.');
+        this.addInfoButton(batchSetting, 'Checkpoint Interval', 'The indexer saves a checkpoint to disk every N files. If indexing is interrupted (Obsidian closed, error), the next run resumes from the last checkpoint — only unindexed or modified files are processed. A smaller interval loses less progress on interruption but writes to disk more often. 10–30 is recommended for most vaults.');
+        batchSetting.addSlider((s) =>
+            s.setLimits(10, 200, 10)
+                .setValue(this.plugin.settings.semanticBatchSize ?? 50)
+                .setDynamicTooltip()
+                .onChange(async (v) => {
+                    this.plugin.settings.semanticBatchSize = v;
+                    getIdx()?.configure({ batchSize: v });
+                    await this.plugin.saveSettings();
+                }),
+        );
+
+        const autoIndexSetting = new Setting(container)
+            .setName('Auto-index strategy')
+            .setDesc('When to automatically rebuild the index. "On Startup" is best for active vaults. "Never" lets you trigger it manually from the ellipsis menu in the chat.');
+        this.addInfoButton(autoIndexSetting, 'Auto-Index Strategy', '"On Startup" rebuilds the index every time Obsidian opens — keeps the index fresh but adds a few seconds to startup time for large vaults. "On Mode Switch" rebuilds whenever you switch agent modes, useful if each mode works with different parts of your vault. "Never" means you control when to rebuild using the "Force Reindex Vault" option in the chat\'s ellipsis menu.');
+        autoIndexSetting.addDropdown((d) =>
+            d.addOptions({
+                never: 'Never (manual only)',
+                startup: 'On Startup',
+                'mode-switch': 'On Mode Switch',
+            })
+                .setValue(this.plugin.settings.semanticAutoIndex ?? 'never')
+                .onChange(async (v) => {
+                    this.plugin.settings.semanticAutoIndex = v as 'startup' | 'mode-switch' | 'never';
+                    await this.plugin.saveSettings();
+                }),
+        );
+
+        const excludedSetting = new Setting(container)
+            .setName('Excluded folders')
+            .setDesc('Folders to skip when indexing. One folder path per line (e.g. Attachments, Templates, Archive).');
+        this.addInfoButton(excludedSetting, 'Excluded Folders', 'Use this to skip folders that contain files you do not want the agent to search through — for example, attachment folders full of images or PDFs, template folders, or private journals. Enter the folder path relative to your vault root, one per line.');
+        excludedSetting.addTextArea((t) =>
+            t.setValue((this.plugin.settings.semanticExcludedFolders ?? []).join('\n'))
+                .onChange(async (v) => {
+                    const folders = v.split('\n').map((s) => s.trim()).filter(Boolean);
+                    this.plugin.settings.semanticExcludedFolders = folders;
+                    getIdx()?.configure({ excludedFolders: folders });
+                    await this.plugin.saveSettings();
+                }),
+        );
+
+        const storageSetting = new Setting(container)
+            .setName('Storage location')
+            .setDesc('"Obsidian Sync" stores the index inside the plugin folder and syncs it across your devices. "Local" stores it outside the vault so it is never synced.');
+        this.addInfoButton(storageSetting, 'Storage Location', 'If you use Obsidian Sync, choose "Obsidian Sync" so the index is available on all your devices without rebuilding it. If you do not use Obsidian Sync, or if the index is too large to sync, choose "Local" to store it in a separate folder outside your vault.');
+        storageSetting.addDropdown((d) =>
+            d.addOptions({
+                'obsidian-sync': 'Obsidian Sync (inside plugin folder)',
+                local: 'Local (outside vault, no sync)',
+            })
+                .setValue(this.plugin.settings.semanticStorageLocation ?? 'obsidian-sync')
+                .onChange(async (v) => {
+                    this.plugin.settings.semanticStorageLocation = v as 'obsidian-sync' | 'local';
+                    await this.plugin.saveSettings();
+                }),
+        );
     }
 
     private renderEmbeddingRow(table: HTMLElement, model: CustomModel): void {
@@ -2009,134 +2707,12 @@ export class AgentSettingsTab extends PluginSettingTab {
         });
     }
 
-    // ---------------------------------------------------------------------------
-    // Behaviour tab — Auto-Approve
-    // ---------------------------------------------------------------------------
-
-    private buildBehaviourTab(container: HTMLElement): void {
-        container.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: 'Control which tool categories the agent can run without asking for your approval first.',
-        });
-
-        new Setting(container)
-            .setName('Enable auto-approve')
-            .setDesc('Master switch. When on, approved categories run without a confirmation prompt.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.enabled).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.enabled = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Show quick-toggle bar in chat')
-            .setDesc('Display the Auto-Approve toggle bar above the chat input for quick access.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.showMenuInChat).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.showMenuInChat = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        container.createEl('h3', { cls: 'agent-settings-section', text: 'Per-category toggles' });
-
-        new Setting(container)
-            .setName('Read operations')
-            .setDesc('read_file, list_files, search_files — always safe to auto-approve.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.read).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.read = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Note edits')
-            .setDesc('write_file, edit_file, append_to_file, update_frontmatter — changes to note content.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.noteEdits).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.noteEdits = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Vault structure changes')
-            .setDesc('create_folder, delete_file, move_file — changes to vault organisation.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.vaultChanges).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.vaultChanges = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Web operations')
-            .setDesc('web_fetch, web_search — fetches external content.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.web).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.web = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('MCP tool calls')
-            .setDesc('use_mcp_tool — calls to external tool servers.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.mcp).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.mcp = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Mode switching')
-            .setDesc('switch_mode — agent switches to a different mode mid-task.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.mode).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.mode = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Subtasks')
-            .setDesc('new_task — agent spawns a sub-agent to handle part of the work.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.subtasks).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.subtasks = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Follow-up questions')
-            .setDesc('ask_followup_question — show question card directly without an approval step.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.question).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.question = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-
-        new Setting(container)
-            .setName('Todo list updates')
-            .setDesc('update_todo_list — agent publishes a task checklist visible in the chat.')
-            .addToggle((t) =>
-                t.setValue(this.plugin.settings.autoApproval.todo).onChange(async (v) => {
-                    this.plugin.settings.autoApproval.todo = v;
-                    await this.plugin.saveSettings();
-                }),
-            );
-    }
 
     // ---------------------------------------------------------------------------
-    // Web tab
+    // Web Search tab (under Providers)
     // ---------------------------------------------------------------------------
 
-    private buildWebTab(container: HTMLElement): void {
+    private buildWebSearchTab(container: HTMLElement): void {
         container.createEl('p', {
             cls: 'agent-settings-desc',
             text: 'Configure web_fetch (read any URL) and web_search (Brave / Tavily). web_fetch works without an API key; web_search requires one.',
@@ -2144,7 +2720,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Enable web tools')
-            .setDesc('When off, the agent cannot access the internet at all.')
+            .setDesc('Allow the agent to fetch web pages and run internet searches. Turn off to keep the agent working entirely within your vault.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.webTools?.enabled ?? false).onChange(async (v) => {
                     if (!this.plugin.settings.webTools) this.plugin.settings.webTools = { enabled: false, provider: 'none', braveApiKey: '', tavilyApiKey: '' };
@@ -2158,7 +2734,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Provider')
-            .setDesc('Used for web_search. Select "None" if you only need web_fetch.')
+            .setDesc('Which service the agent uses for keyword searches. Choose "None" if you only need to fetch specific URLs, not run search queries.')
             .addDropdown((d) =>
                 d
                     .addOption('none', 'None (web_fetch only)')
@@ -2178,7 +2754,7 @@ export class AgentSettingsTab extends PluginSettingTab {
         if (provider === 'brave' || provider === 'none') {
             const braveKey = new Setting(container)
                 .setName('Brave Search API key')
-                .setDesc('Get a free key at brave.com/search/api — 2 000 queries/month on the free tier.')
+                .setDesc('Required for Brave Search. Get a free API key at brave.com/search/api (2,000 searches/month on the free plan).')
                 .addText((t) => {
                     t.inputEl.type = 'password';
                     t
@@ -2196,7 +2772,7 @@ export class AgentSettingsTab extends PluginSettingTab {
         if (provider === 'tavily' || provider === 'none') {
             const tavilyKey = new Setting(container)
                 .setName('Tavily API key')
-                .setDesc('Get a key at tavily.com — 1 000 free searches/month.')
+                .setDesc('Required for Tavily Search. Get a free API key at tavily.com (1,000 searches/month on the free plan).')
                 .addText((t) => {
                     t.inputEl.type = 'password';
                     t
@@ -2213,10 +2789,10 @@ export class AgentSettingsTab extends PluginSettingTab {
     }
 
     // ---------------------------------------------------------------------------
-    // Checkpoints tab
+    // Vault tab
     // ---------------------------------------------------------------------------
 
-    private buildCheckpointsTab(container: HTMLElement): void {
+    private buildVaultTab(container: HTMLElement): void {
         container.createEl('p', {
             cls: 'agent-settings-desc',
             text: 'Checkpoints snapshot each file before the agent first modifies it. After a task you can undo all changes with one click.',
@@ -2224,7 +2800,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Enable checkpoints')
-            .setDesc('Snapshot files before the agent modifies them. Enables the Undo button after each task.')
+            .setDesc('Save a backup copy of each file before the agent changes it. After a task you can restore the originals with the Undo button.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.enableCheckpoints ?? true).onChange(async (v) => {
                     this.plugin.settings.enableCheckpoints = v;
@@ -2234,7 +2810,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Snapshot timeout (seconds)')
-            .setDesc('Maximum time to wait for a single snapshot operation before giving up. Default: 30.')
+            .setDesc('How long to wait for a file backup to finish before skipping it. Increase if you have very large files. Default: 30.')
             .addText((t) =>
                 t
                     .setValue(String(this.plugin.settings.checkpointTimeoutSeconds ?? 30))
@@ -2249,7 +2825,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Auto-cleanup after task')
-            .setDesc('Remove snapshot data once the task completes. Keeps the shadow repo small. Disable if you want to inspect snapshots manually.')
+            .setDesc('Delete the backup copies once a task finishes. Saves disk space. Disable if you want to review the backups manually after a task.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.checkpointAutoCleanup ?? true).onChange(async (v) => {
                     this.plugin.settings.checkpointAutoCleanup = v;
@@ -2259,49 +2835,32 @@ export class AgentSettingsTab extends PluginSettingTab {
     }
 
     // ---------------------------------------------------------------------------
-    // Advanced tab — API tuning + UI preferences
+    // Advanced tab — Interface, Log, Debug, Backup (as sub-tabs)
     // ---------------------------------------------------------------------------
 
     private buildAdvancedTab(container: HTMLElement): void {
-        // ── Agent Loop ────────────────────────────────────────────────────────
-        container.createEl('h3', { cls: 'agent-settings-section', text: 'Agent Loop' });
+        this.buildSubTabNav(
+            container,
+            [
+                { id: 'interface', label: 'Interface', icon: 'monitor'      },
+                { id: 'log',       label: 'Log',       icon: 'scroll-text'  },
+                { id: 'debug',     label: 'Debug',     icon: 'bug'          },
+                { id: 'backup',    label: 'Backup',    icon: 'download'     },
+            ],
+            this.activeAdvancedSubTab,
+            (id) => { this.activeAdvancedSubTab = id; this.display(); },
+        );
+        const content = container.createDiv({ cls: 'agent-settings-subcontent' });
+        if (this.activeAdvancedSubTab === 'interface') this.buildInterfaceTab(content);
+        if (this.activeAdvancedSubTab === 'log')       this.buildLogTab(content);
+        if (this.activeAdvancedSubTab === 'debug')     this.buildDebugTab(content);
+        if (this.activeAdvancedSubTab === 'backup')    this.buildBackupTab(content);
+    }
 
-        new Setting(container)
-            .setName('Consecutive error limit')
-            .setDesc('Stop the agent after N consecutive tool errors and show a warning. Set to 0 to disable.')
-            .addText((t) =>
-                t
-                    .setValue(String(this.plugin.settings.advancedApi.consecutiveMistakeLimit))
-                    .onChange(async (v) => {
-                        const n = parseInt(v);
-                        if (!isNaN(n) && n >= 0) {
-                            this.plugin.settings.advancedApi.consecutiveMistakeLimit = n;
-                            await this.plugin.saveSettings();
-                        }
-                    }),
-            );
-
-        new Setting(container)
-            .setName('Rate limit between requests (ms)')
-            .setDesc('Minimum pause between API calls. Useful for providers with strict rate limits. Set to 0 to disable.')
-            .addText((t) =>
-                t
-                    .setValue(String(this.plugin.settings.advancedApi.rateLimitMs))
-                    .onChange(async (v) => {
-                        const n = parseInt(v);
-                        if (!isNaN(n) && n >= 0) {
-                            this.plugin.settings.advancedApi.rateLimitMs = n;
-                            await this.plugin.saveSettings();
-                        }
-                    }),
-            );
-
-        // ── UI ────────────────────────────────────────────────────────────────
-        container.createEl('h3', { cls: 'agent-settings-section', text: 'Interface' });
-
+    private buildInterfaceTab(container: HTMLElement): void {
         new Setting(container)
             .setName('Auto-add active note as context')
-            .setDesc('Automatically include the currently open note as context when sending a message.')
+            .setDesc('Automatically attach the note you have open in the editor to every message you send. The agent can see and reference its content.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.autoAddActiveFileContext).onChange(async (v) => {
                     this.plugin.settings.autoAddActiveFileContext = v;
@@ -2311,7 +2870,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Show welcome message')
-            .setDesc('Show the welcome message when the sidebar opens for the first time.')
+            .setDesc('Show an introductory message the first time the agent sidebar opens.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.showWelcomeMessage).onChange(async (v) => {
                     this.plugin.settings.showWelcomeMessage = v;
@@ -2321,7 +2880,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Send with Enter')
-            .setDesc('Press Enter to send a message; Shift+Enter adds a newline. When off, use Ctrl/Cmd+Enter to send.')
+            .setDesc('Press Enter to send a message (Shift+Enter for a line break). When off, use Ctrl+Enter (or Cmd+Enter on Mac) to send.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.sendWithEnter ?? true).onChange(async (v) => {
                     this.plugin.settings.sendWithEnter = v;
@@ -2331,7 +2890,7 @@ export class AgentSettingsTab extends PluginSettingTab {
 
         new Setting(container)
             .setName('Include current date and time in context')
-            .setDesc('Prepend today\'s date and time to the system prompt so the agent knows when it is.')
+            .setDesc('Tell the agent what day and time it is. Useful for tasks involving dates, schedules, or time-sensitive notes.')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.includeCurrentTimeInContext ?? true).onChange(async (v) => {
                     this.plugin.settings.includeCurrentTimeInContext = v;
@@ -2339,21 +2898,115 @@ export class AgentSettingsTab extends PluginSettingTab {
                 }),
             );
 
-        // ── Debug ─────────────────────────────────────────────────────────────
-        container.createEl('h3', { cls: 'agent-settings-section', text: 'Debug' });
+        container.createEl('h3', { cls: 'agent-settings-section', text: 'Chat History' });
 
         new Setting(container)
+            .setName('Chat history folder')
+            .setDesc('Save each conversation as a JSON file in this vault folder. Leave empty to disable. Access saved conversations via the ellipsis menu in the chat. Example: Agent/History')
+            .addText((t) =>
+                t.setPlaceholder('Agent/History')
+                    .setValue(this.plugin.settings.chatHistoryFolder ?? '')
+                    .onChange(async (v) => {
+                        const folder = v.trim();
+                        this.plugin.settings.chatHistoryFolder = folder;
+                        await this.plugin.saveSettings();
+                        if (folder) {
+                            const { ChatHistoryService } = await import('../core/ChatHistoryService');
+                            (this.plugin as any).chatHistoryService = new ChatHistoryService(this.plugin.app.vault, folder);
+                        } else {
+                            (this.plugin as any).chatHistoryService = null;
+                        }
+                    }),
+            );
+    }
+
+    private buildLogTab(container: HTMLElement): void {
+        container.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'Audit trail of all tool executions. Logs are stored per day (up to 30 days).',
+        });
+
+        const logControls = container.createDiv({ cls: 'agent-log-controls' });
+        const dateSelect = logControls.createEl('select', { cls: 'agent-log-date-select dropdown' });
+        const loadLogBtn = logControls.createEl('button', { text: 'Load', cls: 'mod-cta agent-log-load-btn' });
+        const clearLogBtn = logControls.createEl('button', { text: 'Clear all logs', cls: 'agent-log-clear-btn' });
+        const logTableWrap = container.createDiv({ cls: 'agent-log-table-wrap' });
+
+        const logger = (this.plugin as any).operationLogger;
+        if (logger) {
+            logger.getLogDates().then((dates: string[]) => {
+                if (dates.length === 0) {
+                    const opt = dateSelect.createEl('option');
+                    opt.value = '';
+                    opt.text = 'No logs yet';
+                    loadLogBtn.disabled = true;
+                } else {
+                    dates.forEach((d: string) => {
+                        const opt = dateSelect.createEl('option');
+                        opt.value = d;
+                        opt.text = d;
+                    });
+                }
+            });
+        } else {
+            const opt = dateSelect.createEl('option');
+            opt.value = '';
+            opt.text = 'Logger not available';
+            loadLogBtn.disabled = true;
+        }
+
+        loadLogBtn.addEventListener('click', async () => {
+            const date = dateSelect.value;
+            if (!date || !logger) return;
+            logTableWrap.empty();
+            const entries = await logger.readLog(date);
+            if (entries.length === 0) {
+                logTableWrap.createEl('p', { cls: 'agent-settings-desc', text: 'No entries for this date.' });
+                return;
+            }
+            const table = logTableWrap.createEl('table', { cls: 'agent-log-table' });
+            const thead = table.createEl('thead');
+            const hr = thead.createEl('tr');
+            ['Time', 'Tool', 'Mode', 'Duration', 'Status'].forEach((h) => hr.createEl('th', { text: h }));
+            const tbody = table.createEl('tbody');
+            for (const e of entries) {
+                const tr = tbody.createEl('tr');
+                tr.createEl('td', { text: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) });
+                tr.createEl('td', { text: e.tool });
+                tr.createEl('td', { text: e.mode });
+                tr.createEl('td', { text: `${e.durationMs} ms` });
+                const statusTd = tr.createEl('td');
+                statusTd.createSpan({ cls: e.success ? 'agent-log-success' : 'agent-log-error', text: e.success ? 'ok' : 'error' });
+                if (!e.success && e.error) statusTd.createEl('span', { cls: 'agent-log-error-msg', text: ` — ${e.error}` });
+            }
+        });
+
+        clearLogBtn.addEventListener('click', async () => {
+            if (!logger) return;
+            await logger.clearLogs();
+            logTableWrap.empty();
+            dateSelect.empty();
+            const opt = dateSelect.createEl('option');
+            opt.value = '';
+            opt.text = 'No logs yet';
+            loadLogBtn.disabled = true;
+            new Notice('All operation logs cleared');
+        });
+    }
+
+    private buildDebugTab(container: HTMLElement): void {
+        new Setting(container)
             .setName('Debug mode')
-            .setDesc('Log detailed tool execution information to the developer console (Cmd+Option+I).')
+            .setDesc('Write detailed logs to the browser developer console. Only useful for troubleshooting. Open the console with Cmd+Option+I (Mac) or Ctrl+Shift+I (Windows).')
             .addToggle((t) =>
                 t.setValue(this.plugin.settings.debugMode).onChange(async (v) => {
                     this.plugin.settings.debugMode = v;
                     await this.plugin.saveSettings();
                 }),
             );
+    }
 
-        // ── Backup ────────────────────────────────────────────────────────────
-        container.createEl('h3', { cls: 'agent-settings-section', text: 'Backup' });
+    private buildBackupTab(container: HTMLElement): void {
         container.createEl('p', {
             cls: 'agent-settings-desc',
             text: 'Export all plugin settings as a JSON file for backup or migration. Import to restore.',

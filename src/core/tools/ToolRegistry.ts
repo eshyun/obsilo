@@ -30,6 +30,14 @@ import { GetVaultStatsTool } from './vault/GetVaultStatsTool';
 import { GetLinkedNotesTool } from './vault/GetLinkedNotesTool';
 import { OpenNoteTool } from './vault/OpenNoteTool';
 import { GetDailyNoteTool } from './vault/GetDailyNoteTool';
+// Import tools — vault: semantic search (Phase C2)
+import { SemanticSearchTool } from './vault/SemanticSearchTool';
+// Import tools — vault: canvas (Phase C3)
+import { GenerateCanvasTool } from './vault/GenerateCanvasTool';
+// Import tools — vault: bases (Phase C4)
+import { CreateBaseTool } from './vault/CreateBaseTool';
+import { UpdateBaseTool } from './vault/UpdateBaseTool';
+import { QueryBaseTool } from './vault/QueryBaseTool';
 // Import tools — web
 import { WebFetchTool } from './web/WebFetchTool';
 import { WebSearchTool } from './web/WebSearchTool';
@@ -38,6 +46,7 @@ import { AskFollowupQuestionTool } from './agent/AskFollowupQuestionTool';
 import { AttemptCompletionTool } from './agent/AttemptCompletionTool';
 import { UpdateTodoListTool } from './agent/UpdateTodoListTool';
 import { SwitchModeTool } from './agent/SwitchModeTool';
+import { NewTaskTool } from './agent/NewTaskTool';
 
 export class ToolRegistry {
     private tools: Map<ToolName, BaseTool>;
@@ -72,6 +81,14 @@ export class ToolRegistry {
         this.register(new GetLinkedNotesTool(this.plugin));
         this.register(new OpenNoteTool(this.plugin));
         this.register(new GetDailyNoteTool(this.plugin));
+        // Vault: semantic search (Phase C2 — only active when index is built)
+        this.register(new SemanticSearchTool(this.plugin));
+        // Vault: canvas (Phase C3)
+        this.register(new GenerateCanvasTool(this.plugin));
+        // Vault: bases (Phase C4)
+        this.register(new CreateBaseTool(this.plugin));
+        this.register(new UpdateBaseTool(this.plugin));
+        this.register(new QueryBaseTool(this.plugin));
         // Web (Phase 1.1)
         this.register(new WebFetchTool(this.plugin));
         this.register(new WebSearchTool(this.plugin));
@@ -80,6 +97,7 @@ export class ToolRegistry {
         this.register(new AttemptCompletionTool(this.plugin));
         this.register(new UpdateTodoListTool(this.plugin));
         this.register(new SwitchModeTool(this.plugin));
+        this.register(new NewTaskTool(this.plugin));
 
         console.log(`ToolRegistry: Registered ${this.getToolCount()} tools`);
     }

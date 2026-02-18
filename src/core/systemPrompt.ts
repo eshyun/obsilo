@@ -48,7 +48,9 @@ const TOOL_SECTIONS: Record<ToolGroup, string> = {
 - search_by_tag(tags[], match?): Find all notes with given tags. match="any" (OR, default) or match="all" (AND). Tags with or without # both work.
 - get_linked_notes(path, direction?): Get forward links and backlinks for a note. direction="both" (default), "forward", or "backlinks".
 - open_note(path, newLeaf?): Open a note in the Obsidian editor. Use after creating or editing a note to bring it into focus.
-- get_daily_note(offset?, create?): Read the daily note. offset=0 today (default), -1 yesterday, 1 tomorrow. create=true creates it if missing.`,
+- get_daily_note(offset?, create?): Read the daily note. offset=0 today (default), -1 yesterday, 1 tomorrow. create=true creates it if missing.
+- semantic_search(query, top_k?): Find notes by meaning (semantic similarity). Returns the most relevant excerpts for a natural-language query. Requires the Semantic Index to be built in Settings.
+- query_base(path, view_name?, limit?): Query an Obsidian Bases file and return the notes that match its filter conditions.`,
 
     edit: `**Writing & Editing:**
 - write_file(path, content): Create a new file or completely replace an existing file's content. Use for new files or full rewrites.
@@ -57,7 +59,10 @@ const TOOL_SECTIONS: Record<ToolGroup, string> = {
 - update_frontmatter(path, updates, remove?): Set or update frontmatter fields without touching note content.
 - create_folder(path): Create a new folder (including parent folders).
 - delete_file(path): Move a file or empty folder to the trash (safe — recoverable).
-- move_file(source, destination): Move or rename a file or folder.`,
+- move_file(source, destination): Move or rename a file or folder.
+- generate_canvas(output_path, mode, source?, files?, max_notes?, draw_edges?): Create an Obsidian Canvas (.canvas) file visualizing notes and their wikilink connections. mode: "folder" | "tag" | "backlinks" | "files".
+- create_base(path, view_name, filter_property?, filter_values?, columns?, sort_property?, sort_direction?, exclude_templates?): Create an Obsidian Bases (.base) database view file.
+- update_base(path, view_name, filter_property?, filter_values?, columns?, sort_property?, sort_direction?): Add or replace a view in an existing Bases file.`,
 
     web: `**Web:**
 - web_fetch(url, maxLength?, startIndex?): Fetch a URL and return its content as Markdown. Use for reading documentation, articles, or any public page. maxLength defaults to 20000 chars; use startIndex to paginate.
@@ -114,12 +119,16 @@ RESPONSE FORMAT
  * @param allModes - All available modes (built-in + custom). Used to generate the MODES section.
  * @param globalCustomInstructions - User's global instructions applied to every mode.
  * @param includeTime - When true, inject current date and time into the context.
+ * @param rulesContent - Combined content of all enabled rule files (Sprint 3.2).
+ * @param skillsSection - XML block listing relevant skills for this message (Sprint 3.4).
  */
 export function buildSystemPromptForMode(
     mode: ModeConfig,
     allModes?: ModeConfig[],
     globalCustomInstructions?: string,
     includeTime?: boolean,
+    rulesContent?: string,
+    skillsSection?: string,
 ): string {
     // Date/time header — placed at the very top so the model always uses the correct date.
     // Uses the Mac system clock via new Date(). Locale is fixed to en-US so the LLM
@@ -201,6 +210,33 @@ export function buildSystemPromptForMode(
             sections.push('Mode-specific Instructions:');
             sections.push(mode.customInstructions!.trim());
         }
+    }
+
+    // Skills section (Sprint 3.4) — relevant skills for this message
+    if (skillsSection?.trim()) {
+        sections.push('');
+        sections.push('====');
+        sections.push('');
+        sections.push('AVAILABLE SKILLS');
+        sections.push('');
+        sections.push(
+            'The following skills are available and may be relevant to this request. ' +
+            'If a skill applies, use read_file to load its SKILL.md and follow its instructions.'
+        );
+        sections.push('');
+        sections.push(skillsSection.trim());
+    }
+
+    // Rules section (Sprint 3.2) — injected after custom instructions
+    if (rulesContent?.trim()) {
+        sections.push('');
+        sections.push('====');
+        sections.push('');
+        sections.push('RULES');
+        sections.push('');
+        sections.push('The following rules were defined by the user and must always be followed:');
+        sections.push('');
+        sections.push(rulesContent.trim());
     }
 
     return sections.join('\n');

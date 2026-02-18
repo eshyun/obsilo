@@ -7,7 +7,12 @@ import { ToolRegistry } from './core/tools/ToolRegistry';
 import { ToolExecutionPipeline } from './core/tool-execution/ToolExecutionPipeline';
 import { IgnoreService } from './core/governance/IgnoreService';
 import { OperationLogger } from './core/governance/OperationLogger';
+import { RulesLoader } from './core/context/RulesLoader';
+import { WorkflowLoader } from './core/context/WorkflowLoader';
+import { SkillsManager } from './core/context/SkillsManager';
 import { GitCheckpointService } from './core/checkpoints/GitCheckpointService';
+import { SemanticIndexService } from './core/semantic/SemanticIndexService';
+import { ChatHistoryService } from './core/ChatHistoryService';
 import { buildApiHandler } from './api/index';
 import type { ApiHandler } from './api/types';
 import type { ToolUse, ToolCallbacks } from './core/tools/types';
@@ -35,6 +40,11 @@ export default class ObsidianAgentPlugin extends Plugin {
     ignoreService: IgnoreService;
     operationLogger: OperationLogger;
     checkpointService: GitCheckpointService;
+    rulesLoader: RulesLoader;
+    workflowLoader: WorkflowLoader;
+    skillsManager: SkillsManager;
+    semanticIndex: SemanticIndexService | null = null;
+    chatHistoryService: ChatHistoryService | null = null;
 
     /**
      * Plugin initialization
@@ -79,6 +89,18 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.ignoreService = new IgnoreService(this.app.vault);
         await this.ignoreService.load();
 
+        // Rules loader (Sprint 3.2)
+        this.rulesLoader = new RulesLoader(this.app.vault);
+        await this.rulesLoader.initialize();
+
+        // Workflow loader (Sprint 3.3)
+        this.workflowLoader = new WorkflowLoader(this.app.vault);
+        await this.workflowLoader.initialize();
+
+        // Skills manager (Sprint 3.4)
+        this.skillsManager = new SkillsManager(this.app.vault);
+        await this.skillsManager.initialize();
+
         // Governance: persistent operation log + checkpoints
         const pluginDir = `.obsidian/plugins/${this.manifest.id}`;
         this.operationLogger = new OperationLogger(this.app.vault, pluginDir);
@@ -99,6 +121,34 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Tool registry (ToolExecutionPipeline created per-task)
         this.toolRegistry = new ToolRegistry(this);
+
+        // Semantic index (Phase C2) — lazy build, only when enabled
+        if (this.settings.enableSemanticIndex) {
+            const pluginDirSI = `.obsidian/plugins/${this.manifest.id}`;
+            this.semanticIndex = new SemanticIndexService(this.app.vault, pluginDirSI, {
+                batchSize: this.settings.semanticBatchSize,
+                embeddingBatchSize: 16,  // texts per API call — batch for performance
+                excludedFolders: this.settings.semanticExcludedFolders,
+                storageLocation: this.settings.semanticStorageLocation,
+                indexPdfs: this.settings.semanticIndexPdfs,
+            });
+            const embeddingModel = this.getActiveEmbeddingModel();
+            if (embeddingModel) this.semanticIndex.setEmbeddingModel(embeddingModel);
+            await this.semanticIndex.initialize().catch((e) =>
+                console.warn('[Plugin] Semantic index init failed (non-fatal):', e)
+            );
+            // Auto-index on startup if configured
+            if (this.settings.semanticAutoIndex === 'startup') {
+                this.semanticIndex.buildIndex().catch((e) =>
+                    console.warn('[Plugin] Auto-index on startup failed:', e)
+                );
+            }
+        }
+
+        // Chat history service (only when folder is configured)
+        if (this.settings.chatHistoryFolder) {
+            this.chatHistoryService = new ChatHistoryService(this.app.vault, this.settings.chatHistoryFolder);
+        }
 
         // LLM provider (null if no API key configured)
         this.initApiHandler();
@@ -195,6 +245,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         const key = this.settings.activeModelKey;
         if (!key) return null;
         return this.settings.activeModels.find((m) => getModelKey(m) === key) ?? null;
+    }
+
+    /** Return the active embedding CustomModel, or null if none configured */
+    getActiveEmbeddingModel(): CustomModel | null {
+        const key = this.settings.activeEmbeddingModelKey;
+        if (!key) return null;
+        return this.settings.embeddingModels.find((m) => getModelKey(m) === key) ?? null;
     }
 
     /**

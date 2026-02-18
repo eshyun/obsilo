@@ -34,8 +34,8 @@ export interface AgentTaskCallbacks {
     onUsage?: (inputTokens: number, outputTokens: number) => void;
     /** Called when the task is complete (attempt_completion or natural end) */
     onComplete: () => void;
-    /** Called when attempt_completion signals a result — shows completion card */
-    onAttemptCompletion?: (result: string) => void;
+    /** Called when attempt_completion fires — triggers todo auto-complete */
+    onAttemptCompletion?: () => void;
     /** Called when ask_followup_question is invoked — pauses loop until resolved */
     onQuestion?: (question: string, options: string[] | undefined, resolve: (answer: string) => void) => void;
     /** Called when a write tool needs user approval — pauses loop until user decides */
@@ -44,6 +44,8 @@ export interface AgentTaskCallbacks {
     onTodoUpdate?: (items: import('./tools/agent/UpdateTodoListTool').TodoItem[]) => void;
     /** Called when switch_mode changes the active mode */
     onModeSwitch?: (newModeSlug: string) => void;
+    /** Called when the conversation history was condensed (context summarized) */
+    onContextCondensed?: () => void;
     /** Called when an unrecoverable error occurs */
     onError: (error: Error) => void;
 }
@@ -57,6 +59,15 @@ export class AgentTask {
     private consecutiveMistakeLimit: number;
     /** Minimum ms to wait between iterations (0 = disabled). */
     private rateLimitMs: number;
+    /** Enable automatic conversation condensing when context fills up. */
+    private condensingEnabled: boolean;
+    /** Trigger condensing when estimated tokens exceed this % of the model's context window. */
+    private condensingThreshold: number;
+    /**
+     * Power Steering: inject a mode-reminder user message every N iterations (0 = disabled).
+     * Helps the model stay on task during very long agentic loops.
+     */
+    private powerSteeringFrequency: number;
 
     constructor(
         api: ApiHandler,
@@ -65,6 +76,9 @@ export class AgentTask {
         modeService?: ModeService,
         consecutiveMistakeLimit = 0,
         rateLimitMs = 0,
+        condensingEnabled = false,
+        condensingThreshold = 80,
+        powerSteeringFrequency = 0,
     ) {
         this.api = api;
         this.toolRegistry = toolRegistry;
@@ -72,6 +86,9 @@ export class AgentTask {
         this.modeService = modeService;
         this.consecutiveMistakeLimit = consecutiveMistakeLimit;
         this.rateLimitMs = rateLimitMs;
+        this.condensingEnabled = condensingEnabled;
+        this.condensingThreshold = condensingThreshold;
+        this.powerSteeringFrequency = powerSteeringFrequency;
     }
 
     /**
@@ -92,6 +109,8 @@ export class AgentTask {
         abortSignal?: AbortSignal,
         globalCustomInstructions?: string,
         includeTime?: boolean,
+        rulesContent?: string,
+        skillsSection?: string,
     ): Promise<void> {
         // Resolve mode to ModeConfig
         let activeMode: ModeConfig = this.resolveMode(initialMode);
@@ -135,6 +154,50 @@ export class AgentTask {
             pendingModeSwitch = slug;
         };
 
+        // new_task: spawn a child AgentTask that runs in a fresh history and returns its result.
+        const spawnSubtask = async (childMode: string, childMessage: string): Promise<string> => {
+            const childHistory: MessageParam[] = [];
+            let childText = '';
+
+            const childTask = new AgentTask(
+                this.api,
+                this.toolRegistry,
+                {
+                    onText: (chunk) => { childText += chunk; },
+                    onToolStart: (name, input) => {
+                        // Forward subtask tool events to parent UI (prefixed)
+                        this.taskCallbacks.onToolStart(`[subtask] ${name}`, input);
+                    },
+                    onToolResult: (name, content, isError) => {
+                        this.taskCallbacks.onToolResult(`[subtask] ${name}`, content, isError);
+                    },
+                    onComplete: () => { /* handled via Promise resolution */ },
+                    onError: (err) => { throw err; },
+                    onUsage: (i, o) => {
+                        // Accumulate subtask tokens into parent's total — forwarded here as noop
+                        // (parent already tracks its own via onUsage; subtask usage is additive)
+                    },
+                },
+                this.modeService,
+                this.consecutiveMistakeLimit,
+                this.rateLimitMs,
+                // Subtasks don't condense or power-steer (keep child loops lean)
+                false, 80, 0,
+            );
+
+            await childTask.run(
+                childMessage,
+                `${taskId}-sub-${Date.now()}`,
+                childMode,
+                childHistory,
+                abortSignal,
+                globalCustomInstructions,
+                includeTime,
+                rulesContent,
+            );
+            return childText;
+        };
+
         // Cache system prompt + tool definitions — rebuilt only when the mode changes.
         // Without this, buildSystemPromptForMode() and getToolDefinitions() are called
         // on every agentic loop iteration even though nothing has changed.
@@ -144,7 +207,7 @@ export class AgentTask {
 
         const rebuildPromptCache = () => {
             const allModes = this.modeService?.getAllModes();
-            cachedSystemPrompt = buildSystemPromptForMode(activeMode, allModes, globalCustomInstructions, includeTime);
+            cachedSystemPrompt = buildSystemPromptForMode(activeMode, allModes, globalCustomInstructions, includeTime, rulesContent, skillsSection);
             cachedTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
                 : this.toolRegistry.getToolDefinitions();
@@ -171,6 +234,18 @@ export class AgentTask {
                 // Phase B: rate limiting — pause between iterations (skip on first)
                 if (iteration > 0 && this.rateLimitMs > 0) {
                     await new Promise<void>((r) => setTimeout(r, this.rateLimitMs));
+                }
+
+                // Power Steering: inject a mode-role reminder on every Nth iteration
+                if (
+                    this.powerSteeringFrequency > 0
+                    && iteration > 0
+                    && iteration % this.powerSteeringFrequency === 0
+                ) {
+                    history.push({
+                        role: 'user',
+                        content: `[Power Steering Reminder]\n\nYou are operating in **${activeMode.name}** mode.\n\n${activeMode.roleDefinition}\n\nContinue the task.`,
+                    });
                 }
 
                 // Rebuild system prompt + tool list only when mode has changed
@@ -214,74 +289,116 @@ export class AgentTask {
                 assistantContent.push(...toolUses);
                 history.push({ role: 'assistant', content: assistantContent });
 
+                // Context Condensing: check after each iteration (skip on very first)
+                if (iteration > 0 && this.condensingEnabled) {
+                    const estimatedTokens = this.estimateTokens(history);
+                    const contextWindow = this.getModelContextWindow();
+                    const threshold = Math.floor(contextWindow * (this.condensingThreshold / 100));
+                    if (estimatedTokens > threshold) {
+                        await this.condenseHistory(history, systemPrompt, abortSignal);
+                        this.taskCallbacks.onContextCondensed?.();
+                    }
+                }
+
                 // If no tool calls, the LLM is done
                 if (toolUses.length === 0) {
                     break;
                 }
 
-                // Execute each tool call (sequential, like Kilo Code's default behavior)
-                const toolResultBlocks: ContentBlock[] = [];
+                // Tools that are safe to execute in parallel (pure reads, no side-effects).
+                // Write tools and control-flow tools always run sequentially.
+                const PARALLEL_SAFE = new Set([
+                    'read_file', 'list_files', 'search_files', 'get_frontmatter',
+                    'get_linked_notes', 'search_by_tag', 'get_vault_stats', 'get_daily_note',
+                    'web_fetch', 'web_search',
+                ]);
 
-                for (const toolUse of toolUses) {
-                    if (toolUse.type !== 'tool_use') continue;
+                const validToolUses = toolUses.filter(
+                    (t): t is ContentBlock & { type: 'tool_use' } => t.type === 'tool_use'
+                );
 
-                    // Create callbacks for this tool execution
+                // Helper: run a single tool through the pipeline and return its result.
+                // Does NOT call onToolResult — caller is responsible for ordering.
+                const runTool = (toolUse: ContentBlock & { type: 'tool_use' }) => {
                     const toolCallbacks: ToolCallbacks = {
-                        pushToolResult: () => {}, // Results collected from pipeline return value
+                        pushToolResult: () => {},
                         handleError: async (toolName, error) => {
                             console.error(`[AgentTask] Tool error in ${toolName}:`, error);
                         },
-                        log: (message) => {
-                            console.log(`[AgentTask] ${message}`);
-                        },
+                        log: (message) => { console.log(`[AgentTask] ${message}`); },
                     };
-
                     const toolCall: ToolUse = {
                         type: 'tool_use',
                         id: toolUse.id,
                         name: toolUse.name as any,
                         input: toolUse.input,
                     };
-
-                    const result = await pipeline.executeTool(toolCall, toolCallbacks, {
+                    return pipeline.executeTool(toolCall, toolCallbacks, {
                         askQuestion,
                         signalCompletion,
                         switchMode,
+                        spawnSubtask,
                         onApprovalRequired: this.taskCallbacks.onApprovalRequired,
                         updateTodos: this.taskCallbacks.onTodoUpdate,
                     });
+                };
 
-                    // Notify UI of tool result
-                    this.taskCallbacks.onToolResult(
-                        toolUse.name,
-                        result.content,
-                        result.is_error ?? false,
-                    );
+                const allParallelSafe = validToolUses.length > 1
+                    && validToolUses.every(t => PARALLEL_SAFE.has(t.name));
 
-                    // Phase B: track consecutive errors; reset on any success
-                    if (result.is_error) {
-                        consecutiveMistakes++;
-                    } else {
-                        consecutiveMistakes = 0;
+                const toolResultBlocks: ContentBlock[] = [];
+
+                if (allParallelSafe) {
+                    // Execute all read tools in parallel; collect results in original order.
+                    // onToolResult is called sequentially after all finish so the FIFO
+                    // queue in AgentSidebarView assigns results to the correct UI elements.
+                    const results = await Promise.all(validToolUses.map(runTool));
+
+                    for (let i = 0; i < validToolUses.length; i++) {
+                        const toolUse = validToolUses[i];
+                        const result = results[i];
+
+                        this.taskCallbacks.onToolResult(toolUse.name, result.content, result.is_error ?? false);
+
+                        if (result.is_error) { consecutiveMistakes++; } else { consecutiveMistakes = 0; }
+                        if (this.consecutiveMistakeLimit > 0 && consecutiveMistakes >= this.consecutiveMistakeLimit) {
+                            throw new Error(
+                                `Agent stopped after ${consecutiveMistakes} consecutive errors. ` +
+                                `Check the tool results above or raise the limit in Settings → Advanced.`,
+                            );
+                        }
+
+                        toolResultBlocks.push({
+                            type: 'tool_result',
+                            tool_use_id: toolUse.id,
+                            content: result.content,
+                            is_error: result.is_error,
+                        });
                     }
-                    if (this.consecutiveMistakeLimit > 0 && consecutiveMistakes >= this.consecutiveMistakeLimit) {
-                        throw new Error(
-                            `Agent stopped after ${consecutiveMistakes} consecutive errors. ` +
-                            `Check the tool results above or raise the limit in Settings → Advanced.`,
-                        );
+                } else {
+                    // Sequential execution: required for writes, control-flow, and mixed batches.
+                    for (const toolUse of validToolUses) {
+                        const result = await runTool(toolUse);
+
+                        this.taskCallbacks.onToolResult(toolUse.name, result.content, result.is_error ?? false);
+
+                        if (result.is_error) { consecutiveMistakes++; } else { consecutiveMistakes = 0; }
+                        if (this.consecutiveMistakeLimit > 0 && consecutiveMistakes >= this.consecutiveMistakeLimit) {
+                            throw new Error(
+                                `Agent stopped after ${consecutiveMistakes} consecutive errors. ` +
+                                `Check the tool results above or raise the limit in Settings → Advanced.`,
+                            );
+                        }
+
+                        toolResultBlocks.push({
+                            type: 'tool_result',
+                            tool_use_id: toolUse.id,
+                            content: result.content,
+                            is_error: result.is_error,
+                        });
+
+                        if (completionResult !== null) break;
                     }
-
-                    // Add tool result for next LLM message
-                    // (Anthropic protocol: tool_result blocks in a user message)
-                    toolResultBlocks.push({
-                        type: 'tool_result',
-                        tool_use_id: toolUse.id,
-                        content: result.content,
-                        is_error: result.is_error,
-                    });
-
-                    // If attempt_completion was called, stop processing further tools
-                    if (completionResult !== null) break;
                 }
 
                 // Add tool results as the next user message
@@ -289,7 +406,7 @@ export class AgentTask {
 
                 // Break loop if attempt_completion was signaled
                 if (completionResult !== null) {
-                    this.taskCallbacks.onAttemptCompletion?.(completionResult);
+                    this.taskCallbacks.onAttemptCompletion?.();
                     break;
                 }
             }
@@ -310,6 +427,100 @@ export class AgentTask {
             console.error('[AgentTask] Task failed:', err);
             this.taskCallbacks.onError(err);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Context Condensing helpers
+    // -------------------------------------------------------------------------
+
+    /** Rough token estimate: ~4 chars per token (adequate for threshold checks). */
+    private estimateTokens(messages: MessageParam[]): number {
+        let count = 0;
+        for (const m of messages) {
+            const content = Array.isArray(m.content)
+                ? m.content.map((b) => {
+                    const block = b as any;
+                    if (typeof block.text === 'string') return block.text;
+                    if (typeof block.content === 'string') return block.content;
+                    return '';
+                }).join('')
+                : typeof m.content === 'string' ? m.content : '';
+            count += Math.ceil(content.length / 4);
+        }
+        return count;
+    }
+
+    /** Approximate context window for the active model (tokens). */
+    private getModelContextWindow(): number {
+        const modelName = (this.api as any).getModel?.() ?? '';
+        if (modelName.includes('claude')) return 200_000;
+        if (modelName.includes('gpt-4')) return 128_000;
+        return 128_000;
+    }
+
+    /**
+     * Condense history in-place using a separate LLM summarization call.
+     * Keeps the first message (original task) + last 4 messages intact;
+     * replaces everything in between with a single summary block.
+     */
+    private async condenseHistory(
+        history: MessageParam[],
+        systemPrompt: string,
+        abortSignal?: AbortSignal,
+    ): Promise<void> {
+        // Need at least first + 4 tail + some middle to condense
+        if (history.length < 7) return;
+
+        const firstMsg = history[0];
+        const tail = history.slice(-4);
+        const toSummarize = history.slice(0, -4);
+
+        const condensingPrompt: MessageParam = {
+            role: 'user',
+            content:
+                'Summarize this conversation compactly. Preserve:\n' +
+                '- The original task and goal\n' +
+                '- Key decisions made\n' +
+                '- Files read, created, or modified (include exact paths)\n' +
+                '- Important findings, code snippets, or facts discovered\n' +
+                '- Errors encountered and how they were resolved\n\n' +
+                'Output only the summary — no preamble or meta-commentary.',
+        };
+
+        let summary = '';
+        try {
+            for await (const chunk of this.api.createMessage(
+                systemPrompt,
+                [...toSummarize, condensingPrompt],
+                [],
+                abortSignal,
+            )) {
+                if (chunk.type === 'text') summary += chunk.text;
+            }
+        } catch {
+            // Condensing failure is non-fatal — keep history unchanged
+            return;
+        }
+
+        if (!summary.trim()) return;
+
+        // Splice history in-place
+        history.splice(
+            0,
+            history.length,
+            firstMsg,
+            {
+                role: 'assistant',
+                content: [{ type: 'text', text: `[Conversation Summary]\n\n${summary.trim()}` }],
+            },
+            {
+                role: 'user',
+                content: '[Context condensed to save space. Continue the task from here.]',
+            },
+            ...tail,
+        );
+
+        console.log(`[AgentTask] Context condensed: ${history.length} messages remain.`);
     }
 
     /** Resolve a mode slug or ModeConfig to a ModeConfig */
