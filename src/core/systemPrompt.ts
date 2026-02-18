@@ -69,7 +69,7 @@ const TOOL_SECTIONS: Record<ToolGroup, string> = {
 - web_search(query, numResults?): Search the web and return titles, URLs, and snippets. Follow up with web_fetch to read a full page. Only available when Web Tools are enabled in settings.`,
 
     agent: `**Agent Control:**
-- update_todo_list(todos): Publish your task plan as a checklist visible to the user. Use at the start of any multi-step task, then update as steps complete. Format: one item per line with - [ ] (pending), - [~] (in progress), - [x] (done).
+- update_todo_list(todos): Publish your task plan as a visible checklist. Use ONLY for complex tasks with 3+ distinct steps. For simple tasks, execute directly — no plan needed. Format: one item per line with - [ ] (pending), - [~] (in progress), - [x] (done).
 - ask_followup_question(question, options?): Ask the user a clarifying question when the request is ambiguous. Provide optional answer choices. Use sparingly — only when genuinely needed.
 - attempt_completion(result): Signal that the task loop should end. Call this ONLY AFTER you have already written your complete answer or response as streaming text. The result field is a short internal log entry — it is NOT shown as the response.
 - switch_mode(mode_slug, reason): Switch to a different agent mode. Use when the user's request is better handled by another mode. Available modes are described below.
@@ -90,7 +90,19 @@ const TOOL_RULES = `Tool usage rules:
 4. USE EXACT STRINGS. The old_str in edit_file must exactly match the file content (whitespace, newlines included). Include surrounding context to make it unique.
 5. COMPLETE FILES. write_file replaces the entire file — always include the full content.
 6. ALWAYS stream your full answer as text FIRST, then call attempt_completion as a done-signal. The result field in attempt_completion is a brief meta-log only — it is never shown to the user as the answer.
-7. USE ask_followup_question only when truly needed — don't ask for information you can find yourself.`;
+7. USE ask_followup_question only when truly needed — don't ask for information you can find yourself.
+8. USE update_todo_list ONLY for complex tasks with 3 or more distinct steps. For simple tasks (single file edit, answering a question, one lookup), skip the plan and act directly.`;
+
+// ---------------------------------------------------------------------------
+// Tool decision guidance (always included — adapted from Kilo Code)
+// ---------------------------------------------------------------------------
+
+const TOOL_DECISION_GUIDELINES = `Tool decision guidelines:
+1. Assess what you already know. If the user asks a general question you can answer from knowledge (e.g., "What is Zettelkasten?"), answer directly — no tools needed.
+2. Only call read_file for a file whose content is NOT already in the conversation. If you already read a file earlier in this session, do not read it again unless you need to verify changes.
+3. Choose the minimal tool path. If a single search_files call answers the question, don't also list_files and read every result. Prefer the shortest route to the correct answer.
+4. Do not call tools "just in case". Only call a tool when you genuinely need its result to continue.
+5. For orientation (first time seeing the vault), one get_vault_stats call is enough. Do not follow it with list_files on every folder unless the task requires it.`;
 
 // ---------------------------------------------------------------------------
 // Response format (always included)
@@ -161,6 +173,8 @@ export function buildSystemPromptForMode(
     }
 
     sections.push(TOOL_RULES);
+    sections.push('');
+    sections.push(TOOL_DECISION_GUIDELINES);
     sections.push('');
     sections.push(RESPONSE_FORMAT);
 

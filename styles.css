@@ -562,6 +562,45 @@
     padding: 4px 8px;
 }
 
+/* Grouped tool rows — compact list under a single collapsible header */
+.tool-group-body {
+    padding: 2px 4px 4px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.tool-group-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 0;
+    font-size: 11px;
+    color: var(--text-faint);
+}
+
+.tool-group-item .tool-item-icon {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.tool-group-item .tool-item-icon svg { width: 10px; height: 10px; }
+.tool-group-item.item-done { color: var(--text-muted); }
+.tool-group-item.item-done .tool-item-icon { color: var(--color-green); }
+.tool-group-item.item-error { color: var(--text-normal); }
+.tool-group-item.item-error .tool-item-icon { color: var(--color-red); }
+
+.tool-item-brief {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+    font-family: var(--font-monospace);
+}
+
 .tool-call-input pre,
 .tool-call-output pre {
     margin: 0;

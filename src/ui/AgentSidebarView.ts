@@ -578,8 +578,27 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             requestAnimationFrame(() => { scrollPending = false; this.chatContainer?.scrollTo({ top: this.chatContainer.scrollHeight }); });
         };
 
-        // Map for O(1) tool-element lookup in onToolResult (replaces querySelectorAll scan).
-        const toolElsByName = new Map<string, HTMLDetailsElement[]>();
+        // Map for O(1) tool-element lookup in onToolResult.
+        // For groupable tools the values are item divs; for others they are details elements.
+        const toolElsByName = new Map<string, HTMLElement[]>();
+
+        // Tools that are safe to group visually — consecutive same-type calls collapse into one row.
+        // Write tools are intentionally excluded so each destructive action stays visible individually.
+        const GROUPABLE_TOOLS = new Set([
+            'read_file', 'list_files', 'search_files', 'get_frontmatter',
+            'get_linked_notes', 'search_by_tag', 'get_vault_stats', 'get_daily_note',
+            'web_fetch', 'web_search', 'semantic_search',
+        ]);
+
+        // Active tool group — tracks the open <details> container for consecutive same-type tools.
+        let activeToolGroup: {
+            name: string;
+            detailsEl: HTMLDetailsElement;
+            nameEl: HTMLElement;
+            statusEl: HTMLElement;
+            bodyEl: HTMLElement;
+            count: number;
+        } | null = null;
         // Remove the "Working…" loading indicator and any "Analyzing…" row on first real content
         let loadingRemoved = false;
         const removeLoading = () => {
@@ -664,83 +683,148 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                     removeLoading();
                     if (!hasTools) {
                         hasTools = true;
-                        // attempt_completion is a signal, not a real tool — the streamed text
-                        // before it IS the answer, so don't discard it
                         if (name !== 'attempt_completion') {
                             accumulatedText = '';
                             contentEl.empty();
                         }
                     }
-                    // Kilo Code-style compact row: icon + label + brief param + time
-                    const details = toolsEl.createEl('details', { cls: 'tool-call-details' });
-                    const summary = details.createEl('summary', { cls: 'tool-call-summary' });
-                    setIcon(summary.createSpan('tool-icon'), this.getToolIcon(name));
-                    summary.createSpan('tool-name').setText(this.formatToolLabel(name));
-                    const brief = this.getToolBriefParam(input);
-                    if (brief) summary.createSpan('tool-brief-param').setText(brief);
-                    summary.createSpan('tool-time').setText(
-                        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    );
-                    summary.createSpan('tool-status tool-running');
 
-                    // Don't show raw JSON/XML for agent-signal tools — they have no useful content
-                    if (name !== 'attempt_completion') {
-                        const inputEl = details.createDiv('tool-call-input');
-                        inputEl.createEl('pre').setText(JSON.stringify(input, null, 2));
-                        details.createDiv('tool-call-output');
-                        // Auto-expand while running so the user sees live what's happening
-                        details.open = true;
+                    const brief = this.getToolBriefParam(input);
+                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    if (GROUPABLE_TOOLS.has(name)) {
+                        // ── Grouped tool ──────────────────────────────────────────────
+                        // Break existing group when a different tool type arrives
+                        if (activeToolGroup && activeToolGroup.name !== name) {
+                            activeToolGroup = null;
+                        }
+
+                        if (!activeToolGroup) {
+                            // Create new group container
+                            const details = toolsEl.createEl('details', { cls: 'tool-call-details' });
+                            const summary = details.createEl('summary', { cls: 'tool-call-summary' });
+                            setIcon(summary.createSpan('tool-icon'), this.getToolIcon(name));
+                            const nameEl = summary.createSpan('tool-name');
+                            nameEl.setText(this.formatGroupedLabel(name, 1));
+                            summary.createSpan('tool-time').setText(time);
+                            const statusEl = summary.createSpan({ cls: 'tool-status tool-running' });
+                            const bodyEl = details.createDiv('tool-group-body');
+                            details.open = true;
+                            activeToolGroup = { name, detailsEl: details, nameEl, statusEl, bodyEl, count: 1 };
+                        } else {
+                            activeToolGroup.count++;
+                            activeToolGroup.nameEl.setText(this.formatGroupedLabel(name, activeToolGroup.count));
+                        }
+
+                        // Add compact item row to group body
+                        const itemEl = activeToolGroup.bodyEl.createDiv('tool-group-item');
+                        setIcon(itemEl.createSpan('tool-item-icon'), 'loader');
+                        itemEl.createSpan('tool-item-brief').setText(brief || '—');
+
+                        const queue = toolElsByName.get(name) ?? [];
+                        queue.push(itemEl);
+                        toolElsByName.set(name, queue);
+
+                    } else {
+                        // ── Standalone tool ───────────────────────────────────────────
+                        // Any non-groupable tool breaks the active group
+                        activeToolGroup = null;
+
+                        const details = toolsEl.createEl('details', { cls: 'tool-call-details' });
+                        const summary = details.createEl('summary', { cls: 'tool-call-summary' });
+                        setIcon(summary.createSpan('tool-icon'), this.getToolIcon(name));
+                        summary.createSpan('tool-name').setText(this.formatToolLabel(name));
+                        if (brief) summary.createSpan('tool-brief-param').setText(brief);
+                        summary.createSpan('tool-time').setText(time);
+                        summary.createSpan('tool-status tool-running');
+
+                        if (name !== 'attempt_completion') {
+                            const inputEl = details.createDiv('tool-call-input');
+                            inputEl.createEl('pre').setText(JSON.stringify(input, null, 2));
+                            details.createDiv('tool-call-output');
+                            details.open = true;
+                        }
+
+                        const pendingEls = toolElsByName.get(name) ?? [];
+                        pendingEls.push(details);
+                        toolElsByName.set(name, pendingEls);
                     }
 
-                    // Register in Map for O(1) lookup in onToolResult
-                    const pendingEls = toolElsByName.get(name) ?? [];
-                    pendingEls.push(details);
-                    toolElsByName.set(name, pendingEls);
-                    // Track write operations for undo bar
                     const writeOps = ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file'];
                     if (writeOps.includes(name)) taskWriteCount++;
                     scheduleScroll();
                 },
                 onToolResult: (name, content, isError) => {
-                    // O(1) lookup via Map — avoids querySelectorAll scan over all tool rows
                     const queue = toolElsByName.get(name);
                     const el = queue?.shift() ?? null;
                     if (!el) return;
 
-                    // Parse and strip <diff_stats added="X" removed="Y"/> tag
-                    let displayContent = content;
-                    const diffMatch = content.match(/<diff_stats added="(\d+)" removed="(\d+)"\/>/);
-                    if (diffMatch && !isError) {
-                        const diffAdded = parseInt(diffMatch[1], 10);
-                        const diffRemoved = parseInt(diffMatch[2], 10);
-                        displayContent = content.replace(/\n?<diff_stats[^/]*\/>/g, '');
-                        if (diffAdded > 0 || diffRemoved > 0) {
-                            const summary = el.querySelector('summary');
-                            if (summary) {
-                                const badge = summary.createSpan('tool-diff-badge');
-                                const parts: string[] = [];
-                                if (diffAdded > 0) parts.push(`+${diffAdded}`);
-                                if (diffRemoved > 0) parts.push(`-${diffRemoved}`);
-                                badge.setText(parts.join(' / '));
+                    if (el.classList.contains('tool-group-item')) {
+                        // ── Grouped item result ───────────────────────────────────────
+                        const iconEl = el.querySelector('.tool-item-icon') as HTMLElement | null;
+                        if (iconEl) {
+                            iconEl.empty();
+                            setIcon(iconEl, isError ? 'x' : 'check');
+                        }
+                        el.classList.add(isError ? 'item-error' : 'item-done');
+
+                        // When all items in the group are settled, update the group header
+                        const bodyEl = el.parentElement;
+                        const detailsEl = bodyEl?.parentElement as HTMLDetailsElement | null;
+                        if (bodyEl && detailsEl) {
+                            const stillRunning = bodyEl.querySelectorAll(
+                                '.tool-group-item:not(.item-done):not(.item-error)'
+                            ).length;
+                            if (stillRunning === 0) {
+                                const groupStatus = detailsEl.querySelector('.tool-status') as HTMLElement | null;
+                                if (groupStatus) {
+                                    groupStatus.removeClass('tool-running');
+                                    const anyError = bodyEl.querySelectorAll('.item-error').length > 0;
+                                    groupStatus.addClass(anyError ? 'tool-error' : 'tool-done');
+                                    groupStatus.setText(anyError ? '✗' : '✓');
+                                }
+                                detailsEl.open = isError;
                             }
                         }
-                    }
 
-                    const statusEl = el.querySelector('.tool-status');
-                    if (statusEl) {
-                        statusEl.removeClass('tool-running');
-                        statusEl.addClass(isError ? 'tool-error' : 'tool-done');
-                        statusEl.setText(isError ? '✗' : '✓');
+                    } else {
+                        // ── Standalone tool result ────────────────────────────────────
+                        const details = el as HTMLDetailsElement;
+
+                        // Parse and strip <diff_stats added="X" removed="Y"/> tag
+                        let displayContent = content;
+                        const diffMatch = content.match(/<diff_stats added="(\d+)" removed="(\d+)"\/>/);
+                        if (diffMatch && !isError) {
+                            const diffAdded = parseInt(diffMatch[1], 10);
+                            const diffRemoved = parseInt(diffMatch[2], 10);
+                            displayContent = content.replace(/\n?<diff_stats[^/]*\/>/g, '');
+                            if (diffAdded > 0 || diffRemoved > 0) {
+                                const summary = details.querySelector('summary');
+                                if (summary) {
+                                    const badge = summary.createSpan('tool-diff-badge');
+                                    const parts: string[] = [];
+                                    if (diffAdded > 0) parts.push(`+${diffAdded}`);
+                                    if (diffRemoved > 0) parts.push(`-${diffRemoved}`);
+                                    badge.setText(parts.join(' / '));
+                                }
+                            }
+                        }
+
+                        const statusEl = details.querySelector('.tool-status');
+                        if (statusEl) {
+                            statusEl.removeClass('tool-running');
+                            statusEl.addClass(isError ? 'tool-error' : 'tool-done');
+                            statusEl.setText(isError ? '✗' : '✓');
+                        }
+                        const outputEl = details.querySelector('.tool-call-output');
+                        if (outputEl && displayContent) {
+                            const truncated = displayContent.length > 2000
+                                ? displayContent.slice(0, 2000) + '\n…(truncated)'
+                                : displayContent;
+                            outputEl.createEl('pre').setText(truncated);
+                        }
+                        details.open = isError;
                     }
-                    const outputEl = el.querySelector('.tool-call-output');
-                    if (outputEl && displayContent) {
-                        const truncated = displayContent.length > 2000
-                            ? displayContent.slice(0, 2000) + '\n…(truncated)'
-                            : displayContent;
-                        outputEl.createEl('pre').setText(truncated);
-                    }
-                    // Collapse successful tools to keep the chat tidy; errors stay expanded
-                    el.open = isError;
                 },
                 onUsage: (inputTokens, outputTokens) => {
                     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -760,6 +844,11 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
                     }
                 },
                 onModeSwitch: (newModeSlug) => {
+                    // Explicitly sync settings before refreshing the button.
+                    // ModeService.switchMode() sets this synchronously, but this
+                    // ensures the button always shows the correct mode even if
+                    // the async save is still in flight.
+                    this.plugin.settings.currentMode = newModeSlug;
                     this.updateModeButton();
                     new Notice(`Switched to ${this.getModeDisplayName(newModeSlug)} mode`);
                     // Auto-index on mode switch if configured
@@ -1400,6 +1489,28 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
 
     private getToolBriefParam(input: Record<string, any>): string {
         return input?.path ?? input?.url ?? input?.query ?? input?.question ?? '';
+    }
+
+    /**
+     * Label for grouped tool calls — shows singular or plural form with count.
+     * Used when consecutive same-type groupable tool calls are collapsed into one row.
+     */
+    private formatGroupedLabel(name: string, count: number): string {
+        const labels: Record<string, [string, string]> = {
+            read_file:        ['Reading file',       'Reading files'],
+            list_files:       ['Listing files',      'Listing files'],
+            search_files:     ['Searching',          'Searching'],
+            get_frontmatter:  ['Reading metadata',   'Reading metadata'],
+            get_linked_notes: ['Finding links',      'Finding links'],
+            search_by_tag:    ['Searching by tag',   'Searching by tag'],
+            get_vault_stats:  ['Vault overview',     'Vault overview'],
+            get_daily_note:   ['Reading daily note', 'Reading daily notes'],
+            web_fetch:        ['Fetching page',      'Fetching pages'],
+            web_search:       ['Searching web',      'Searching web'],
+            semantic_search:  ['Semantic search',    'Semantic searches'],
+        };
+        const [singular, plural] = labels[name] ?? [name, name];
+        return count === 1 ? singular : `${plural} (${count})`;
     }
 
     // -------------------------------------------------------------------------

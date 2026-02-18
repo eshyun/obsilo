@@ -32,11 +32,13 @@ export class UpdateTodoListTool extends BaseTool<'update_todo_list'> {
         return {
             name: 'update_todo_list',
             description:
-                'Publish your current task plan as a visible checklist in the chat. ' +
-                'Use this at the START of any multi-step task to show the user what you plan to do, ' +
-                'and update it as steps complete. ' +
+                'Publish your task plan as a visible checklist in the chat. ' +
+                'ONLY use this for complex tasks that require 3 or more distinct steps. ' +
+                'For simple tasks (answering a question, reading a file, making a single edit, ' +
+                'or any task you can complete in one or two tool calls), ' +
+                'execute directly WITHOUT creating a plan first. ' +
                 'Format: one item per line using - [ ] (pending), - [~] (in progress), - [x] (done). ' +
-                'Call this BEFORE starting work, then update after each step completes.',
+                'Update after each step completes.',
             input_schema: {
                 type: 'object',
                 properties: {

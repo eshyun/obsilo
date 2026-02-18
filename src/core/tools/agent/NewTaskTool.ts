@@ -60,7 +60,10 @@ export class NewTaskTool extends BaseTool<'new_task'> {
             return;
         }
 
-        if (!context.spawnSubtask) {
+        // Only the Orchestrator mode is permitted to spawn subtasks.
+        // Check context.mode instead of context.spawnSubtask — spawnSubtask is always
+        // injected by AgentTask regardless of mode, so the old check was dead code.
+        if (context.mode !== 'orchestrator') {
             callbacks.pushToolResult(
                 'new_task is only available in Orchestrator mode. ' +
                 'Switch to Orchestrator mode to use multi-agent delegation.'
@@ -71,7 +74,7 @@ export class NewTaskTool extends BaseTool<'new_task'> {
         callbacks.log(`Spawning subtask in mode "${mode}": ${message.slice(0, 80)}…`);
 
         try {
-            const result = await context.spawnSubtask(mode, message);
+            const result = await context.spawnSubtask!(mode, message);
             callbacks.pushToolResult(
                 `[Subtask completed — mode: ${mode}]\n\n${result || '(No response from subtask)'}`
             );
