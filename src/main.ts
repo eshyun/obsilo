@@ -60,28 +60,39 @@ export default class ObsidianAgentPlugin extends Plugin {
      * 6. Start semantic indexing
      */
     async onload() {
-        console.log('Loading Obsidian Agent plugin');
+        console.log('Loading Obsilo Agent plugin');
 
-        // Register custom plugin icon — pixel-art hooded agent.
-        // Structure (fill-rule="evenodd" punches transparent holes):
-        //   1. Outer diamond cloak silhouette minus the face opening = cloak border visible
-        //   2. Dark face diamond re-fills the opening; eye circles + mouth rect stamp through
-        addIcon('obsidian-agent', `
-          <g fill="currentColor">
-            <!-- Cloak: pointed-diamond silhouette with face area punched out -->
-            <path fill-rule="evenodd" d="
-              M50 3 L84 26 L93 60 Q88 86 65 92 L50 97 L35 92 Q12 86 7 60 L16 26 Z
-              M50 18 L76 44 L50 70 L24 44 Z
-            "/>
-            <!-- Dark face: fills the hole above, then stamps out eyes + mouth -->
-            <path fill-rule="evenodd" d="
-              M50 18 L76 44 L50 70 L24 44 Z
-              M31 41 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0
-              M51 41 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0
-              M43 57 L57 57 L57 62 L43 62 Z
-            "/>
-          </g>
-        `);
+        // Register custom plugin icon — pixel-art OBSILO logo.
+        // 5×7 pixel grid per character (4×5 units/pixel), 2 rows: OBS / ILO.
+        // Border: evenodd path creates a 6-unit thick square frame.
+        addIcon('obsidian-agent', `<g fill="currentColor">
+<path fill-rule="evenodd" d="M2 2H98V98H2ZM8 8H92V92H8Z"/>
+<rect x="18" y="12" width="12" height="5"/>
+<rect x="14" y="17" width="4" height="25"/>
+<rect x="30" y="17" width="4" height="25"/>
+<rect x="18" y="42" width="12" height="5"/>
+<rect x="40" y="12" width="16" height="5"/>
+<rect x="40" y="17" width="4" height="10"/>
+<rect x="56" y="17" width="4" height="10"/>
+<rect x="40" y="27" width="16" height="5"/>
+<rect x="40" y="32" width="4" height="10"/>
+<rect x="56" y="32" width="4" height="10"/>
+<rect x="40" y="42" width="16" height="5"/>
+<rect x="70" y="12" width="16" height="5"/>
+<rect x="66" y="17" width="4" height="10"/>
+<rect x="70" y="27" width="12" height="5"/>
+<rect x="82" y="32" width="4" height="10"/>
+<rect x="66" y="42" width="16" height="5"/>
+<rect x="14" y="53" width="20" height="5"/>
+<rect x="22" y="58" width="4" height="25"/>
+<rect x="14" y="83" width="20" height="5"/>
+<rect x="40" y="53" width="4" height="30"/>
+<rect x="40" y="83" width="20" height="5"/>
+<rect x="70" y="53" width="12" height="5"/>
+<rect x="66" y="58" width="4" height="25"/>
+<rect x="82" y="58" width="4" height="25"/>
+<rect x="70" y="83" width="12" height="5"/>
+</g>`);
 
         // 1. Load settings
         await this.loadSettings();
@@ -194,16 +205,16 @@ export default class ObsidianAgentPlugin extends Plugin {
         // TODO: Phase 7 - Uncomment when semantic index is implemented
         // this.semanticIndex.startIndexing();
 
-        console.log('Obsidian Agent plugin loaded successfully');
+        console.log('Obsilo Agent plugin loaded successfully');
     }
 
     /**
      * Plugin cleanup
      */
     async onunload() {
-        console.log('Unloading Obsidian Agent plugin');
+        console.log('Unloading Obsilo Agent plugin');
         await this.mcpClient?.disconnectAll();
-        console.log('Obsidian Agent plugin unloaded');
+        console.log('Obsilo Agent plugin unloaded');
     }
 
     /**

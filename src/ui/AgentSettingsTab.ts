@@ -3416,7 +3416,7 @@ export class AgentSettingsTab extends PluginSettingTab {
                     const parsed = JSON.parse(text);
                     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
                         !('activeModels' in parsed || 'customModes' in parsed || 'autoApproval' in parsed)) {
-                        new Notice('Invalid settings file — not recognized as Obsidian Agent settings');
+                        new Notice('Invalid settings file — not recognized as Obsilo Agent settings');
                         return;
                     }
                     this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, parsed);

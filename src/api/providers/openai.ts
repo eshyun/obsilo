@@ -186,7 +186,7 @@ export class OpenAiProvider implements ApiHandler {
         // OpenRouter requires these headers for routing and analytics
         if (this.config.type === 'openrouter') {
             headers['HTTP-Referer'] = 'https://obsidian.md';
-            headers['X-Title'] = 'Obsidian Agent';
+            headers['X-Title'] = 'Obsilo Agent';
         }
 
         const response = await fetch(url, {

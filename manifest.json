@@ -1,6 +1,6 @@
 {
   "id": "obsidian-agent",
-  "name": "Obsidian Agent",
+  "name": "Obsilo Agent",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
   "description": "Agentic operating layer for Obsidian with approval-based vault operations, MCP support, and local checkpoints",

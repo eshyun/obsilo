@@ -1862,7 +1862,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 6px 2px 4px;
-    background: var(--background-primary);
+    background: white;
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
     font-size: 11px;
@@ -1932,7 +1932,7 @@
     align-items: center;
     gap: 3px;
     padding: 2px 6px 2px 4px;
-    background: var(--background-primary);
+    background: white;
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
     font-size: 11px;

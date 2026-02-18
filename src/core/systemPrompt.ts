@@ -20,7 +20,7 @@ import type { McpClient } from './mcp/McpClient';
 // Vault context (always included)
 // ---------------------------------------------------------------------------
 
-const VAULT_CONTEXT = `You are Obsidian Agent, an AI assistant embedded directly inside the user's Obsidian vault. You think step by step and use tools to explore, read, and modify the vault before responding.
+const VAULT_CONTEXT = `You are Obsilo Agent, an AI assistant embedded directly inside the user's Obsidian vault. You think step by step and use tools to explore, read, and modify the vault before responding.
 
 ====
 

@@ -73,7 +73,7 @@ export class AgentSidebarView extends ItemView {
     }
 
     getDisplayText(): string {
-        return 'Obsidian Agent';
+        return 'Obsilo Agent';
     }
 
     getIcon(): string {
@@ -124,7 +124,7 @@ export class AgentSidebarView extends ItemView {
         const header = container.createDiv('agent-header');
 
         const titleRow = header.createDiv('agent-title');
-        titleRow.createSpan('agent-title-text').setText('Obsidian Agent');
+        titleRow.createSpan('agent-title-text').setText('Obsilo Agent');
 
         const headerRight = header.createDiv('agent-header-right');
 
@@ -433,7 +433,7 @@ export class AgentSidebarView extends ItemView {
 
     private showWelcomeMessage(): void {
         if (!this.chatContainer) return;
-        const welcomeMarkdown = `## Welcome to Obsidian Agent
+        const welcomeMarkdown = `## Welcome to Obsilo Agent
 
 An agentic AI assistant integrated into your vault.
 
@@ -538,15 +538,15 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
             const activeModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === activeKey);
             if (!activeKey || !activeModel) {
                 this.addAssistantMessage(
-                    'No model selected. Click the **model button** in the toolbar below, or go to **Settings → Obsidian Agent** to enable a model.',
+                    'No model selected. Click the **model button** in the toolbar below, or go to **Settings → Obsilo Agent** to enable a model.',
                 );
             } else if (activeModel.provider === 'ollama') {
                 this.addAssistantMessage(
-                    `**${activeModel.displayName ?? activeModel.name}** could not start. Make sure Ollama is running (\`ollama serve\`) and the model name is correct. Open **Settings → Obsidian Agent → Configure** to verify.`,
+                    `**${activeModel.displayName ?? activeModel.name}** could not start. Make sure Ollama is running (\`ollama serve\`) and the model name is correct. Open **Settings → Obsilo Agent → Configure** to verify.`,
                 );
             } else {
                 this.addAssistantMessage(
-                    `**${activeModel.displayName ?? activeModel.name}** has no API key. Add one in **Settings → Obsidian Agent → Configure**.`,
+                    `**${activeModel.displayName ?? activeModel.name}** has no API key. Add one in **Settings → Obsilo Agent → Configure**.`,
                 );
             }
             return;
@@ -1063,10 +1063,10 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
         const msg = error.message.toLowerCase();
         const status = (error as any).status ?? (error as any).statusCode;
         if (status === 401 || msg.includes('api key') || msg.includes('authentication')) {
-            return 'Invalid API key — check Settings → Obsidian Agent';
+            return 'Invalid API key — check Settings → Obsilo Agent';
         }
         if (status === 404 || msg.includes('not found')) {
-            return 'Model not found — verify the Model ID in Settings → Obsidian Agent';
+            return 'Model not found — verify the Model ID in Settings → Obsilo Agent';
         }
         if (status === 429 || msg.includes('rate limit')) {
             return 'Rate limit reached — please wait a moment';
@@ -1262,24 +1262,32 @@ Select a mode in the toolbar below and start chatting. The agent can read and wr
         const atIdx = beforeCursor.lastIndexOf('@');
         if (atIdx !== -1 && (atIdx === 0 || /\s/.test(beforeCursor[atIdx - 1]))) {
             const query = beforeCursor.slice(atIdx + 1).toLowerCase();
+
+            const makeFileOnSelect = (f: import('obsidian').TFile) => async () => {
+                if (!this.textarea) return;
+                const newValue = value.slice(0, atIdx) + value.slice(atIdx + 1 + query.length);
+                this.textarea.value = newValue.trim();
+                this.hideAutocompleteDropdown();
+                await this.addVaultFileAttachment(f);
+                this.textarea.focus();
+            };
+
+            // @active shortcut — currently open note
+            const currentFile = this.app.workspace.getActiveFile();
+            const activeOption = (currentFile && (query === '' || 'active'.startsWith(query)))
+                ? [{ label: 'Active note', sub: `@active → ${currentFile.basename}`, onSelect: makeFileOnSelect(currentFile) }]
+                : [];
+
             const allFiles = this.app.vault.getMarkdownFiles();
             const filtered = allFiles
                 .filter((f) => f.path.toLowerCase().includes(query))
                 .slice(0, 10);
-            if (filtered.length === 0) { this.hideAutocompleteDropdown(); return; }
-            this.autocompleteItems = filtered.map((f) => ({
-                label: f.basename,
-                sub: f.path,
-                onSelect: async () => {
-                    if (!this.textarea) return;
-                    // Remove @query from textarea, add file as attachment
-                    const newValue = value.slice(0, atIdx) + value.slice(atIdx + 1 + query.length);
-                    this.textarea.value = newValue.trim();
-                    this.hideAutocompleteDropdown();
-                    await this.addVaultFileAttachment(f);
-                    this.textarea.focus();
-                },
-            }));
+
+            this.autocompleteItems = [
+                ...activeOption,
+                ...filtered.map((f) => ({ label: f.basename, sub: f.path, onSelect: makeFileOnSelect(f) })),
+            ];
+            if (this.autocompleteItems.length === 0) { this.hideAutocompleteDropdown(); return; }
             this.autocompleteIndex = 0;
             this.renderAutocompleteDropdown();
             return;
