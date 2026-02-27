@@ -1,6 +1,7 @@
 # Codebase Analysis — Obsidian Agent
-**Datum:** 2026-02-19
-**Analysierte Dateien:** 60 TypeScript-Dateien, ~60.000 LOC (src/)
+**Datum:** 2026-02-26 (aktualisiert)
+**Analysierte Dateien:** 158 TypeScript-Dateien, ~38.000 LOC (src/)
+**Plugin-Version:** 1.1.0 (Obsilo Agent)
 **Vergleich mit:** forked-kilocode/ (2.368 TS-Dateien)
 
 ---
@@ -25,25 +26,38 @@
 | UseMcpToolTool | Basic call + error | Validation, MCP-Hub, Status-Updates | Weniger sicher |
 
 ### Unique in Obsidian Agent (nicht in Kilo Code)
-- SemanticIndexService (Vectra LocalIndex mit Batch-Embedding)
+- SemanticIndexService (Vectra LocalIndex mit Batch-Embedding, Hybrid Search mit RRF)
 - Obsidian-native Vault-Tools (Frontmatter, Daily Note, Backlinks, Search-by-Tag)
 - Bases-Tools (QueryBase, CreateBase, UpdateBase)
-- GenerateCanvas
+- GenerateCanvas + CreateExcalidraw
 - GitCheckpointService (isomorphic-git Shadow-Repo)
 - OperationLogger mit PII-Scrubbing
-- IgnoreService / .obsidian-agentignore
+- IgnoreService / .obsidian-agentignore + .obsidian-agentprotected
 - SupportPrompts / Quick-Action Templates
+- 3-Tier Memory Architecture (Session → Long-Term → Soul)
+- VaultDNA Plugin Discovery (Auto-Skill-Generation fuer installierte Plugins)
+- Agent Skill Mastery (Recipes, Episodic Memory, Auto-Promotion)
+- i18n (6 Sprachen: DE, EN, ES, JA, ZH-CN, HI)
+- Global Storage Architecture (cross-vault Settings via ~/.obsidian-agent/)
+- SafeStorageService (Electron-Keychain-Verschluesselung fuer API-Keys)
+- Onboarding-Wizard (5-Schritt Setup-Dialog)
+- Code Import Modal (Auto-Extract von Provider/URL/Models aus Paste)
 
-### Fehlt im Vergleich zu Kilo Code
-- `ToolRepetitionDetector` (Loop-Detection bei wiederholtem Tool-Call)
+### Inzwischen implementiert (frueher fehlend)
+- `ToolRepetitionDetector` — Sliding Window (10 Calls, max 3 Wiederholungen), fuzzy dedup, ledger
+- `ExecuteCommandTool` — Obsidian-Commands via Plugin-API
+- `ReadFileTool` Content Truncation — 20K chars max
+- `CallPluginApiTool` — Plugin-API-Bridge mit Allowlist
+- `ExecuteRecipeTool` — Procedural Recipes Shell
+- `UpdateSettingsTool` + `ConfigureModelTool` — Settings via Agent
+
+### Weiterhin fehlend im Vergleich zu Kilo Code
 - `ApplyDiffTool` / `MultiApplyDiffTool` (Patch-basiertes Editing)
-- `ExecuteCommandTool` (System-Commands)
-- Token-Budget-Management in ReadFileTool
 - Image-Support in ReadFileTool
 - Line-Range-Support in ReadFileTool
 
 ### Bewertung
-Das Plugin ist **~40% der Kilo Code Codebasis** und fokussiert sich bewusst auf Obsidian-spezifische Features. Die Kern-Architektur (Agent Loop, Tool Registry, API Providers) ist konzeptuell identisch. Die Vereinfachungen sind für den Use-Case vertretbar, aber einzelne Features (ReadFileTool, EditFileTool-Matching) sind gegenüber dem Original degradiert.
+Das Plugin hat **158 TypeScript-Dateien (~38k LOC)** und deckt alle Kilo-Code-Kernfeatures ab, plus umfangreiche Obsidian-spezifische Erweiterungen (Semantic Index, Memory, VaultDNA, Mastery, i18n, Bases). Die Kern-Architektur (Agent Loop, Tool Registry, API Providers) ist konzeptuell identisch. Feature-Paritaet bei Kernfunktionalitaet: ~85%.
 
 ---
 
@@ -70,10 +84,12 @@ attempt_completion / MAX_ITERATIONS → done
 **Status:** Korrekt implementiert. Die jüngste Bugfix-Runde hat kritische Probleme (orphaned tool_calls, condensing timing, getModelContextWindow) behoben. Verbleibende Minor-Bugs dokumentiert in Abschnitt 4.
 
 ### Tool Registry & Execution
-- `ToolRegistry` registriert 30+ Built-in Tools + UseMcpToolTool
+- `ToolRegistry` registriert 37 Built-in Tools + UseMcpToolTool
 - `ToolExecutionPipeline` handhabt Approval, Snapshot, Execution, Logging
-- Tool-Gruppen: `read`, `note-edit`, `vault-change`, `web`, `agent`, `mcp`
+- Tool-Gruppen: `read`, `vault`, `edit`, `web`, `agent`, `skill`, `mcp` (7 Gruppen)
 - Fail-Closed bei fehlender Approval-Callback — korrekt
+- Pipeline Result Cache (per-task, write-invalidation)
+- ToolRepetitionDetector (fuzzy dedup, ledger, recoverable errors)
 
 **Status:** Gut strukturiert, Approval-Flow korrekt.
 
@@ -127,13 +143,12 @@ attempt_completion / MAX_ITERATIONS → done
 5. **SemanticIndex:** Obsidian-spezifischer Mehrwert gegenüber Kilo Code
 6. **Minimalismus:** ~40% von Kilo Code, aber fokussiert und wartbar
 
-### Schwächen
-1. **Monolithische UI-Dateien:** `AgentSidebarView.ts` und `AgentSettingsTab.ts` sind sehr groß (>3000 LOC zusammen)
+### Schwaechen
+1. **Monolithische UI-Dateien:** `AgentSidebarView.ts` ist sehr gross (~146 KB)
 2. **Keine Tool-Input-Validation:** Kein standardisiertes Schema-Validation (kein zod/joi)
 3. **Inkonsistente Error-Message-Formate:** `<error>` Tags, raw strings, structured objects gemischt
-4. **Kein ToolRepetitionDetector:** Agent kann in endlose Tool-Loops geraten
-5. **Token-Estimation ungenau:** 4 chars/token-Annahme ist zu grob
-6. **Kein standardisierter ToolResult-Typ:** content ist immer `string`, kein structured data
+4. **Token-Estimation ungenau:** 4 chars/token-Annahme ist zu grob
+5. **Kein standardisierter ToolResult-Typ:** content ist immer `string`, kein structured data
 
 ### Erweiterbarkeit
 - Neue Tools: einfach (BaseTool erweitern, in registerInternalTools eintragen)
@@ -200,38 +215,43 @@ attempt_completion / MAX_ITERATIONS → done
 ## 6. Sicherheits-Bewertung (SonarQube/NexusIQ Analog)
 
 ### Kritisch
-- **Prompt Injection:** Vault-Inhalte können als Agent-Instructions interpretiert werden (Multi-Agent besonders anfällig)
-- **API-Key-Speicherung:** Plaintext in `settings.json` — bei Vault-Sharing exponiert
+- **Prompt Injection:** Vault-Inhalte koennen als Agent-Instructions interpretiert werden (Multi-Agent besonders anfaellig)
 
 ### Hoch
-- **MCP Tool-Poisoning:** Externe MCP-Server können beliebige Tools registrieren ohne Whitelist
-- **Shell-Injection:** stdio-MCP-Commands werden nur gewarnt, nicht sanitized
-- **SSRF:** WebFetchTool hat IP-Range-Blacklist (169.254.x, 10.x, 192.168.x) — größtenteils adressiert
+- **MCP Tool-Poisoning:** Externe MCP-Server koennen beliebige Tools registrieren — per-Mode Whitelist existiert, aber keine Schema-Validation
+- **Shell-Injection:** stdio-MCP-Commands werden nur gewarnt, nicht geblockt
+- **SSRF:** WebFetchTool hat IP-Range-Blacklist (169.254.x, 10.x, 192.168.x) — groesstenteils adressiert
 
 ### Mittel
 - **JSON.parse ohne Schema-Validation:** GlobalModeStore, SemanticIndex, Settings
-- **ReDoS in QueryBaseTool:** Filter-Parser ohne Längen/Komplexitätslimit
-- **Unverschlüsselte Chat-History:** Sensible Daten (API-Keys im Chat) im Klartext gespeichert
+- **ReDoS in QueryBaseTool:** Filter-Parser ohne Laengen/Komplexitaetslimit
+- **Unverschluesselte Chat-History:** Sensible Daten (API-Keys im Chat) im Klartext gespeichert
+
+### Behoben (seit Erstanalyse)
+- **API-Key-Speicherung:** SafeStorageService nutzt Electron safeStorage (OS Keychain) — ADR-019
+- **ToolRepetitionDetector:** Sliding Window + fuzzy dedup verhindert endlose Tool-Loops
 
 ### Governance (positiv)
 - IgnoreService + Protected-Paths: gut
 - OperationLogger mit PII-Scrubbing: gut
 - Approval-Flow mit Fail-Closed: gut
-- GitCheckpoints für Rollback: gut
+- GitCheckpoints fuer Rollback: gut
 - 50KB Datei-Limit in RulesLoader: gut
 - 500KB Limit in GlobalModeStore: gut
+- Plugin-API Allowlist (CallPluginApiTool): gut
+- ReadFile Content Truncation (20K chars): gut
 
 ---
 
 ## 7. Gesamtbewertung
 
-| Kriterium | Bewertung | Begründung |
+| Kriterium | Bewertung | Begruendung |
 |-----------|-----------|-----------|
-| Kilo Code Klon | 7/10 | Kern-Architektur identisch, einzelne Tools vereinfacht |
-| Funktion | 8/10 | Alle Features implementiert, Minor-Bugs vorhanden |
-| Effizienz | 6/10 | Mehrere O(N)-Operationen in Hot-Paths |
-| Robustheit | 6/10 | Kein ToolRepetitionDetector, JSON-Parse silent fails |
-| Sicherheit | 5/10 | API-Key-Speicherung, Prompt Injection, MCP-Whitelist fehlt |
-| Erweiterbarkeit | 8/10 | Klare Patterns, einfaches Tool-Hinzufügen |
+| Kilo Code Klon | 9/10 | Kern-Architektur identisch, ~85% Feature-Paritaet, plus umfangreiche Obsidian-spezifische Erweiterungen |
+| Funktion | 9/10 | 37 Tools, 7 Gruppen, Memory, Semantic Search, Multi-Agent, i18n, VaultDNA — alle Phasen (A-D) komplett |
+| Effizienz | 6/10 | Mehrere O(N)-Operationen in Hot-Paths, BM25 ist Live-Scan |
+| Robustheit | 7/10 | ToolRepetitionDetector implementiert, Pipeline Result Cache, Content Truncation. JSON-Parse silent fails teilweise noch vorhanden |
+| Sicherheit | 7/10 | SafeStorage fuer API-Keys, Plugin-API Allowlist, MCP-Whitelist per Mode. Prompt Injection bleibt systeminhaerentes Risiko |
+| Erweiterbarkeit | 9/10 | Klare Patterns, einfaches Tool-Hinzufuegen, MCP, Plugin-API, Recipes |
 
-**Gesamtbewertung: 7/10** — Production-fähig für Einzelnutzer, aber vor breitem Einsatz sollten Sicherheits- und Robustheitslücken geschlossen werden.
+**Gesamtbewertung: 8/10** — Production-faehig mit umfassenden Safety Controls. Verbleibende Schwaechen bei Token-Estimation und monolithischer UI-Datei.

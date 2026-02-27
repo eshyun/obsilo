@@ -44,7 +44,7 @@
 | `[x]` | Anthropic provider | `src/api/providers/anthropic.ts` |
 | `[x]` | OpenAI-compatible provider | `src/api/providers/openai.ts` |
 | `[x]` | Custom models + per-model temperature | `src/types/settings.ts` |
-| `[~]` | Safe Storage (Electron safeStorage, OS Keychain encryption for API keys) | `src/core/security/SafeStorageService.ts` |
+| `[x]` | Safe Storage (Electron safeStorage, OS Keychain encryption for API keys) | `src/core/security/SafeStorageService.ts` |
 
 ### Core: MCP
 | Status | Feature | Datei |
@@ -249,11 +249,11 @@
 
 ## Dokumentation
 
-### Feature-Specs (43 Dateien in `devprocess/requirements/features/`)
+### Feature-Specs (43 Dateien in `_private/requirements/features/`)
 
 Alle implementierten Features haben eine `FEATURE-*.md` Spec.
 
-### Architecture (18 ADRs + arc42)
+### Architecture (20 ADRs + arc42)
 
 | ADR | Entscheidung |
 |-----|-------------|
@@ -275,8 +275,10 @@ Alle implementierten Features haben eine `FEATURE-*.md` Spec.
 | ADR-016 | Rich Tool Descriptions |
 | ADR-017 | Procedural Skill Recipes |
 | ADR-018 | Episodic Task Memory |
+| ADR-019 | Electron SafeStorage (OS Keychain) |
+| ADR-020 | Global Storage Architecture |
 
-### Technische Dokumentation (10 Dateien in `devprocess/implementation/`)
+### Technische Dokumentation (12 Dateien in `_private/implementation/`)
 
 | Datei | Inhalt |
 |-------|--------|

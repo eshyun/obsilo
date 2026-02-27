@@ -1,7 +1,7 @@
-# Obsidian Agent - Setup Complete! 🎉
+# Obsidian Agent - Setup Complete (HISTORISCH)
 
 **Date:** 2026-02-17
-**Status:** ✅ Architecture Documented + Plugin Boilerplate Created
+**Status:** ARCHIVIERT — Dieses Dokument beschreibt den initialen Setup-Stand. Alle Phasen (A-D) sind seit 2026-02-26 komplett. Siehe BACKLOG.md fuer aktuellen Stand.
 
 ---
 

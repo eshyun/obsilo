@@ -1,7 +1,7 @@
 # arc42 — Obsidian Agent Architecture
 
-**Version:** 3.1
-**Stand:** 2026-02-25
+**Version:** 3.2
+**Stand:** 2026-02-26
 **Status:** Aktuell — alle Features implementiert, Dokumentation vollstaendig
 
 ---
@@ -42,7 +42,7 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 ### 2.2 Organisatorische Randbedingungen
 - Apache 2.0 Lizenz
 - Kilo Code als Referenzimplementierung (`forked-kilocode/`, gitignored, device-local)
-- Private Dokumentation in `devprocess/` (gitignored, nie publiziert)
+- Private Dokumentation in `_private/` (nur im dev-Branch getrackt, nie publiziert)
 
 ---
 
@@ -134,7 +134,7 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 | `AttachmentHandler` | Datei-Anhänge als Kontext in der Chat-Eingabe |
 | `ApproveEditModal` | Line-by-line Diff-View vor Edit-Approval |
 | `HistoryPanel` | Sliding overlay mit gruppierten Gesprächen, Suche, Restore |
-| `AgentSettingsTab` | Settings-Router (19 Tabs, inkl. Memory, Language, Log) |
+| `AgentSettingsTab` | Settings-Router (20 Tabs, inkl. Memory, Language, Log, Shell) |
 
 ### 5.2 Ebene 2: Core Engine
 
@@ -545,7 +545,7 @@ VaultDNA ermoeglicht dem Agent die Nutzung aller installierten Obsidian-Plugins:
 
 ## 9. Architekturentscheidungen
 
-Siehe einzelne ADRs in `devprocess/architecture/`:
+Siehe einzelne ADRs in `_private/architecture/`:
 
 | ADR | Entscheidung |
 |-----|-------------|
@@ -567,6 +567,8 @@ Siehe einzelne ADRs in `devprocess/architecture/`:
 | [ADR-016](ADR-016-rich-tool-descriptions.md) | Rich Tool Descriptions (example, whenToUse, commonMistakes) |
 | [ADR-017](ADR-017-procedural-recipes.md) | Procedural Skill Recipes (keyword-first Matching, Budget) |
 | [ADR-018](ADR-018-episodic-task-memory.md) | Episodic Task Memory (Aufzeichnung, Auto-Promotion) |
+| [ADR-019](ADR-019-electron-safestorage.md) | Electron SafeStorage (OS Keychain fuer API-Keys) |
+| [ADR-020](ADR-020-global-storage.md) | Global Storage Architecture (cross-vault Settings) |
 
 ---
 
@@ -634,3 +636,12 @@ Siehe einzelne ADRs in `devprocess/architecture/`:
 | **Soul** | Persistente Agent-Persoenlichkeit (Name, Sprache, Werte, Anti-Patterns) in `memory/soul.md` |
 | **OnboardingService** | Erkennt ersten Kontakt und fuehrt den Nutzer durch einen 5-Schritt-Setup-Dialog |
 | **ExplicitInstructions** | Best-Practice-Anweisungen im System Prompt (z.B. "Vault is sacred", parallele Reads) |
+| **SafeStorageService** | Verschluesselt API-Keys via Electron safeStorage (OS Keychain). ADR-019 |
+| **GlobalFileService** | Liest/schreibt Dateien im globalen Verzeichnis ~/.obsidian-agent/ fuer cross-vault Persistenz |
+| **GlobalSettingsService** | Verwaltet globale Settings (500KB Limit), migriert von vault-lokaler zu globaler Speicherung |
+| **SyncBridge** | Bidirektionale Synchronisation von globalen Daten mit Obsidian Sync (via .obsidian/ Mirror) |
+| **GlobalMigrationService** | One-time Migration von vault-lokalen zu globalen Settings beim Plugin-Start |
+| **FileAdapter** | Interface-Abstraktion fuer Dateizugriff (Obsidian Vault API oder Node.js fs), entkoppelt Services von konkretem Storage |
+| **RecipeStore** | Persistiert gelernte Rezepte (Procedural Memory) im Plugin-Verzeichnis |
+| **EpisodicExtractor** | Zeichnet erfolgreiche Tool-Sequenzen auf und speichert sie als episodische Erinnerungen |
+| **RecipePromotionService** | Promoviert haeufig erfolgreiche Episoden (3+ Erfolge) automatisch zu wiederverwendbaren Rezepten |

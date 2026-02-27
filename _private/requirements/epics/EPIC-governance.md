@@ -1,6 +1,7 @@
 # Epic: Governance & Safety
-Scope: MVP
+Scope: Production (alle Phasen komplett)
 Owner: Product Lead
+Status: IMPLEMENTIERT
 
 ## Hypothesis
 Enforcing strict "approval-by-default" and mandatory local checkpoints transforms AI interaction from "risky magic" into a "safe, controllable power tool," encouraging use on critical knowledge bases.
@@ -9,19 +10,26 @@ Enforcing strict "approval-by-default" and mandatory local checkpoints transform
 - Zero reported data loss during beta.
 - High acceptance rate of "Suggest" actions (trust).
 
-## In scope
-- Approval System (UI for proposed actions)
-- Operation Logging (History of all tool calls)
-- Checkpoint System (Diff, Commit, Restore)
-- Ignore System (`.obsidian-agentignore`)
+## Implementiert
+- Approval System (Fail-Closed, per-category Auto-Approve, DiffReviewModal)
+- Operation Logging (JSONL Audit Trail mit PII-Scrubbing)
+- Checkpoint System (isomorphic-git Shadow-Repo, Diff, Restore, Undo-Bar)
+- Ignore System (.obsidian-agentignore + .obsidian-agentprotected)
+- Tool Repetition Detection (Sliding Window, fuzzy dedup, ledger)
+- SafeStorage (Electron safeStorage, OS Keychain fuer API-Keys)
+- Plugin API Allowlist (CallPluginApiTool)
+- ReadFile Content Truncation (20K chars)
 
 ## Out of scope
 - Advanced Git conflict resolution UI (CLI fallback expected)
 - Remote sync of checkpoints
 
 ## Feature list
-| Feature | Priority | Notes |
-|---|---|---|
-| Approval Workflow | P0 | Before-write confirmation |
-| Local Checkpoints | P0 | Isomorphic-git based |
-| Operation Log | P1 | Audit trail |
+| Feature | Priority | Status | Notes |
+|---|---|---|---|
+| Approval Workflow | P0 | Done | Fail-closed, DiffReviewModal, Auto-Approve |
+| Local Checkpoints | P0 | Done | isomorphic-git shadow repo |
+| Operation Log | P1 | Done | JSONL audit trail, Log-Viewer in Settings |
+| Ignore/Protected | P0 | Done | Path-level access control |
+| Tool Repetition Detection | P1 | Done | Sliding window, fuzzy dedup |
+| SafeStorage | P1 | Done | OS Keychain encryption (ADR-019) |
