@@ -3,6 +3,7 @@
 > Herleitung und Reasoning fuer die Self-Development-Architektur von Obsilo Agent
 
 **Datum**: 2026-02-28
+**Revision**: 2 (Security-Architektur ueberarbeitet)
 **Status**: Analyse abgeschlossen, Implementierung ausstehend
 
 ---
@@ -13,6 +14,11 @@
 
 Der Agent ist das **einzige Interface**. Der User promptet, der Agent konfiguriert und erweitert sich selbst. Eine Basisversion wird als Community Plugin ausgeliefert — alles darueber hinaus entsteht durch Interaktion mit dem Agent.
 
+**Konkrete Szenarien:**
+- User: "Ich brauche eine Moeglichkeit im Browser was zu machen" → Agent recherchiert, findet Playwright, konfiguriert Remote-Browser-MCP, speichert als Skill
+- User: "Analysiere diese Daten nach Kriterium X" → Agent schreibt Analyse-Tool in TypeScript, liefert Ergebnisse/Grafiken
+- User: "Erstelle eine PowerPoint aus dieser Note" → Agent schreibt PPTX-Generator, nutzt pptxgenjs, liefert Datei
+
 ### 1.2 Ausgangsvorschlag: Sandboxed Code Execution (Sonnet 4.6)
 
 Die initiale Idee (erarbeitet mit Sonnet 4.6) sah vor:
@@ -20,7 +26,7 @@ Die initiale Idee (erarbeitet mit Sonnet 4.6) sah vor:
 - Strikte Trennung von Agent-Code und User-Code
 - Vorinstallierte Utility-Libraries in der Sandbox
 
-### 1.3 Warum dieser Ansatz nicht funktioniert
+### 1.3 Warum isolated-vm nicht funktioniert
 
 **`isolated-vm` erfordert native C++ Kompilierung (node-gyp)**. Das bricht fundamental mit dem Obsidian Community Plugin-Modell:
 
@@ -31,13 +37,43 @@ Die initiale Idee (erarbeitet mit Sonnet 4.6) sah vor:
 
 **Erkenntnis**: Jede Loesung muss mit reinem JavaScript/TypeScript funktionieren, das in einer einzigen `main.js` gebundelt wird.
 
+### 1.4 Warum vm.createContext() nicht ausreicht (Revision 2)
+
+Der erste Entwurf sah `vm.createContext()` als Sandbox vor. **Das ist fundamental unsicher:**
+
+**Node.js sagt selbst:** *"The vm module is not a security mechanism. Do not use it to run untrusted code."*
+
+Bekannte Breakout-Techniken:
+```javascript
+({}).constructor.constructor('return process')()           // Prototype Chain
+try { null.x } catch(e) { e.constructor.constructor('return process')() }  // Error Object
+Promise.resolve().then.constructor('return process')()     // Promise
+```
+
+**AST/Regex-Validation ist umgehbar:**
+```javascript
+\u0065\u0076\u0061\u006c('...')        // Unicode → eval
+const e='ev', a='al'; this[e+a]('...')  // String Concatenation
+```
+
+**Die Angriffskette:**
+```
+Prompt Injection (MCP-Response, Vault-Inhalt)
+  → Agent schreibt "nuetzliches" Dynamic Module (mit verstecktem Breakout)
+  → AstValidator erkennt obfuskierten Code NICHT
+  → vm.createContext() Breakout → Voller Node.js-Zugriff
+  → require('child_process') → Rechner kompromittiert
+```
+
+**Kritisch**: Obsidian Plugins laufen mit `nodeIntegration: true`. Code der aus der vm-Sandbox ausbricht hat vollen Zugriff auf Dateisystem, Netzwerk, Prozesse, und Umgebungsvariablen (API Keys).
+
 ---
 
 ## 2. Herleitungskette
 
 ### 2.1 Constraint-Analyse
 
-Aus der Diskussion kristallisierten sich vier harte Constraints heraus:
+Fuenf harte Constraints (einer mehr als im ersten Entwurf):
 
 | Constraint | Implikation |
 |-----------|------------|
@@ -45,6 +81,7 @@ Aus der Diskussion kristallisierten sich vier harte Constraints heraus:
 | **Community-Plugin-tauglich** | Einzelne main.js, keine native Dependencies, kein node-gyp |
 | **Review-Bot compliant** | Kein fetch(), kein console.log(), kein innerHTML, keine hardcodierten Pfade |
 | **Kein Tier-2** | Alle Faehigkeiten muessen in Tier 1 (innerhalb Electron) verfuegbar sein |
+| **Echte Isolation** | Dynamischer Code darf UNTER KEINEN UMSTAENDEN auf Host-Ressourcen zugreifen koennen |
 
 ### 2.2 Inspiration: OpenClaw und Craft Agents
 
@@ -72,7 +109,7 @@ Stufe 1: Skills (Markdown)
 Stufe 2: Dynamic Modules (TypeScript → JS)
   → Neue Capabilities via kompilierten Code
   → ~15% der Faelle
-  → Risiko: Mittel (Sandbox)
+  → Risiko: Mittel (Chromium Sandbox)
 
 Stufe 3: Core Self-Modification
   → Plugin baut sich selbst neu
@@ -80,172 +117,234 @@ Stufe 3: Core Self-Modification
   → Risiko: Hoch (Backup + Rollback)
 ```
 
-**Warum drei Stufen?**
-- **Stufe 1** deckt die haeufigsten Faelle ab (neue Workflows, Vorlagen, Routinen)
-- **Stufe 2** wird erst noetig, wenn tatsaechlicher Code benoetigt wird (Datentransformationen, Berechnungen)
-- **Stufe 3** ist der letzte Ausweg, wenn ein Bug im kompilierten Core-Code liegt
-
-Der Agent waehlt automatisch die niedrigste ausreichende Stufe.
-
 ### 2.4 Loesung des Build-Problems: esbuild-wasm
 
-**Problem**: TypeScript muss in JavaScript kompiliert werden, aber wir haben keinen Zugriff auf den Host (kein npx, kein tsc).
+**Problem**: TypeScript muss in JavaScript kompiliert werden, aber wir haben keinen Zugriff auf den Host.
 
 **Loesung**: `esbuild-wasm` — eine reine WebAssembly-Version von esbuild:
 - Laeuft in-process innerhalb von Electron
 - Keine native Dependencies
-- ~11MB, kann on-demand via `requestUrl` (Obsidian API) heruntergeladen werden
-- Kompiliert einzelne Module in ~100ms, Full-Rebuild in ~20-30s
+- ~11MB, on-demand via `requestUrl` (Obsidian API) heruntergeladen
+- `transform()` fuer einzelne Module (~100ms), `build()` mit virtuellem Dateisystem fuer Module mit Libraries
+- Full-Rebuild des Plugins in ~20-30s
 
-**On-Demand Bootstrapping**: esbuild-wasm wird NICHT mit dem Plugin ausgeliefert (zu gross fuer Community Plugin). Stattdessen:
-1. Beim ersten Bedarf fragt der Agent: "Ich brauche meine Entwicklungsumgebung (~11MB). Fortfahren?"
-2. Download via `requestUrl` (npm CDN)
-3. Lokale Speicherung im Plugin-Daten-Verzeichnis
-4. Danach sofort verfuegbar fuer alle zukuenftigen Kompilierungen
+**Wichtig**: Nicht nur `transform` sondern auch `build()` mit Plugins — noetig damit Module npm-Libraries bundlen koennen (pptxgenjs, d3, etc.).
 
-### 2.5 Loesung des Sandbox-Problems: vm.createContext()
+### 2.5 Loesung des Sandbox-Problems: Chromium iframe Sandbox (Revision 2)
 
-**Problem**: Dynamisch kompilierter Code muss sicher ausgefuehrt werden, ohne Zugriff auf Host-Ressourcen.
+**Problem**: Dynamisch kompilierter Code muss sicher ausgefuehrt werden. vm.createContext() ist keine Security-Grenze.
 
-**Loesung**: Node.js `vm` Modul (in Electron verfuegbar):
-- `vm.createContext()` erstellt eine isolierte Ausfuehrungsumgebung
-- Nur explizit injizierte APIs sind verfuegbar (Vault-Zugriff, JSON, Math, Date, RegExp)
-- NICHT verfuegbar: process, require, import, fs, child_process, net, http, electron, fetch, window, document
+**Loesung**: `<iframe sandbox="allow-scripts">` — Chromium's eigene Sandbox:
 
-**Zusaetzliche Sicherheit**: AST-Validation vor Kompilierung blockiert:
-- `eval`, `Function`, `require`, `import`
-- `process`, `__proto__`, `this.constructor`
-- `arguments.callee`, `Proxy`, `Reflect`
-- Alle Node.js built-in Module
+```
+Plugin (main.js) — hat Node.js-Zugriff, kontrolliert alles
+    |
+    |====== postMessage Bridge (einziger Kanal) ======|
+    |
+    v
+iframe (Chromium Sandbox)
+    |-- Kein Node.js, kein require, kein fs, kein Netzwerk
+    |-- Nur Standard-Browser-APIs (kein DOM des Parents)
+    |-- Kommunikation NUR ueber postMessage
+    |-- Kann NICHT ausbrechen (Chromium Sandbox Guarantee)
+```
 
-### 2.6 Loesung des Codebase-Knowledge-Problems: Embedded Source
+**Warum das funktioniert:**
+- Chromium's Sandbox ist seit 15+ Jahren kampferprobt
+- Google zahlt Millionen Dollar Bounties fuer Sandbox-Escapes
+- `sandbox="allow-scripts"` OHNE `allow-same-origin` verhindert jeden Zugriff auf den Parent
+- Kein Node.js, kein require, kein process — nichts davon existiert im iframe
+- Selbst wenn Code boesartig ist: Er kann NICHTS tun ausser ueber die Bridge kommunizieren
 
-**Problem**: Der Agent kennt seine eigene Codebase nicht. Community-User haben nur `main.js`, keine `.ts`-Dateien.
+**Die Bridge kontrolliert alles:**
+- Plugin-Seite entscheidet welche Vault-Pfade gelesen werden duerfen
+- Plugin-Seite entscheidet welche URLs aufgerufen werden duerfen (Allowlist)
+- Plugin-Seite entscheidet ob Writes erlaubt sind (User-Approval)
+- Rate Limiting auf allen Bridge-Operationen
 
-**Loesung**: Zwei Ebenen von Self-Knowledge:
+### 2.6 Loesung des Library-Problems: In-Process Package Manager
 
-1. **ARCHITECTURE.md** (eingebettet im Plugin):
-   - Beschreibt Key Files, Interfaces, Import-Graph, Patterns
-   - Reicht fuer Dynamic Modules (Agent muss nur DynamicToolDefinition kennen)
-   - Aktualisiert bei jedem Release
+**Problem** (im ersten Entwurf ungeloest): Der Agent braucht Libraries (pptxgenjs, d3, csv-parse) — aber es gibt kein npm innerhalb von Electron.
 
-2. **EMBEDDED_SOURCE** (fuer Core Self-Modification):
-   - TypeScript-Source komprimiert in main.js eingebettet (~200-500KB)
-   - Generiert durch esbuild-Plugin waehrend des Builds
-   - Agent extrahiert Source bei Bedarf, modifiziert im Speicher, baut neu
+**Loesung**: Agent laedt Pakete via `requestUrl` von CDN:
+1. Agent erkennt Library-Bedarf (z.B. "brauche pptxgenjs fuer PPTX-Generierung")
+2. Plugin-Seite laedt Paket von unpkg/jsdelivr via `requestUrl` (URL-Allowlist!)
+3. Speicherung in Plugin-Daten-Verzeichnis unter `packages/`
+4. esbuild-wasm `build()` mit Plugin das Imports gegen lokale Packages aufloest
+5. Gebundeltes JS wird in der iframe-Sandbox ausgefuehrt
 
-### 2.7 Integration mit bestehendem Memory-System
+### 2.7 Loesung des Codebase-Knowledge-Problems: Embedded Source
 
-**Problem**: Wie weiss der Agent, was er gelernt hat, welche Tools er erstellt hat, und welche Fehler er kennt?
+**Problem**: Der Agent kennt seine eigene Codebase nicht.
 
-**Bestehendes System** (voll funktionsfaehig):
-- `soul.md` — Persoenlichkeit
-- `user-profile.md` — User-Kontext
-- `patterns.md` — 9 Verhaltensmuster
-- `learnings.md` — 10+ Learnings
-- `projects.md` — Aktive Projekte
-- `sessions/` — 10+ Session-Summaries
-- `episodes/` — 31 aufgezeichnete Episodes
+**Loesung**: Zwei Ebenen:
 
-**Erweiterung fuer Self-Development**:
-- `errors.md` — Wiederkehrende Fehler + Loesungen (NEUE Memory-Datei)
-- `custom-tools.md` — Register aller erstellten Dynamic Tools + Skills (NEUE Memory-Datei)
-- LongTermExtractor erkennt Self-Improvement-Facts:
-  - Skill erstellt → learnings.md Update
-  - Error gefixt → errors.md Update
-  - Pattern erkannt → patterns.md Update
-  - Tool erstellt → custom-tools.md Update
+1. **ARCHITECTURE.md** (eingebettet): Fuer Dynamic Modules (Agent kennt nur DynamicToolDefinition)
+2. **EMBEDDED_SOURCE** (fuer Core Self-Modification): TypeScript-Source komprimiert in main.js (~200-500KB)
 
-**Pre-Compaction Memory Flush** (von OpenClaw):
-Vor Context-Condensing in AgentTask: automatischer Prompt an den Agent um wichtige Erkenntnisse in Memory zu persistieren. Verhindert Wissensverlust bei langen Sessions.
+### 2.8 Integration mit bestehendem Memory-System
+
+**Bestehendes System** (voll funktionsfaehig): soul.md, user-profile.md, patterns.md, learnings.md, projects.md, sessions/, episodes/
+
+**Erweiterung**:
+- `errors.md` — Wiederkehrende Fehler + Loesungen
+- `custom-tools.md` — Register erstellter Dynamic Tools + Skills
+- LongTermExtractor erkennt Self-Improvement-Facts
+- Pre-Compaction Memory Flush vor Context-Condensing
 
 ---
 
-## 3. Architektur-Entscheidungen
+## 3. Security-Architektur: Defense in Depth
 
-### 3.1 Dynamic Modules sind NICHT Teil von main.js
+### 3.1 Fuenf Sicherheitsschichten
 
-**Entscheidung**: Dynamic Modules werden separat kompiliert und separat geladen. main.js aendert sich nur bei Core Self-Modification (Stufe 3).
+```
+Schicht 1: User Review
+  Agent zeigt generierten Code. User kann ablehnen.
+  → Schuetzt gegen: Offensichtlich boesartigen Code
 
-**Begruendung**:
-- Unabhaengige Lebenszyklen (Module koennen hinzugefuegt/entfernt werden ohne Rebuild)
-- Sandbox-Isolation (vm.createContext fuer jedes Modul)
-- Geringeres Risiko (fehlerhaftes Modul bricht nicht das Plugin)
+Schicht 2: AST/Pattern Validation
+  Blockiert eval, require, process, __proto__, etc.
+  → Schuetzt gegen: Einfache Angriffe, versehentlich unsicheren Code
+  → NICHT ausreichend allein (umgehbar)
 
-### 3.2 Patch-Module vor Full Rebuild
+Schicht 3: Chromium Sandbox (iframe)        ← PRIMAERE SICHERHEITSGRENZE
+  Echte OS-Level-Isolation. Kein Node.js, kein Dateisystem, kein Netzwerk.
+  → Schuetzt gegen: ALLE Code-Breakout-Techniken
+  → 15+ Jahre kampferprobt, Google Bounty Program
+
+Schicht 4: Controlled Bridge
+  Plugin-Seite kontrolliert alle APIs:
+  - vault.read: Nur Dateien innerhalb des Vault
+  - vault.writeBinary: Nur mit User-Approval
+  - requestUrl: Nur URLs auf der Allowlist (npm CDN)
+  → Schuetzt gegen: Privilege Escalation
+
+Schicht 5: Rate Limiting + Monitoring
+  - Max 10 vault.write pro Minute
+  - Max 5 requestUrl pro Minute
+  - Alle Operationen im ConsoleRingBuffer geloggt
+  → Schuetzt gegen: Exfiltration, DoS
+```
+
+### 3.2 Prompt Injection Mitigationen
+
+| Vektor | Mitigation |
+|--------|-----------|
+| MCP-Response mit Instruktionen | Tool-Ergebnisse als Daten markiert, nicht als System-Prompt |
+| Vault-Inhalt mit versteckten Befehlen | Vault-Inhalte in `<document>` Tags, niedrigste Prioritaet |
+| Supply-Chain (backdoored npm-Paket) | URL-Allowlist (nur bekannte CDNs), Groessen-Check, User-Review |
+| User wird getaeuscht | Nicht technisch loesbar — User ist Trust-Boundary |
+
+### 3.3 Was sich gegenueber Entwurf 1 geaendert hat
+
+| Entwurf 1 (unsicher) | Entwurf 2 (sicher) |
+|----------------------|-------------------|
+| `vm.createContext()` als Sandbox | `<iframe sandbox="allow-scripts">` |
+| Direkte API-Injection in vm-Context | postMessage Bridge mit kontrollierten Endpunkten |
+| AST-Validation als primaere Sicherheit | AST-Validation als ergaenzende Schicht |
+| Keine URL-Allowlist | URL-Allowlist fuer requestUrl-Bridge |
+| Keine Rate Limits | Rate Limiting auf Bridge-Operationen |
+| "Electron = Sandbox" Annahme | Chromium Sandbox = echte Sicherheitsgrenze |
+| Nur text-basiertes vault.write | vault.writeBinary fuer ArrayBuffer (PPTX, Bilder) |
+| Nur `transform()` | Auch `build()` mit virtuellem Dateisystem fuer Library-Bundling |
+| 100KB Source-Limit | 2MB Output-Limit (gebundelte Libraries) |
+
+---
+
+## 4. Architektur-Entscheidungen
+
+### 4.1 Dynamic Modules sind NICHT Teil von main.js
+
+**Entscheidung**: Dynamic Modules werden separat kompiliert, in der iframe-Sandbox ausgefuehrt. main.js aendert sich nur bei Core Self-Modification (Stufe 3).
+
+### 4.2 Patch-Module vor Full Rebuild
 
 **Entscheidung**: Bevor der Agent einen Full Rebuild macht, versucht er einen Patch als Dynamic Module.
 
-**Begruendung**:
-- Patch-Module: Kein Rebuild, kein Risiko, sofort wirksam, main.js bleibt unberuehrt
-- Full Rebuild: ~20-30s, kann Plugin brechen, benoetigt Backup + Rollback
-- In 95% der Faelle reicht ein Patch
+**Trade-off**: Patch-Module brauchen Zugriff auf Plugin-Internals und laufen AUSSERHALB der iframe-Sandbox (im privilegierten Plugin-Kontext). Erfordert explizite User-Approval + Code-Review-Modal.
 
-**Trade-off**: Patch-Module brauchen Zugriff auf Plugin-Internals und laufen daher AUSSERHALB der vm-Sandbox. Erfordert explizite User-Approval.
+### 4.3 Nur SSE + streamable-http fuer MCP Self-Configuration
 
-### 3.3 Nur SSE + streamable-http fuer MCP Self-Configuration
+**Entscheidung**: Kein stdio (spawnt Host-Prozesse). Fuer Browser-Automation: Agent konfiguriert Remote-Browser-Service (Browserbase/Browserless) als HTTP-MCP.
 
-**Entscheidung**: Agent kann nur SSE und streamable-http MCP-Server konfigurieren, kein stdio.
+### 4.4 `custom_` Prefix fuer Dynamic Tools
 
-**Begruendung**: stdio spawnt Host-Prozesse via child_process — das bricht den Electron-only-Constraint. SSE/HTTP sind reine Netzwerk-Verbindungen innerhalb von Electron.
+**Entscheidung**: Kollisionsschutz mit 30+ eingebauten Tools.
 
-### 3.4 `custom_` Prefix fuer Dynamic Tools
-
-**Entscheidung**: Alle dynamisch erstellten Tools tragen den Prefix `custom_`.
-
-**Begruendung**: Kollisionsschutz mit den 30+ eingebauten Tools. Der Agent und die UI koennen sofort erkennen, welche Tools dynamisch erstellt wurden.
-
-### 3.5 Progressive Disclosure fuer Skills
-
-**Entscheidung**: Drei Ladeebenen fuer Skills.
+### 4.5 Progressive Disclosure fuer Skills
 
 | Ebene | Wann geladen | Budget |
 |-------|-------------|--------|
-| Metadata (Name+Desc+Trigger) | Immer im System Prompt | ~100 Woerter/Skill |
-| Body (Instruktionen) | Wenn Skill getriggert | ~2000 Woerter |
-| References (Zusatz-Docs) | On-demand durch Agent | Unbegrenzt |
+| Metadata | Immer im System Prompt | ~100 Woerter/Skill |
+| Body | Wenn Skill getriggert | ~2000 Woerter |
+| References | On-demand | Unbegrenzt |
 
-**Begruendung**: 50 Skills mit je 2000 Woertern im System Prompt wuerden ~100k Tokens verbrauchen — unbezahlbar. Progressive Disclosure haelt den Base-Context schlank.
+### 4.6 esbuild-wasm on-demand mit build() Support
 
-### 3.6 esbuild-wasm on-demand statt gebundelt
+**Entscheidung**: esbuild-wasm (~11MB) wird on-demand heruntergeladen. Nutzt sowohl `transform()` (einzelne Module) als auch `build()` mit virtuellem Dateisystem (Module mit Library-Dependencies).
 
-**Entscheidung**: esbuild-wasm (~11MB) wird beim ersten Bedarf heruntergeladen, nicht mit dem Plugin ausgeliefert.
+### 4.7 iframe-Sandbox statt vm.createContext()
 
-**Begruendung**:
-- Community Plugin Review begrenzt Bundle-Groesse
-- Nicht jeder User braucht Dynamic Modules
-- requestUrl (Obsidian API) ist Review-Bot-compliant
-- Einmalig herunterladen, lokal cachen
+**Entscheidung**: Chromium iframe als primaere Sicherheitsgrenze. vm.createContext() wird NICHT fuer Security genutzt.
+
+**Begruendung**: vm.createContext() ist explizit keine Sicherheitsgrenze (Node.js Dokumentation). Die Chromium Sandbox ist seit 15+ Jahren kampferprobt und bietet echte OS-Level-Isolation.
+
+### 4.8 Binary I/O ueber Bridge
+
+**Entscheidung**: vault.writeBinary() als Bridge-Endpunkt fuer ArrayBuffer-Output (PPTX, PNG, etc.).
+
+**Begruendung**: Obsidian's `Vault.createBinary()` / `Vault.modifyBinary()` existiert bereits. Binaer-Dateien sind noetig fuer PowerPoint, Bilder, Excel, etc.
 
 ---
 
-## 4. Risiko-Bewertung
+## 5. Risiko-Bewertung
 
 | Stufe | Risiko | Mitigation |
 |-------|--------|-----------|
 | Skills (Markdown) | **Niedrig** | Kein Code, nur Instruktionen, Hot-Reload |
-| Dynamic Modules | **Mittel** | AST-Validation + vm-Sandbox + injizierte APIs + custom_ Prefix |
-| Core Self-Modification | **Hoch** | Backup (main.js.bak) + Rollback + DiffReviewModal + User-Approval + Checkpoint |
-| esbuild-wasm Download | **Niedrig** | requestUrl (Obsidian API), User-Bestaetigung, lokaler Cache |
-| MCP Self-Configuration | **Mittel** | Nur SSE/HTTP (kein stdio), Timeout, Validation |
-| Memory-Erweiterung | **Niedrig** | Additive Aenderung an bestehendem System |
+| Dynamic Modules | **Niedrig-Mittel** | Chromium Sandbox + Controlled Bridge + AST-Validation + User-Review |
+| Patch-Module | **Mittel** | AUSSERHALB Sandbox, aber mit explizitem User-Approval + Code-Review-Modal |
+| Core Self-Modification | **Hoch** | Backup + Rollback + DiffReview + User-Approval |
+| npm-Paket Download | **Niedrig-Mittel** | URL-Allowlist, Groessen-Check, User-Review |
+| MCP Self-Configuration | **Mittel** | Nur SSE/HTTP, Timeout, Validation |
+| Prompt Injection | **Mittel** | Instruktionshierarchie, Tool-Call Validation, Approval-Gate |
+
+**Verbleibende Risiken:**
+- Chromium-Sandbox-Escape (0-day): Extrem unwahrscheinlich, Google patcht sofort
+- User approved boesartigen Code ohne zu lesen: Nicht technisch loesbar
+- Backdoored npm-Paket: Mitigiert durch Allowlist + Review, nicht eliminiert
 
 ---
 
-## 5. Abgrenzung: Was ist NICHT Self-Development
+## 6. Performance- und UX-Ueberlegungen
 
-- **Bestehende Features erweitern** (z.B. neue Tool-Parameter) → Normales Plugin-Update
-- **User-Daten transformieren** → Bestehende Tools (read_file, write_file)
-- **Vault-Struktur aendern** → Bestehende Vault-Tools
-- **API-Keys verwalten** → Bestehendes ConfigureModelTool
+### 6.1 Wartezeiten minimieren
 
-Self-Development bezieht sich ausschliesslich auf die **Erweiterung der Agent-Faehigkeiten selbst**: neue Workflows (Skills), neue Capabilities (Dynamic Modules), Fehlerkorrektur (Core Modification), und proaktive Verbesserung (Memory + Suggestions).
+| Operation | Erwartete Dauer | UX-Strategie |
+|-----------|----------------|-------------|
+| Skill erstellen (Markdown) | <100ms | Sofort, kein Warten |
+| iframe-Sandbox starten | ~50-100ms | Einmalig beim Plugin-Start, danach wiederverwendet |
+| esbuild-wasm Erstdownload | ~5-15s | Progress-Bar, einmalig |
+| Modul kompilieren (transform) | ~100ms | Kaum spuerbar |
+| Modul kompilieren (build + Libraries) | ~500ms-2s | Spinner im Chat |
+| Modul ausfuehren in Sandbox | <100ms (sync), variable (async) | Streaming-Output via Bridge |
+| npm-Paket Download | ~1-5s pro Paket | Progress-Bar, gecacht |
+| Full Rebuild (Core Self-Mod) | ~20-30s | Progress-Bar, selten |
+
+### 6.2 Sandbox-Pool fuer schnelle Ausfuehrung
+
+Die iframe-Sandbox wird beim Plugin-Start erstellt und bleibt aktiv. Kein Overhead pro Tool-Ausfuehrung. Fuer parallele Ausfuehrungen: Pool von 2-3 iframes.
+
+### 6.3 Paket-Cache
+
+Einmal heruntergeladene npm-Pakete bleiben lokal. Kein erneuter Download bei wiederholter Nutzung. Agent merkt sich in custom-tools.md welche Pakete verfuegbar sind.
 
 ---
 
-## 6. Zusammenfassung
+## 7. Zusammenfassung
 
-### Herleitungskette
+### Herleitungskette (Revision 2)
 
 ```
 isolated-vm (Sonnet-Vorschlag)
@@ -253,32 +352,39 @@ isolated-vm (Sonnet-Vorschlag)
     ✗ Erfordert native C++ (node-gyp) → bricht Community Plugin
     |
     v
-vm.createContext() + esbuild-wasm
+vm.createContext() + esbuild-wasm (Entwurf 1)
+    |
+    ✗ vm.createContext() ist KEINE Sicherheitsgrenze
+    ✗ Bekannte Breakout-Techniken, AST-Validation umgehbar
+    ✗ DynamicToolContext zu restriktiv (kein Binary I/O, keine Libraries)
+    |
+    v
+Chromium iframe Sandbox + esbuild-wasm build() + postMessage Bridge (Entwurf 2)
+    |
+    + Echte OS-Level-Isolation (Chromium, 15+ Jahre kampferprobt)
+    + Library-Bundling via esbuild build() + virtuellem Dateisystem
+    + Binary I/O via vault.writeBinary Bridge-Endpunkt
+    + URL-Allowlist + Rate Limiting auf Bridge
+    + In-Process Package Manager (requestUrl → lokaler Cache)
     |
     + OpenClaw: Skills als Markdown, Progressive Disclosure, Pre-Compaction Flush
     + Craft Agents: SKILL.md Format, Validation Tools, Agent-gesteuerte Config
     |
     v
-Drei-Stufen-Modell:
+Drei-Stufen-Modell mit echtem Security-Modell:
     1. Skills (Markdown) — 80%, kein Code, kein Build
-    2. Dynamic Modules (TS→JS) — 15%, vm-Sandbox, separater Build
+    2. Dynamic Modules (TS→JS→iframe Sandbox) — 15%, echte Isolation
     3. Core Self-Modification — 5%, Embedded Source, Full Rebuild
-    |
-    + Electron-only Constraint → kein stdio MCP, kein Host-Shell
-    + Kein Tier-2 → alles in Tier 1, esbuild-wasm on-demand
-    + Memory-Integration → errors.md, custom-tools.md, LongTermExtractor
-    |
-    v
-Agent ist das einzige Interface.
-Basisversion ausgeliefert, alles darueber hinaus durch Prompting.
 ```
 
 ### Kern-Aussagen
 
-1. **Self-Development ist kein einzelnes Feature**, sondern ein Stufenmodell (Skills → Dynamic Modules → Core Modification)
-2. **80% der Self-Development-Faelle brauchen keinen Code** — Markdown-Skills reichen
-3. **esbuild-wasm + vm.createContext()** ersetzen isolated-vm vollstaendig, ohne native Dependencies
-4. **Dynamic Modules sind NICHT Teil von main.js** — separater Lebenszyklus, separate Sandbox
-5. **Memory ist das Rueckgrat** — der Agent weiss was er kann, was er gelernt hat, und welche Fehler er kennt
-6. **Progressive Disclosure** haelt den Context schlank trotz wachsender Skill-Bibliothek
-7. **Patch-Module vor Full Rebuild** — 95% der Core-Bugs lassen sich ohne Rebuild beheben
+1. **Self-Development ist ein Stufenmodell** (Skills → Dynamic Modules → Core Modification)
+2. **80% brauchen keinen Code** — Markdown-Skills reichen
+3. **vm.createContext() ist KEINE Security-Grenze** — Chromium iframe ist die echte Sandbox
+4. **postMessage Bridge kontrolliert alle Zugriffe** — Vault, Netzwerk, Binaer-I/O
+5. **esbuild-wasm build() + In-Process Package Manager** — Libraries ohne npm/Shell
+6. **Memory ist das Rueckgrat** — Agent weiss was er kann, was er gelernt hat
+7. **Progressive Disclosure** haelt den Context schlank
+8. **Patch-Module vor Full Rebuild** — 95% der Core-Bugs ohne Rebuild behebbar
+9. **UX-First**: iframe-Pool, Paket-Cache, Streaming-Output — Wartezeiten minimal
