@@ -13,13 +13,14 @@
 
 import type { ApiHandler, MessageParam, ContentBlock } from '../api/types';
 import type { ToolRegistry } from './tools/ToolRegistry';
-import type { ToolCallbacks, ToolUse, ToolDefinition } from './tools/types';
+import type { ToolCallbacks, ToolName, ToolUse, ToolDefinition } from './tools/types';
 import { ToolExecutionPipeline } from './tool-execution/ToolExecutionPipeline';
 import { ToolRepetitionDetector } from './tool-execution/ToolRepetitionDetector';
 import { buildSystemPromptForMode } from './systemPrompt';
 import type { ModeService } from './modes/ModeService';
 import type { ModeConfig } from '../types/settings';
 import type { McpClient } from './mcp/McpClient';
+import { BUILT_IN_MODES } from './modes/builtinModes';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -29,11 +30,11 @@ export interface AgentTaskCallbacks {
     /** Called for each streaming reasoning/thinking chunk (extended thinking models) */
     onThinking?: (text: string) => void;
     /** Called when a tool is about to be executed */
-    onToolStart: (name: string, input: Record<string, any>) => void;
+    onToolStart: (name: string, input: Record<string, unknown>) => void;
     /** Called when a tool has finished executing */
     onToolResult: (name: string, content: string, isError: boolean) => void;
     /** Called with cumulative token usage just before onComplete (Feature 6) */
-    onUsage?: (inputTokens: number, outputTokens: number) => void;
+    onUsage?: (inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheCreationTokens?: number) => void;
     /** Called when the task is complete (attempt_completion or natural end) */
     onComplete: () => void;
     /** Called when attempt_completion fires — triggers todo auto-complete */
@@ -41,7 +42,7 @@ export interface AgentTaskCallbacks {
     /** Called when ask_followup_question is invoked — pauses loop until resolved */
     onQuestion?: (question: string, options: string[] | undefined, resolve: (answer: string) => void, allowMultiple?: boolean) => void;
     /** Called when a write tool needs user approval — pauses loop until user decides */
-    onApprovalRequired?: (toolName: string, input: Record<string, any>) => Promise<import('./tool-execution/ToolExecutionPipeline').ApprovalResult>;
+    onApprovalRequired?: (toolName: string, input: Record<string, unknown>) => Promise<import('./tool-execution/ToolExecutionPipeline').ApprovalResult>;
     /** Called when update_todo_list publishes a new todo plan */
     onTodoUpdate?: (items: import('./tools/agent/UpdateTodoListTool').TodoItem[]) => void;
     /** Called when switch_mode changes the active mode */
@@ -144,7 +145,7 @@ export class AgentTask {
 
         // Create per-task pipeline instance (like Kilo Code creates per-task context)
         const pipeline = new ToolExecutionPipeline(
-            (this.toolRegistry as any).plugin,
+            this.toolRegistry.plugin,
             this.toolRegistry,
             taskId,
             activeMode.slug,
@@ -157,6 +158,8 @@ export class AgentTask {
         // Feature 6: Accumulate token usage across all iterations
         let totalInputTokens = 0;
         let totalOutputTokens = 0;
+        let totalCacheReadTokens = 0;
+        let totalCacheCreationTokens = 0;
         // attempt_completion signal
         let completionResult: string | null = null;
         // Track whether the model streamed any text across all iterations.
@@ -209,9 +212,9 @@ export class AgentTask {
                     },
                     onComplete: () => { /* handled via Promise resolution */ },
                     onError: (err) => { throw err; },
-                    onUsage: (i, o) => {
+                    onUsage: (i, o, cr, cc) => {
                         // Forward subtask token usage to parent for accurate cost tracking
-                        this.taskCallbacks.onUsage?.(i, o);
+                        this.taskCallbacks.onUsage?.(i, o, cr, cc);
                     },
                     // K-1: Forward parent approval callback so subtask write ops are not
                     // auto-rejected by the fail-closed fallback in ToolExecutionPipeline.
@@ -269,7 +272,7 @@ export class AgentTask {
             for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
                 // Early exit if task was cancelled between iterations
                 if (abortSignal?.aborted) {
-                    console.log('[AgentTask] Abort signal detected at iteration start');
+                    console.debug('[AgentTask] Abort signal detected at iteration start');
                     break;
                 }
 
@@ -325,6 +328,7 @@ export class AgentTask {
 
                 const toolUses: ContentBlock[] = [];
                 const textParts: string[] = [];
+                const toolErrorIds = new Set<string>();
 
                 // Stream the LLM response (pass abort signal for cancellation)
                 for await (const chunk of this.api.createMessage(systemPrompt, history, tools, abortSignal)) {
@@ -343,10 +347,18 @@ export class AgentTask {
                         });
                         // Notify UI that a tool is starting
                         this.taskCallbacks.onToolStart(chunk.name, chunk.input);
+                    } else if (chunk.type === 'tool_error') {
+                        // BUG-3: unparseable tool JSON — record in history but skip execution
+                        toolErrorIds.add(chunk.id);
+                        toolUses.push({ type: 'tool_use', id: chunk.id, name: chunk.name, input: {} });
+                        this.taskCallbacks.onToolStart(chunk.name, {});
+                        this.taskCallbacks.onToolResult(chunk.name, chunk.error, true);
                     } else if (chunk.type === 'usage') {
                         // Feature 6: Accumulate tokens across all agentic iterations
                         totalInputTokens += chunk.inputTokens;
                         totalOutputTokens += chunk.outputTokens;
+                        totalCacheReadTokens += chunk.cacheReadTokens ?? 0;
+                        totalCacheCreationTokens += chunk.cacheCreationTokens ?? 0;
                     }
                 }
 
@@ -394,7 +406,8 @@ export class AgentTask {
                 ]);
 
                 const validToolUses = toolUses.filter(
-                    (t): t is ContentBlock & { type: 'tool_use' } => t.type === 'tool_use'
+                    (t): t is ContentBlock & { type: 'tool_use' } =>
+                        t.type === 'tool_use' && !toolErrorIds.has(t.id)
                 );
 
                 // Helper: run a single tool through the pipeline and return its result.
@@ -410,12 +423,12 @@ export class AgentTask {
                         handleError: async (toolName, error) => {
                             console.error(`[AgentTask] Tool error in ${toolName}:`, error);
                         },
-                        log: (message) => { console.log(`[AgentTask] ${message}`); },
+                        log: (message) => { console.debug(`[AgentTask] ${message}`); },
                     };
                     const toolCall: ToolUse = {
                         type: 'tool_use',
                         id: toolUse.id,
-                        name: toolUse.name as any,
+                        name: toolUse.name as ToolName,
                         input: toolUse.input,
                     };
                     const result = await pipeline.executeTool(toolCall, toolCallbacks, {
@@ -445,6 +458,16 @@ export class AgentTask {
                     && validToolUses.every(t => PARALLEL_SAFE.has(t.name));
 
                 const toolResultBlocks: ContentBlock[] = [];
+
+                // BUG-3: add error results for tools with unparseable JSON input
+                for (const errId of toolErrorIds) {
+                    toolResultBlocks.push({
+                        type: 'tool_result',
+                        tool_use_id: errId,
+                        content: 'Tool input could not be parsed. Please retry with valid JSON.',
+                        is_error: true,
+                    });
+                }
 
                 if (allParallelSafe) {
                     // Execute all read tools in parallel; collect results in original order.
@@ -540,7 +563,7 @@ export class AgentTask {
                 const lastMsg = history[history.length - 1];
                 const wasWorking = lastMsg?.role === 'user'
                     && Array.isArray(lastMsg.content)
-                    && (lastMsg.content as any[]).some((b: any) => b.type === 'tool_result');
+                    && (lastMsg.content as ContentBlock[]).some((b) => b.type === 'tool_result');
                 if (wasWorking) {
                     history.push({
                         role: 'user',
@@ -554,6 +577,8 @@ export class AgentTask {
                             } else if (chunk.type === 'usage') {
                                 totalInputTokens += chunk.inputTokens;
                                 totalOutputTokens += chunk.outputTokens;
+                                totalCacheReadTokens += chunk.cacheReadTokens ?? 0;
+                                totalCacheCreationTokens += chunk.cacheCreationTokens ?? 0;
                             }
                         }
                     } catch (e) {
@@ -564,7 +589,12 @@ export class AgentTask {
 
             // Feature 6: Report total token usage before completing
             if (totalInputTokens > 0 || totalOutputTokens > 0) {
-                this.taskCallbacks.onUsage?.(totalInputTokens, totalOutputTokens);
+                this.taskCallbacks.onUsage?.(
+                    totalInputTokens,
+                    totalOutputTokens,
+                    totalCacheReadTokens > 0 ? totalCacheReadTokens : undefined,
+                    totalCacheCreationTokens > 0 ? totalCacheCreationTokens : undefined,
+                );
             }
 
             // Episodic memory: provide tool execution data for recording (ADR-018)
@@ -584,7 +614,7 @@ export class AgentTask {
             const isAbort = error instanceof Error && error.name === 'AbortError';
             const isAbortedSignal = abortSignal?.aborted === true;
             if (isAbort || isAbortedSignal) {
-                console.log('[AgentTask] Task cancelled by user');
+                console.debug('[AgentTask] Task cancelled by user');
                 this.taskCallbacks.onComplete();
                 return;
             }
@@ -598,7 +628,7 @@ export class AgentTask {
                 const last = history[history.length - 1];
                 const isOrphaned = last.role === 'assistant'
                     && Array.isArray(last.content)
-                    && (last.content as ContentBlock[]).some((b) => (b as any).type === 'tool_use');
+                    && (last.content as ContentBlock[]).some((b) => b.type === 'tool_use');
                 if (isOrphaned) {
                     history.pop();
                 } else {
@@ -632,9 +662,9 @@ export class AgentTask {
         for (const m of messages) {
             const content = Array.isArray(m.content)
                 ? m.content.map((b) => {
-                    const block = b as any;
-                    if (typeof block.text === 'string') return block.text;
-                    if (typeof block.content === 'string') return block.content;
+                    const block = b as ContentBlock;
+                    if ('text' in block && typeof block.text === 'string') return block.text;
+                    if ('content' in block && typeof block.content === 'string') return block.content;
                     return '';
                 }).join('')
                 : typeof m.content === 'string' ? m.content : '';
@@ -645,7 +675,7 @@ export class AgentTask {
 
     /** Approximate context window for the active model (tokens). */
     private getModelContextWindow(): number {
-        const model = (this.api as any).getModel?.();
+        const model = this.api.getModel();
         // getModel() returns { id: string; info: ModelInfo } — extract the id string
         const modelId: string = typeof model === 'string' ? model : (model?.id ?? '');
         // Use the provider-reported context window when available
@@ -722,7 +752,7 @@ export class AgentTask {
             ...tail,
         );
 
-        console.log(`[AgentTask] Context condensed: ${history.length} messages remain.`);
+        console.debug(`[AgentTask] Context condensed: ${history.length} messages remain.`);
     }
 
     /** Resolve a mode slug or ModeConfig to a ModeConfig */
@@ -734,7 +764,6 @@ export class AgentTask {
         }
 
         // Fallback: use builtinModes directly
-        const { BUILT_IN_MODES } = require('./modes/builtinModes');
         return BUILT_IN_MODES.find((m: ModeConfig) => m.slug === mode)
             ?? BUILT_IN_MODES[0];
     }

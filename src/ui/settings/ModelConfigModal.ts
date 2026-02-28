@@ -19,6 +19,9 @@ export class ModelConfigModal extends Modal {
     private formMaxTokens: number;
     private formTemperatureEnabled: boolean;
     private formTemperatureValue: number;
+    private formPromptCachingEnabled: boolean;
+    private formThinkingEnabled: boolean;
+    private formThinkingBudgetTokens: number;
 
     private apiKeyRow: HTMLElement | null = null;
     private baseUrlRow: HTMLElement | null = null;
@@ -38,6 +41,10 @@ export class ModelConfigModal extends Modal {
     private temperatureSliderEl: HTMLInputElement | null = null;
     private temperatureValueEl: HTMLElement | null = null;
     private temperatureNoteEl: HTMLElement | null = null;
+    private promptCachingRow: HTMLElement | null = null;
+    private thinkingRow: HTMLElement | null = null;
+    private thinkingBudgetRow: HTMLElement | null = null;
+    private thinkingNoteEl: HTMLElement | null = null;
 
     constructor(app: App, model: CustomModel | null, onSave: (m: CustomModel) => void, forEmbedding = false) {
         super(app);
@@ -63,6 +70,9 @@ export class ModelConfigModal extends Modal {
         this.formMaxTokens = this.model.maxTokens ?? 8192;
         this.formTemperatureEnabled = this.model.temperature !== undefined;
         this.formTemperatureValue = this.model.temperature ?? 0.7;
+        this.formPromptCachingEnabled = this.model.promptCachingEnabled ?? false;
+        this.formThinkingEnabled = this.model.thinkingEnabled ?? false;
+        this.formThinkingBudgetTokens = this.model.thinkingBudgetTokens ?? 10000;
     }
 
     onOpen(): void {
@@ -173,9 +183,10 @@ export class ModelConfigModal extends Modal {
                         this.suggestSelEl!.createEl('option', { value: m.id, text: m.label !== m.id ? `${m.label}  (${m.id})` : m.id });
                     });
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 // requestUrl can throw a Response-like object (no .message) — handle both
-                const errMsg = e?.message ?? (e?.status ? `HTTP ${e.status}` : String(e));
+                const errObj = e as { message?: string; status?: number };
+                const errMsg = errObj?.message ?? (errObj?.status ? `HTTP ${errObj.status}` : String(e));
                 new Notice(t('modal.modelConfig.fetchFailed', { error: errMsg }));
             } finally {
                 fetchBtn.disabled = false;
@@ -296,9 +307,59 @@ export class ModelConfigModal extends Modal {
             });
         }
 
+        // -- Prompt Caching (Anthropic only) --
+        if (!this.forEmbedding) {
+            this.promptCachingRow = form.createDiv('mcm-row');
+            const cacheLabel = this.promptCachingRow.createDiv('mcm-label');
+            cacheLabel.createSpan({ text: t('modal.modelConfig.promptCaching') });
+            cacheLabel.createSpan({ text: t('modal.modelConfig.promptCachingDesc'), cls: 'mcm-desc' });
+            const cacheChk = this.promptCachingRow.createEl('input', { attr: { type: 'checkbox' } });
+            cacheChk.checked = this.formPromptCachingEnabled;
+            cacheChk.addEventListener('change', () => {
+                this.formPromptCachingEnabled = cacheChk.checked;
+            });
+        }
+
+        // -- Extended Thinking (Anthropic only) --
+        if (!this.forEmbedding) {
+            this.thinkingRow = form.createDiv('mcm-row');
+            const thinkLabel = this.thinkingRow.createDiv('mcm-label');
+            thinkLabel.createSpan({ text: t('modal.modelConfig.thinking') });
+            thinkLabel.createSpan({ text: t('modal.modelConfig.thinkingDesc'), cls: 'mcm-desc' });
+            const thinkChk = this.thinkingRow.createEl('input', { attr: { type: 'checkbox' } });
+            thinkChk.checked = this.formThinkingEnabled;
+            thinkChk.addEventListener('change', () => {
+                this.formThinkingEnabled = thinkChk.checked;
+                this.updateThinkingUI();
+                this.updateTemperatureUI();
+            });
+            this.thinkingNoteEl = this.thinkingRow.createDiv({ cls: 'mcm-temperature-note' });
+
+            // Budget slider
+            this.thinkingBudgetRow = form.createDiv('mcm-row');
+            const budgetLabel = this.thinkingBudgetRow.createDiv('mcm-label');
+            budgetLabel.createSpan({ text: t('modal.modelConfig.thinkingBudget') });
+            budgetLabel.createSpan({ text: t('modal.modelConfig.thinkingBudgetDesc'), cls: 'mcm-desc' });
+            const budgetControls = this.thinkingBudgetRow.createDiv('mcm-temperature-controls');
+            const budgetSliderWrap = budgetControls.createDiv('mcm-temperature-slider-wrap');
+            const budgetSlider = budgetSliderWrap.createEl('input', {
+                attr: { type: 'range', min: '1024', max: '128000', step: '1024' },
+                cls: 'mcm-temperature-slider',
+            });
+            budgetSlider.value = String(this.formThinkingBudgetTokens);
+            const budgetValueEl = budgetSliderWrap.createSpan({
+                cls: 'mcm-temperature-value',
+                text: this.formThinkingBudgetTokens.toLocaleString(),
+            });
+            budgetSlider.addEventListener('input', () => {
+                this.formThinkingBudgetTokens = parseInt(budgetSlider.value);
+                budgetValueEl.setText(this.formThinkingBudgetTokens.toLocaleString());
+            });
+        }
+
         // Test result (inline)
         this.testResultEl = form.createDiv('mcm-test-result');
-        this.testResultEl.style.display = 'none';
+        this.testResultEl.classList.add('agent-u-hidden');
 
         this.updateFieldVisibility();
     }
@@ -321,11 +382,14 @@ export class ModelConfigModal extends Modal {
         const p = this.formProvider;
 
         // Show/hide fields per provider
-        this.apiKeyRow.style.display = (p === 'ollama' || p === 'lmstudio') ? 'none' : '';
-        this.baseUrlRow.style.display = (p === 'anthropic' || p === 'openai' || p === 'openrouter') ? 'none' : '';
-        if (this.apiVersionRow) this.apiVersionRow.style.display = p === 'azure' ? '' : 'none';
-        if (this.ollamaBrowserRow) this.ollamaBrowserRow.style.display = p === 'ollama' ? '' : 'none';
-        if (this.customBrowserRow) this.customBrowserRow.style.display = (p === 'custom' || p === 'lmstudio') ? '' : 'none';
+        this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio');
+        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'openrouter');
+        if (this.apiVersionRow) this.apiVersionRow.classList.toggle('agent-u-hidden', p !== 'azure');
+        if (this.ollamaBrowserRow) this.ollamaBrowserRow.classList.toggle('agent-u-hidden', p !== 'ollama');
+        if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
+        if (this.promptCachingRow) this.promptCachingRow.classList.toggle('agent-u-hidden', p !== 'anthropic');
+        if (this.thinkingRow) this.thinkingRow.classList.toggle('agent-u-hidden', p !== 'anthropic');
+        if (this.thinkingBudgetRow) this.thinkingBudgetRow.classList.toggle('agent-u-hidden', p !== 'anthropic' || !this.formThinkingEnabled);
 
         // Quick Pick: use embedding suggestions or chat suggestions depending on mode
         const suggestions = this.forEmbedding
@@ -337,7 +401,7 @@ export class ModelConfigModal extends Modal {
             ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom')
             : (p === 'anthropic' || p === 'openai' || p === 'openrouter' || p === 'lmstudio');
         if (this.suggestRow) {
-            this.suggestRow.style.display = (hasStaticSuggestions || hasFetchFetch) ? '' : 'none';
+            this.suggestRow.classList.toggle('agent-u-hidden', !hasStaticSuggestions && !hasFetchFetch);
             if (this.suggestSelEl) {
                 // Rebuild static options (reset to defaults when provider changes)
                 while (this.suggestSelEl.options.length > 1) this.suggestSelEl.remove(1);
@@ -358,7 +422,7 @@ export class ModelConfigModal extends Modal {
                 this.suggestSelEl.selectedIndex = 0;
                 // Show/hide the fetch button
                 const fetchBtn = this.suggestRow.querySelector('.mcm-fetch-btn') as HTMLButtonElement | null;
-                if (fetchBtn) fetchBtn.style.display = hasFetchFetch ? '' : 'none';
+                if (fetchBtn) fetchBtn.classList.toggle('agent-u-hidden', !hasFetchFetch);
             }
         }
 
@@ -410,14 +474,20 @@ export class ModelConfigModal extends Modal {
             if (this.temperatureValueEl) this.temperatureValueEl.setText('1.00');
             if (this.temperatureNoteEl) {
                 this.temperatureNoteEl.setText(t('modal.modelConfig.temperatureFixed'));
-                this.temperatureNoteEl.style.display = '';
+                this.temperatureNoteEl.classList.remove('agent-u-hidden');
             }
             this.temperatureRow.querySelectorAll('input[type=checkbox]').forEach((el: Element) => {
                 (el as HTMLInputElement).checked = false;
                 (el as HTMLInputElement).disabled = true;
             });
+        } else if (this.formThinkingEnabled && this.formProvider === 'anthropic') {
+            // Extended thinking forces temperature to 1
+            if (this.temperatureNoteEl) {
+                this.temperatureNoteEl.setText(t('modal.modelConfig.temperatureThinkingNote'));
+                this.temperatureNoteEl.classList.remove('agent-u-hidden');
+            }
         } else {
-            if (this.temperatureNoteEl) this.temperatureNoteEl.style.display = 'none';
+            if (this.temperatureNoteEl) this.temperatureNoteEl.classList.add('agent-u-hidden');
             this.temperatureRow.querySelectorAll('input[type=checkbox]').forEach((el: Element) => {
                 (el as HTMLInputElement).disabled = false;
             });
@@ -425,7 +495,18 @@ export class ModelConfigModal extends Modal {
         }
 
         const sliderWrap = this.temperatureSliderEl.closest('.mcm-temperature-slider-wrap') as HTMLElement | null;
-        if (sliderWrap) sliderWrap.style.display = this.formTemperatureEnabled ? '' : 'none';
+        if (sliderWrap) sliderWrap.classList.toggle('agent-u-hidden', !this.formTemperatureEnabled);
+    }
+
+    private updateThinkingUI(): void {
+        if (!this.thinkingBudgetRow || !this.thinkingNoteEl) return;
+        this.thinkingBudgetRow.classList.toggle('agent-u-hidden', !this.formThinkingEnabled);
+        if (this.formThinkingEnabled) {
+            this.thinkingNoteEl.setText(t('modal.modelConfig.thinkingNote'));
+            this.thinkingNoteEl.classList.remove('agent-u-hidden');
+        } else {
+            this.thinkingNoteEl.classList.add('agent-u-hidden');
+        }
     }
 
     private renderProviderGuide(container: HTMLElement, provider: ProviderType): void {
@@ -512,7 +593,7 @@ export class ModelConfigModal extends Modal {
         const browseLabelEl = browseBtn.createSpan({ text: t('modal.modelConfig.browseInstalled') });
 
         const listEl = container.createDiv('mcm-model-list');
-        listEl.style.display = 'none';
+        listEl.classList.add('agent-u-hidden');
 
         browseBtn.addEventListener('click', async () => {
             browseBtn.disabled = true;
@@ -521,7 +602,7 @@ export class ModelConfigModal extends Modal {
             try {
                 const baseUrl = this.formBaseUrl || 'http://localhost:11434';
                 const models = await fetchOllamaModels(baseUrl);
-                listEl.style.display = '';
+                listEl.classList.remove('agent-u-hidden');
                 if (models.length === 0) {
                     listEl.createDiv({ cls: 'mcm-model-empty', text: t('modal.modelConfig.noModelsOllama') });
                 } else {
@@ -538,7 +619,7 @@ export class ModelConfigModal extends Modal {
                     });
                 }
             } catch {
-                listEl.style.display = '';
+                listEl.classList.remove('agent-u-hidden');
                 listEl.createDiv({
                     cls: 'mcm-model-empty',
                     text: t('modal.modelConfig.ollamaUnreachable'),
@@ -556,7 +637,7 @@ export class ModelConfigModal extends Modal {
         const browseLabelEl = browseBtn.createSpan({ text: t('modal.modelConfig.browseAvailable') });
 
         const listEl = container.createDiv('mcm-model-list');
-        listEl.style.display = 'none';
+        listEl.classList.add('agent-u-hidden');
 
         browseBtn.addEventListener('click', async () => {
             browseBtn.disabled = true;
@@ -564,7 +645,7 @@ export class ModelConfigModal extends Modal {
             listEl.empty();
             try {
                 const models = await fetchProviderModels('custom', this.formApiKey, this.formBaseUrl || undefined);
-                listEl.style.display = '';
+                listEl.classList.remove('agent-u-hidden');
                 if (models.length === 0) {
                     listEl.createDiv({ cls: 'mcm-model-empty', text: t('modal.modelConfig.noModelsUrl') });
                 } else {
@@ -580,9 +661,9 @@ export class ModelConfigModal extends Modal {
                         });
                     });
                 }
-            } catch (e: any) {
-                listEl.style.display = '';
-                const errMsg = e?.message ?? 'Unknown error';
+            } catch (e: unknown) {
+                listEl.classList.remove('agent-u-hidden');
+                const errMsg = (e as { message?: string })?.message ?? 'Unknown error';
                 listEl.createDiv({
                     cls: 'mcm-model-empty',
                     text: t('modal.modelConfig.serverUnreachable', { error: errMsg }),
@@ -606,7 +687,7 @@ export class ModelConfigModal extends Modal {
         if (!m.name) { this.showTestResult(false, t('modal.modelConfig.enterModelIdFirst'), undefined); return; }
         this.testBtn.disabled = true;
         this.testBtn.setText(t('modal.modelConfig.testing'));
-        this.testResultEl.style.display = 'none';
+        this.testResultEl.classList.add('agent-u-hidden');
         const res = this.forEmbedding
             ? await testEmbeddingConnection(m)
             : await testModelConnection(m);
@@ -618,7 +699,7 @@ export class ModelConfigModal extends Modal {
     private showTestResult(ok: boolean, msg: string, detail: string | undefined): void {
         if (!this.testResultEl) return;
         this.testResultEl.empty();
-        this.testResultEl.style.display = '';
+        this.testResultEl.classList.remove('agent-u-hidden');
         this.testResultEl.className = `mcm-test-result ${ok ? 'mcm-ok' : 'mcm-err'}`;
         const header = this.testResultEl.createDiv('mcm-result-header');
         setIcon(header.createSpan('mcm-result-icon'), ok ? 'check-circle' : 'x-circle');
@@ -641,6 +722,9 @@ export class ModelConfigModal extends Modal {
             apiVersion: this.formApiVersion || undefined,
             maxTokens: this.formMaxTokens,
             temperature: this.formTemperatureEnabled ? this.formTemperatureValue : undefined,
+            promptCachingEnabled: this.formPromptCachingEnabled || undefined,
+            thinkingEnabled: this.formThinkingEnabled || undefined,
+            thinkingBudgetTokens: this.formThinkingEnabled ? this.formThinkingBudgetTokens : undefined,
         });
         this.close();
     }
