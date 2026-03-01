@@ -109,3 +109,15 @@ When a tool requires manual approval and `onApprovalRequired` callback is wired 
 - `IgnoreService` pattern matching is minimal gitignore (no negation patterns, no `!` overrides).
 - Approval card UX: if the user closes Obsidian while an approval prompt is pending, the Promise never resolves — task hangs. Consider a timeout.
 - `autoApproval.mode` and `autoApproval.subtasks` fields exist in settings but `switch_mode` and `new_task` are both classified as `'agent'` in the pipeline (always auto-approved). These settings are currently unused but reserved for future finer control.
+
+## Epic Context (Governance & Safety)
+
+**Hypothesis:** Enforcing strict "approval-by-default" and mandatory local checkpoints transforms AI interaction from "risky magic" into a "safe, controllable power tool," encouraging use on critical knowledge bases.
+
+**Leading Indicators:**
+- Zero reported data loss during beta
+- High acceptance rate of "Suggest" actions (trust)
+
+**Out of Scope:**
+- Advanced Git conflict resolution UI (CLI fallback expected)
+- Remote sync of checkpoints

@@ -239,7 +239,7 @@ Obsidian Agent (Obsilo Agent) is a desktop-first Obsidian plugin (v1.1.0) that p
 
 - [arc42 Architecture](../architecture/arc42.md) — Full arc42 documentation (v3.1)
 - [ADR Index](../architecture/) — 20 Architecture Decision Records
-- [BACKLOG](../implementation/BACKLOG.md) — Feature implementation status
-- [AGENT-INTERNALS](../implementation/AGENT-INTERNALS.md) — Deep technical internals
-- [Component Designs](component-designs.md) — Detailed component specifications
-- [Implementation Roadmap](implementation-roadmap.md) — 8-phase development plan
+- [Backlog](../context/10_backlog.md) — Feature implementation status
+- [Agent Internals](../implementation/TECH-agent-internals.md) — Deep technical internals
+- [Component Designs](DESIGN-component-designs.md) — Detailed component specifications
+- [Implementation Roadmap](ROADMAP-implementation.md) — 8-phase development plan

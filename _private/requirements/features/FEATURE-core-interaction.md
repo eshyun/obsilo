@@ -1,6 +1,6 @@
 # Feature: Core Agent Interaction & Modes
 Priority: P0
-Related Epic: `requirements/epics/EPIC-core-engine.md`
+Related Epic: Agentic Core & Interaction Layer (siehe FEATURE-agent-core.md, Epic Context)
 
 ## Description
 The primary interface for Obsidian Agent is a sidebar Chat View where users interact with "Modes" (Agent Personas). Each Mode has access to a specific set of tools and a specific system prompt context, enabling specialized behaviors (e.g., "Architect" for structure, "Writer" for content).

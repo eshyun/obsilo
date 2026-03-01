@@ -85,3 +85,17 @@ On error, scans history backward and removes orphaned `assistant` messages that 
 - Sub-tasks inherit parent's tool registry (no per-subtask tool restriction).
 - Parallel execution only fires when ALL tools in a batch are in `PARALLEL_SAFE` — mixed batches (read + write) always serialize.
 - Token counting uses a rough ~4 chars/token estimate for condensing threshold checks.
+
+## Epic Context (Agentic Core & Interaction Layer)
+
+**Hypothesis:** For Obsidian users, a conversational agent with persistent context, modes, and direct tool access will significantly reduce the friction of complex knowledge tasks (e.g., refactoring, synthesis) compared to plugin-switching or manual editing.
+
+**Leading Indicators:**
+- Number of multi-step tasks successfully completed via chat
+- User engagement with different modes (Ask, Agent + Custom Modes)
+
+**Out of Scope:**
+- Voice interaction
+- Multi-modal input (images) in ReadFileTool
+- ApplyDiffTool / MultiApplyDiffTool
+- Mobile support

@@ -1,6 +1,6 @@
 # Feature: Attachments, Clipboard, and Images
 Priority: P1
-Related Epic: `requirements/epics/EPIC-core-engine.md`
+Related Epic: Agentic Core & Interaction Layer (siehe FEATURE-agent-core.md, Epic Context)
 
 ## Description
 Obsidian Agent supports richer user inputs beyond plain text, including:

@@ -1,6 +1,6 @@
 # Feature: Vault Operations (Full CRUD)
 Priority: P0
-Related Epic: `requirements/epics/EPIC-vault-ops.md`
+Related Epic: Vault Operations & Content Synthesis (siehe Epic Context unten)
 
 ## Description
 A comprehensive set of tools (`read_file`, `write_file`, `list_files`, `search_files`) that allows the agent to navigate and modify the vault structure just like a user operating a file explorer or terminal.
@@ -36,3 +36,17 @@ None specific, but must use Obsidian's `Vault` API where possible for best compa
 ## Dependencies
 - Obsidian `Vault` API.
 - Node `fs` (for deeper access if needed, e.g., hidden folders).
+
+## Epic Context (Vault Operations & Content Synthesis)
+
+**Hypothesis:** Providing semantic understanding of the vault (via local embeddings) and structured output capabilities (Canvas, Bases, Files) enables knowledge synthesis workflows that manual retrieval cannot match.
+
+**Leading Indicators:**
+- Frequency of "Synthesis" feature usage
+- User creation of complex Canvases via prompts
+- Bases-Nutzung fuer strukturierte Daten
+
+**Out of Scope:**
+- Internal Obsidian Graph manipulation
+- Real-time collaborative editing
+- Full Bases UI automation (nur CRUD via JSON/YAML)

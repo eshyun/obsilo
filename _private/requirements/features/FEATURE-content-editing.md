@@ -1,6 +1,6 @@
 # Feature: Controlled Content Editing
 Priority: P0
-Related Epic: `requirements/epics/EPIC-vault-ops.md`
+Related Epic: Vault Operations & Content Synthesis (siehe FEATURE-vault-ops.md, Epic Context)
 
 ## Description
 Tools specifically designed for granular text manipulation (`edit_file` with search/replace) rather than full-file overwrites. This is critical for modifying long notes without rewriting the entire content (saving tokens and reducing risk).

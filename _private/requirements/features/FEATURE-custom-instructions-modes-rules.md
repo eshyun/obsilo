@@ -1,6 +1,6 @@
 # Feature: Custom Instructions, Custom Modes, and Rules
 Priority: P0
-Related Epic: `requirements/epics/EPIC-core-engine.md`
+Related Epic: Agentic Core & Interaction Layer (siehe FEATURE-agent-core.md, Epic Context)
 
 ## Description
 Obsidian Agent must support user-configurable prompting and governance layers that shape how the agent behaves across all interactions.
