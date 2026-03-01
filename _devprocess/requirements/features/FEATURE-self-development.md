@@ -2,8 +2,8 @@
 
 > Detaillierte Implementierungsspezifikation mit Hinweisen fuer die Umsetzung
 
-**Datum**: 2026-02-28
-**Revision**: 2 (Security-Architektur: iframe Sandbox, erweiterter DynamicToolContext)
+**Datum**: 2026-03-01
+**Revision**: 3 (CDN-Strategie: esm.sh primaer, rekursive Dependency-Aufloesung, parallele Downloads)
 **Status**: Spezifiziert, Implementierung ausstehend
 **Abhaengigkeit**: Bestehende Tool-Infrastruktur, Memory-System, MCP-Client
 
@@ -126,7 +126,7 @@ class SandboxBridge {
   }
 
   private isAllowedUrl(url: string): boolean {
-    const allowed = ['unpkg.com', 'cdn.jsdelivr.net', 'registry.npmjs.org'];
+    const allowed = ['unpkg.com', 'cdn.jsdelivr.net', 'registry.npmjs.org', 'esm.sh'];
     try {
       return allowed.some(a => new URL(url).hostname.endsWith(a));
     } catch { return false; }
@@ -343,26 +343,38 @@ const result = await esbuild.build({
 3. Download via `requestUrl` (Obsidian API) von npm CDN
 4. Lokal gespeichert, danach sofort verfuegbar
 
-### 4.6 In-Process Package Manager
+### 4.6 In-Process Package Manager (CDN-Strategie)
+
+Pakete werden als vorkompilierte Browser ES Modules von CDN geladen. **esm.sh** ist der primaere CDN (mit `?bundle` Flag fuer transitive Dependencies), **jsdelivr** der Fallback.
 
 ```typescript
-class PackageManager {
-  private cacheDir: string; // Plugin-Daten/packages/
-
-  async ensurePackage(name: string, version?: string): Promise<string> {
-    const cached = await this.loadFromCache(name, version);
-    if (cached) return cached;
-
-    // Download von CDN (URL-Allowlist!)
-    const url = `https://cdn.jsdelivr.net/npm/${name}${version ? '@' + version : ''}/+esm`;
-    const response = await requestUrl({ url });
-
-    // Cache lokal
-    await this.saveToCache(name, version, response.text);
-    return response.text;
-  }
-}
+// Primaer: esm.sh mit ?bundle (transitiv gebundelt)
+const bundleUrl = `https://esm.sh/${name}?bundle`;
+// Fallback: jsdelivr /+esm
+const fallbackUrl = `https://cdn.jsdelivr.net/npm/${name}/+esm`;
 ```
+
+**Rekursive Dependency-Aufloesung (`resolveInternalImports`):**
+CDN-Bundles enthalten haeufig absolute-path Imports auf Node-Polyfills und Sub-Pakete:
+```javascript
+// esm.sh pptxgenjs Bundle importiert z.B.:
+import buffer from "/node/buffer.mjs";
+import process from "/node/process.mjs";
+// process.mjs importiert weiter (MINIFIZIERT, kein Leerzeichen nach from):
+import events from"/node/events.mjs";
+import tty from"/node/tty.mjs";
+```
+
+`resolveInternalImports()` erkennt diese Imports per Regex (`/(?:from|import)\s*["'](\/[^"']+)["']/g` — `\s*` statt `\s+` wegen minifiziertem CDN-Code) und laedt sie rekursiv herunter (max Tiefe: 5).
+
+**Parallele Downloads:** Dependencies werden mit `Promise.all()` parallel geladen.
+
+```typescript
+// Parallel statt sequentiell
+await Promise.all(dependencies.map(dep => this.ensurePackage(dep)));
+```
+
+**Wichtig:** Pakete wie pptxgenjs, xlsx, d3, pdf-lib, chart.js funktionieren als Browser-Bundles in der iframe-Sandbox — sie benoetigen KEIN Node.js, npm install oder Shell-Zugriff.
 
 ### 4.7 iframe Sandbox Executor
 

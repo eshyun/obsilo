@@ -2,8 +2,8 @@
 
 > Herleitung und Reasoning fuer die Self-Development-Architektur von Obsilo Agent
 
-**Datum**: 2026-02-28
-**Revision**: 2 (Security-Architektur ueberarbeitet)
+**Datum**: 2026-03-01
+**Revision**: 3 (CDN-Strategie: esm.sh primaer, rekursive Dependency-Aufloesung)
 **Status**: Analyse abgeschlossen, Implementierung ausstehend
 
 ---
@@ -162,16 +162,28 @@ iframe (Chromium Sandbox)
 - Plugin-Seite entscheidet ob Writes erlaubt sind (User-Approval)
 - Rate Limiting auf allen Bridge-Operationen
 
-### 2.6 Loesung des Library-Problems: In-Process Package Manager
+### 2.6 Loesung des Library-Problems: In-Process Package Manager (CDN-Strategie)
 
 **Problem** (im ersten Entwurf ungeloest): Der Agent braucht Libraries (pptxgenjs, d3, csv-parse) — aber es gibt kein npm innerhalb von Electron.
 
-**Loesung**: Agent laedt Pakete via `requestUrl` von CDN:
+**Loesung**: Agent laedt Pakete als vorkompilierte Browser ES Modules von CDN:
 1. Agent erkennt Library-Bedarf (z.B. "brauche pptxgenjs fuer PPTX-Generierung")
-2. Plugin-Seite laedt Paket von unpkg/jsdelivr via `requestUrl` (URL-Allowlist!)
-3. Speicherung in Plugin-Daten-Verzeichnis unter `packages/`
-4. esbuild-wasm `build()` mit Plugin das Imports gegen lokale Packages aufloest
-5. Gebundeltes JS wird in der iframe-Sandbox ausgefuehrt
+2. **esm.sh** (primaer): `https://esm.sh/{name}?bundle` — CDN bundlet transitive Dependencies
+3. **jsdelivr** (Fallback): `https://cdn.jsdelivr.net/npm/{name}/+esm`
+4. **Rekursive Dependency-Aufloesung**: CDN-Bundles enthalten absolute-path Imports auf Node-Polyfills (`/node/buffer.mjs`, `/node/process.mjs`) und Sub-Pakete. `resolveInternalImports()` erkennt diese per Regex und laedt sie rekursiv herunter (max Tiefe: 5). Regex: `\s*` statt `\s+` wegen minifiziertem CDN-Code (`from"/path"` ohne Leerzeichen).
+5. **Parallele Downloads**: Dependencies werden mit `Promise.all()` parallel geladen
+6. In-Memory-Cache (packageCache Map) fuer heruntergeladene Pakete
+7. esbuild-wasm `build()` mit virtual-packages Plugin das Imports gegen Cache aufloest
+8. Gebundeltes JS wird in der iframe-Sandbox ausgefuehrt
+
+**Polyfill-Chain Beispiel (pptxgenjs):**
+```
+pptxgenjs → buffer.mjs (28KB), process.mjs (7.8KB)
+process.mjs → events.mjs (12KB), tty.mjs (685B)
+events.mjs → async_hooks.mjs (2.9KB)
+```
+
+**URL-Allowlist**: esm.sh, cdn.jsdelivr.net, unpkg.com, registry.npmjs.org
 
 ### 2.7 Loesung des Codebase-Knowledge-Problems: Embedded Source
 
@@ -306,7 +318,7 @@ Schicht 5: Rate Limiting + Monitoring
 | Dynamic Modules | **Niedrig-Mittel** | Chromium Sandbox + Controlled Bridge + AST-Validation + User-Review |
 | Patch-Module | **Mittel** | AUSSERHALB Sandbox, aber mit explizitem User-Approval + Code-Review-Modal |
 | Core Self-Modification | **Hoch** | Backup + Rollback + DiffReview + User-Approval |
-| npm-Paket Download | **Niedrig-Mittel** | URL-Allowlist, Groessen-Check, User-Review |
+| npm-Paket Download | **Niedrig-Mittel** | URL-Allowlist (esm.sh, jsdelivr, unpkg), Groessen-Check, User-Review |
 | MCP Self-Configuration | **Mittel** | Nur SSE/HTTP, Timeout, Validation |
 | Prompt Injection | **Mittel** | Instruktionshierarchie, Tool-Call Validation, Approval-Gate |
 
@@ -365,7 +377,7 @@ Chromium iframe Sandbox + esbuild-wasm build() + postMessage Bridge (Entwurf 2)
     + Library-Bundling via esbuild build() + virtuellem Dateisystem
     + Binary I/O via vault.writeBinary Bridge-Endpunkt
     + URL-Allowlist + Rate Limiting auf Bridge
-    + In-Process Package Manager (requestUrl → lokaler Cache)
+    + In-Process Package Manager (esm.sh ?bundle → jsdelivr fallback → rekursive Imports → In-Memory-Cache)
     |
     + OpenClaw: Skills als Markdown, Progressive Disclosure, Pre-Compaction Flush
     + Craft Agents: SKILL.md Format, Validation Tools, Agent-gesteuerte Config
@@ -383,7 +395,7 @@ Drei-Stufen-Modell mit echtem Security-Modell:
 2. **80% brauchen keinen Code** — Markdown-Skills reichen
 3. **vm.createContext() ist KEINE Security-Grenze** — Chromium iframe ist die echte Sandbox
 4. **postMessage Bridge kontrolliert alle Zugriffe** — Vault, Netzwerk, Binaer-I/O
-5. **esbuild-wasm build() + In-Process Package Manager** — Libraries ohne npm/Shell
+5. **esbuild-wasm build() + In-Process Package Manager (esm.sh/jsdelivr CDN)** — Libraries als Browser ES Modules ohne npm/Shell, rekursive Dependency-Aufloesung
 6. **Memory ist das Rueckgrat** — Agent weiss was er kann, was er gelernt hat
 7. **Progressive Disclosure** haelt den Context schlank
 8. **Patch-Module vor Full Rebuild** — 95% der Core-Bugs ohne Rebuild behebbar

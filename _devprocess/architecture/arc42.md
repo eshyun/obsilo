@@ -1,7 +1,7 @@
 # arc42 — Obsidian Agent Architecture
 
-**Version:** 3.2
-**Stand:** 2026-02-26
+**Version:** 3.3
+**Stand:** 2026-03-01
 **Status:** Aktuell — alle Features implementiert, Dokumentation vollstaendig
 
 ---
@@ -35,7 +35,7 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 
 ### 2.1 Technische Randbedingungen
 - **Obsidian Plugin API** — Zugriff auf Vault, MetadataCache, Workspace via `app.*`
-- **Electron-Renderer** — TypeScript/Node.js, kein Browser-Sandbox, kein Worker-Thread-Zugriff
+- **Electron-Renderer** — TypeScript/Node.js, iframe-Sandbox fuer Code-Ausfuehrung (V8 Origin Isolation), kein Worker-Thread-Zugriff
 - **No system git** — `isomorphic-git` für Checkpoints (Pure-JS, keine System-Abhängigkeit)
 - **Obsidian Sync kompatibel** — Index-Daten im `.obsidian/`-Verzeichnis für Sync
 
@@ -75,6 +75,9 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 | isomorphic-git Shadow-Repo | Filesystem | ↔ (checkpoint commits) |
 | vectra LocalIndex | Filesystem | ↔ (vector read/write) |
 | Xenova Transformers | In-Process (ONNX) | ← (embeddings) |
+| iframe Sandbox | postMessage (V8 origin isolation) | ↔ (code execution) |
+| CDN (esm.sh, jsdelivr) | HTTPS (via requestUrl) | ← (npm packages) |
+| esbuild-wasm | In-Process (WASM) | ← (TypeScript compilation) |
 
 ---
 
@@ -169,7 +172,7 @@ AgentTask.run()
   └── Context Condensing (wenn threshold erreicht)
 ```
 
-### 5.3 Ebene 2: Tool Registry (37 Tools, 7 Gruppen)
+### 5.3 Ebene 2: Tool Registry (42 Tools, 8 Gruppen)
 
 ```
 ToolRegistry
@@ -185,8 +188,10 @@ ToolRegistry
   ├── agent group (7): ask_followup_question, attempt_completion,
   │                    update_todo_list, new_task, switch_mode,
   │                    update_settings, configure_model
+  ├── sandbox group (2): evaluate_expression, create_dynamic_tool
   ├── skill group (5): execute_command, execute_recipe, call_plugin_api,
   │                    resolve_capability_gap, enable_plugin
+  ├── self-modify group (3): manage_skill, manage_source, manage_mcp_server
   └── mcp group (1):   use_mcp_tool
 ```
 
@@ -336,14 +341,24 @@ AgentTask Iteration N (nach Tool-Result)
   ├── estimateTokenCount(history) > contextWindow * condensingThreshold?
   │     └── Nein → weiter mit naechster Iteration
   │
-  └── Ja → maybeCondenseContext()
+  └── Ja → condenseHistory()
         ├── Behalte: erste User-Nachricht (Original-Aufgabe)
         ├── Behalte: letzte 4 Nachrichten (aktueller Kontext)
         ├── Komprimiere: mittlerer Teil via LLM-Call
         └── Ersetze History: [erste, Zusammenfassung, letzte 4]
+
+Emergency Condensing (Catch-Block):
+  API-Call schlaegt mit 400 fehl (context_length_exceeded / prompt too long)
+  │
+  ├── history.length >= 7?
+  │     └── Nein → normaler Fehler
+  │
+  └── Ja → condenseHistory() (Notfall)
+        ├── Erfolg → User wird informiert ("Konversation wurde komprimiert")
+        └── Fehlschlag → normaler Fehler-Handler
 ```
 
-ADR: [ADR-012](ADR-012-context-condensing.md).
+ADR: [ADR-012](ADR-012-context-condensing.md). Context Condensing ist standardmaessig AKTIVIERT (`condensingEnabled: true`).
 
 ### 6.6 Semantic Search Pipeline
 
@@ -384,6 +399,9 @@ Nutzer-Gerät:
         ├── Chat History       → .obsidian/plugins/obsidian-agent/history/
         ├── Memory Files       → .obsidian/plugins/obsidian-agent/memory/
         ├── Extraction Queue   → .obsidian/plugins/obsidian-agent/pending-extractions.json
+        ├── iframe Sandbox     → V8 origin isolation (evaluate_expression, dynamic tools)
+        ├── esbuild-wasm       → In-Process TypeScript Compilation (~11MB, on-demand)
+        ├── Package Cache      → In-Memory (CDN-Downloads: esm.sh ?bundle, jsdelivr fallback)
         └── MCP subprocesses   → stdio (lokal)
 ```
 
@@ -412,7 +430,7 @@ Nutzer-Gerät:
 ### 8.3 Context Management
 
 - **System Prompt** wird pro Task einmalig aufgebaut (nicht pro Iteration). Modulare Architektur: 15 Sections als Pure Functions in `src/core/prompts/sections/`, orchestriert von `buildSystemPromptForMode()`. Tool-Beschreibungen kommen aus der zentralen `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Specs: `FEATURE-modular-system-prompt.md`, `FEATURE-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
-- **Context Condensing** — wenn Kontext-Schätzung den `condensingThreshold` überschreitet: erste + letzte 4 Nachrichten behalten, Rest via LLM-Komprimierung.
+- **Context Condensing** — wenn Kontext-Schätzung den `condensingThreshold` überschreitet: erste + letzte 4 Nachrichten behalten, Rest via LLM-Komprimierung. Standardmaessig aktiviert (`condensingEnabled: true`). Zusaetzlich: Emergency Condensing im Catch-Block bei 400 "context too long" Fehlern.
 - **Power Steering** — alle `powerSteeringFrequency` Iterationen wird der Mode-Reminder erneut injiziert.
 
 ### 8.4 Chat History & Memory System

@@ -1,6 +1,6 @@
 # ADR-012: Context Condensing Strategy (Keep-First-Last)
 
-**Status:** Akzeptiert
+**Status:** Akzeptiert (aktualisiert 2026-03-01: Default=true, Emergency Condensing)
 **Datum:** 2026-02-24
 **Entscheider:** Sebastian Hanke
 
@@ -36,12 +36,21 @@ Algorithmus:
 - **Token-Schaetzung statt exakter Zaehlung**: `estimateTokenCount()` nutzt eine 4-Chars-pro-Token-Heuristik. Exaktes Tokenizing waere zu langsam fuer Echtzeit-Checks.
 - **Kilo Code Referenz**: Uebernimmt die Strategie aus der Kilo-Code-Referenz.
 
+## Emergency Condensing (Ergaenzung 2026-03-01)
+
+Zusaetzlich zum proaktiven Threshold-Check gibt es einen reaktiven Catch-Block:
+
+Wenn der API-Call mit einem 400-Fehler fehlschlaegt (Patterns: `context_length_exceeded`, `prompt too long`, `too many tokens`, `token limit`, `request too large`), und die History mindestens 7 Nachrichten hat, wird `condenseHistory()` als Notfall-Massnahme ausgefuehrt. Bei Erfolg wird der User informiert ("Konversation wurde komprimiert — bitte letzte Nachricht erneut senden"). Bei Fehlschlag greift der normale Error-Handler.
+
+Dies verhindert den Totalabbruch des Tasks bei unvorhergesehener Context-Ueberschreitung (z.B. sehr grosse Tool-Results in einem einzigen Turn).
+
 ## Konsequenzen
 
 **Positiv:**
 - Agent kann beliebig lange Sessions fuehren
 - Kein abrupter Abbruch bei vollem Kontext
 - Nutzer wird benachrichtigt (onContextCondensed Callback)
+- Emergency Condensing faengt unvorhergesehene 400-Fehler ab
 
 **Negativ:**
 - Ein LLM-Call fuer die Zusammenfassung (Latenz + Kosten)
@@ -50,5 +59,5 @@ Algorithmus:
 
 ## Implementierung
 
-- `src/core/AgentTask.ts` — `maybeCondenseContext()`, Token-Schaetzung, Threshold-Check
-- Settings: `condensingEnabled` (boolean), `condensingThreshold` (50-95, Default 80)
+- `src/core/AgentTask.ts` — `condenseHistory()`, Token-Schaetzung, Threshold-Check, Emergency Condensing im Catch-Block
+- Settings: `condensingEnabled` (boolean, Default: true), `condensingThreshold` (50-95, Default 80)

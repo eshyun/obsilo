@@ -17,7 +17,7 @@ threshold = contextWindow * (condensingThreshold / 100)
 if (estimatedTokens > threshold) → condenseHistory()
 ```
 
-- `condensingEnabled` must be true (default: false)
+- `condensingEnabled` must be true (default: true)
 - Only fires on iterations > 0 (never on the very first response)
 - Does NOT fire if `completionResult !== null` (task already ending)
 
@@ -91,7 +91,7 @@ Effect: the model "re-reads" its role instructions periodically. Helps with:
 ## Configuration
 | Key | Default | Description |
 |-----|---------|-------------|
-| `advancedApi.condensingEnabled` | false | Enable context condensing |
+| `advancedApi.condensingEnabled` | true | Enable context condensing |
 | `advancedApi.condensingThreshold` | 80 | % of context window (50–95) |
 | `advancedApi.powerSteeringFrequency` | 0 | Inject reminder every N iterations (0=disabled) |
 
@@ -105,10 +105,20 @@ new AgentTask(api, registry, callbacks, modeService,
 ```
 Keeps child loops lean and prevents recursive condensing.
 
+## Emergency Condensing (400 Error Recovery)
+
+When the API call fails with a 400 error indicating context overflow (`context_length_exceeded`, `prompt too long`, `too many tokens`, `token limit`, `request too large`), and history has >= 7 messages, `condenseHistory()` is triggered as emergency recovery in the outer catch block of `AgentTask.run()`.
+
+- On success: user is informed via `onError` callback ("Context was too large. The conversation has been condensed — please resend your last message.")
+- On failure: falls through to normal error handling
+- Uses `cachedSystemPrompt` (outer scope) since the catch block is outside the iteration loop
+
+This prevents total task abortion on unexpected context overflow (e.g., very large tool results in a single turn that exceed the proactive threshold check).
+
 ## Known Limitations / Edge Cases
 - Token estimation (~4 chars/token) can be off by 50-100% for non-English content, code-heavy conversations, or messages with images. Consider using `usage` stream chunks for accurate tracking.
 - Condensing call uses no tools (empty tools list) and no system prompt structuring — may produce inconsistent summaries across runs.
-- If condensing fails silently (e.g. API timeout), history grows unchecked. No fallback (truncation) is implemented.
+- If proactive condensing fails silently (e.g. API timeout), history grows unchecked — but emergency condensing in the catch block provides a safety net for 400 errors.
 - Condensing fires at most once per iteration (not in a loop). If history grows beyond threshold in a single turn (e.g. a huge tool result), one condensing pass may not be enough.
 - Power Steering synthetic messages accumulate in history — not removed after the summary point. Could slightly inflate token count over very long tasks.
 - History preservation relies on tail=4 being enough context. For tasks with very long tool outputs, 4 messages may not be sufficient context to continue effectively.

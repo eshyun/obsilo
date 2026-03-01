@@ -27,7 +27,7 @@
 | M-5: DNS rebinding documentation | `WebFetchTool.ts:73-78` | Added documentation comment about limitation |
 | M-7: Self-modification approval | `ToolExecutionPipeline.ts` | New `self-modify` group, always requires human approval |
 | M-8: SandboxBridge hardening | `SandboxBridge.ts` | Prototype pollution guard, audit logging, circuit breaker |
-| M-9: CSP meta tag | `sandboxHtml.ts:14` | Added `Content-Security-Policy` with `default-src 'none'` |
+| M-9: CSP meta tag | `sandboxHtml.ts:14` | Added `Content-Security-Policy` with `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'` |
 
 ### Shared Utility
 
@@ -52,7 +52,7 @@ Warnings added in all 5 locales (EN, DE, JA, ZH-CN, ES).
 
 | Layer | Protection | Status |
 |-------|-----------|--------|
-| CSP meta tag | Blocks external scripts/resources | NEW |
+| CSP meta tag | `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'` — blocks external scripts/resources, allows inline execution | NEW |
 | V8 origin isolation | Prevents direct JS access to parent | EXISTS (documented accurately) |
 | event.source validation | Prevents cross-plugin message spoofing | NEW |
 | Object.freeze on globals | Prevents bridge proxy replacement | NEW |
