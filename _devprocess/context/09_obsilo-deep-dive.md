@@ -611,10 +611,15 @@ Dies ist das ambitionierteste Feature, aufgeteilt in 4 Phasen:
 ### Phase 3: Sandbox & Dynamic Modules
 - **SandboxExecutor** (`src/core/sandbox/SandboxExecutor.ts`): Eine sandboxed iframe (`sandbox="allow-scripts"`) für Code-Ausführung
 - **EsbuildWasmManager** (`src/core/sandbox/EsbuildWasmManager.ts`): esbuild-wasm kompiliert TypeScript zu JS direkt im Browser
-- **AstValidator** (`src/core/sandbox/AstValidator.ts`): Validiert Code vor Ausführung (keine `eval`, kein `require`, etc.)
-- **SandboxBridge** (`src/core/sandbox/SandboxBridge.ts`): Kontrolliert was die Sandbox darf (Vault-Read, URL-Fetch — kein Vault-Write direkt)
+  - Zwei Kompilierungsmodi: `transform()` (Einzeldatei, ~100ms) und `build()` (mit npm-Deps, ~500ms-2s)
+  - npm-Pakete werden von CDN geladen: esm.sh `?bundle` (bevorzugt, transitive Deps inlined), jsdelivr `/+esm` (Fallback)
+  - `resolveInternalImports()` loest rekursiv absolute CDN-Imports auf (z.B. Node-Polyfills `/node/buffer.mjs`, `/node/process.mjs` -> `/node/events.mjs` -> `/node/async_hooks.mjs`)
+  - Parallele Package-Downloads via `Promise.all()`
+- **AstValidator** (`src/core/sandbox/AstValidator.ts`): Validiert Code vor Ausführung (keine `eval`, kein `require`, etc.). Strippt Kommentare vor der Prüfung.
+- **SandboxBridge** (`src/core/sandbox/SandboxBridge.ts`): Kontrolliert was die Sandbox darf (Vault-Read/Write, URL-Fetch). Rate Limits: 10 Writes/min, 5 Requests/min. URL-Allowlist: unpkg.com, cdn.jsdelivr.net, registry.npmjs.org, esm.sh.
 - **DynamicToolLoader** (`src/core/tools/dynamic/DynamicToolLoader.ts`): Lädt zur Laufzeit neue Tools aus Code-Modulen
-- **`evaluate_expression`** Tool: Führt Code in der Sandbox aus
+- **`evaluate_expression`** Tool: Führt TypeScript in der Sandbox aus. Unterstützt `dependencies`-Parameter für npm-Pakete (z.B. pptxgenjs, xlsx, pdf-lib). Import-Hoisting: Statische `import`-Zeilen werden automatisch an den Modul-Top-Level extrahiert.
+- **CSP:** `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'`
 
 ### Phase 4: Core Self-Modification
 - **EmbeddedSourceManager** (`src/core/self-development/EmbeddedSourceManager.ts`): Im Build wird der gesamte TypeScript-Quellcode base64-encodiert in `main.js` eingebettet. Der Agent kann seinen eigenen Code lesen und durchsuchen.
@@ -685,8 +690,9 @@ Wenn der Agent eine Datei schreiben will und Approval erforderlich ist:
 
 - **Path Traversal Protection** in `GlobalFileService`: Pfade die aus `~/.obsidian-agent/` ausbrechen werden blockiert
 - **Plugin API Allowlist** (`src/core/tools/agent/pluginApiAllowlist.ts`): Nur bekannte sichere Plugin-Methoden sind als Read klassifiziert
-- **AST Validation** für Sandbox-Code: Kein `eval`, `Function()`, `require()`, `import()`, `process`, `__dirname`
-- **CSP Meta Tag** in der Sandbox-HTML
+- **AST Validation** für Sandbox-Code: Kein `eval`, `new Function()`, `require()`, `import()`, `process`, `__proto__`, `globalThis`, `WebAssembly`, `constructor.constructor`, `arguments.callee`, `setTimeout/setInterval` mit String-Argument. Kommentare werden vor der Pruefung gestrippt.
+- **CSP Meta Tag** in der Sandbox-HTML: `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'`
+- **Context Condensing**: Default aktiviert. Emergency-Condensing bei 400-Context-Overflow-Fehlern mit automatischer History-Komprimierung.
 - **Recipe Validation** (`src/core/tools/agent/recipeValidator.ts`): Rezepte werden vor Ausführung validiert
 - **Security Boundary** im System Prompt: Explizite Anweisungen an den Agent, keine sensiblen Daten preiszugeben
 - **Review-Bot Compliance:** Code folgt Obsidian's Plugin-Review-Richtlinien (kein `console.log`, kein `fetch()`, kein `innerHTML` etc.)

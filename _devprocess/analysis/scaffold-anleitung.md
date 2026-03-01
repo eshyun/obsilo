@@ -136,6 +136,105 @@ TODO: Create GitHub Secret 'PUBLIC_REPO_TOKEN' in your repo settings
 
 ---
 
+## Development Agents: Von der Idee zum Code
+
+Das Scaffold bringt drei GitHub Copilot Agents mit, die Analyse und Design
+als strukturierte Dokumente liefern. Claude Code uebernimmt als "Boss" die
+finale Architektur und die gesamte Implementierung.
+
+### Ueberblick
+
+```
+Copilot: @business-analyst -> @requirements-engineer -> @architect
+                                                          |
+                                          plan-context.md + ADRs + arc42
+                                                          |
+Claude Code (Boss): Finale Architektur -> Plan -> Code -> Update
+```
+
+### Schritt fuer Schritt (MVP/PoC)
+
+**1. Business Analysis (Copilot)**
+```
+In VS Code Copilot Chat:
+@business-analyst Ich moechte [deine Idee beschreiben]
+
+-> Strukturiertes Interview (5-50 Fragen je nach Scope)
+-> Ergebnis: _devprocess/analysis/BA-[PROJECT].md
+```
+
+**2. Requirements Engineering (Copilot)**
+```
+@requirements-engineer Erstelle Epics und Features basierend auf der BA
+
+-> Liest das BA-Dokument
+-> Erstellt: _devprocess/requirements/epics/EPIC-*.md
+             _devprocess/requirements/features/FEATURE-*.md
+             _devprocess/requirements/handoff/architect-handoff.md
+-> Quality Gate 1: NFRs quantifiziert? ASRs markiert?
+                   Success Criteria tech-agnostisch?
+```
+
+**3. Architecture -- Vorschlaege (Copilot)**
+```
+@architect Erstelle Architektur basierend auf den Requirements
+
+-> Liest architect-handoff.md + Features + Epics
+-> Erstellt: _devprocess/architecture/ADR-*.md (MADR-Format, Vorschlaege!)
+             _devprocess/architecture/arc42.md (Entwurf)
+             _devprocess/requirements/handoff/plan-context.md (Tech-Summary)
+-> Quality Gate 2: ADRs vollstaendig? arc42 scope-passend?
+-> KEINE Issues -- das macht Claude Code!
+```
+
+**4. Finale Architektur + Implementation (Claude Code)**
+```
+claude
+
+-> Lies _devprocess/requirements/handoff/plan-context.md und erstelle einen Plan
+
+-> Claude Code liest ALLE Kontext-Dokumente:
+   plan-context.md, ADRs, arc42, Features, Epics
+-> Trifft FINALE Architektur-Entscheidungen
+   (akzeptiert, modifiziert oder ergaenzt ADR-Vorschlaege)
+-> Erstellt Implementierungsplan (Plan-Mode)
+-> Implementiert: Feature-Lifecycle (Backlog -> Spec -> Plan -> Code -> Update)
+-> Build+Deploy nach jedem Schritt
+```
+
+### Vereinfachter Ablauf (Simple Test)
+
+```
+@architect [Beschreib direkt was du bauen willst]
+-> 1-2 ADRs + kurzer plan-context.md
+
+claude
+-> Liest plan-context.md, erstellt Plan, implementiert direkt
+```
+
+### Wann welchen Agent nutzen?
+
+| Ich habe... | Starte mit... |
+|-------------|---------------|
+| Eine vage Idee | @business-analyst |
+| Klare Anforderungen, brauche Struktur | @requirements-engineer |
+| Fertige Requirements, brauche Architektur-Vorschlaege | @architect |
+| Architektur-Vorschlaege, will coden | Claude Code (liest ADRs als Kontext) |
+| Klares Feature, brauche keine Agents | Claude Code direkt |
+| Fehlgeschlagene Tests | Claude Code (Debugging eingebaut) |
+
+### Security Scan (periodisch)
+
+```
+In Claude Code:
+"Fuehre einen Security Scan durch gemaess _devprocess/prompts/security-scan.md"
+
+-> 5-Phasen-Scan: CodeQL, OWASP, Zero Trust, Code Quality, SCA
+-> Ergebnis: _devprocess/analysis/security/SCAN-[PROJECT]-[DATUM].md
+```
+
+---
+
 ## Nach dem Setup: Die erste Claude Code Session
 
 Wenn du `claude` startest, kennt Claude bereits:
@@ -156,7 +255,7 @@ Wenn du `claude` startest, kennt Claude bereits:
 
 **Was du in der ersten Session tun solltest:**
 1. Beschreib das Projekt in 1-2 Saetzen -- Claude traegt es in MEMORY.md ein
-2. Erstelle die erste Feature-Spec (`_private/requirements/features/FEATURE-001-*.md`)
+2. Erstelle die erste Feature-Spec (`_devprocess/requirements/features/FEATURE-001-*.md`)
 3. Claude erstellt einen Plan, du genehmigst, Claude implementiert
 4. Nach der Implementierung aktualisiert Claude Backlog und Memory
 
@@ -169,8 +268,8 @@ Ab der zweiten Session weiss Claude alles aus der ersten.
 ### Feature entwickeln
 
 ```
-1. Feature im Backlog eintragen     -> _private/context/10_backlog.md
-2. Feature-Spec schreiben            -> _private/requirements/features/FEATURE-NNN-name.md
+1. Feature im Backlog eintragen     -> _devprocess/context/10_backlog.md
+2. Feature-Spec schreiben            -> _devprocess/requirements/features/FEATURE-NNN-name.md
 3. Claude: Plan erstellen            -> Plan-Mode, Kontext/Aenderungen/Verifikation
 4. Claude: Implementieren            -> Build+Deploy nach jedem Schritt
 5. Claude: Spec aktualisieren        -> Status: Implemented, Key Files, Limitations
@@ -194,7 +293,7 @@ Ab der zweiten Session weiss Claude alles aus der ersten.
 1. Version in manifest.json bumpen   -> npm run version
 2. Auf dev committen + pushen
 3. dev -> main mergen                -> PR oder git merge
-4. CI: sync-public.yml               -> Automatisch, strippt _private/
+4. CI: sync-public.yml               -> Automatisch, strippt _devprocess/
 5. CI: release.yml                   -> Manuell ausloesen (workflow_dispatch)
    Oder: promote-to-test.sh          -> Fuer manuellen Staging-Prozess
 ```
@@ -202,7 +301,7 @@ Ab der zweiten Session weiss Claude alles aus der ersten.
 ### Architektur-Entscheidung treffen
 
 ```
-1. ADR schreiben                     -> _private/architecture/ADR-NNN-title.md
+1. ADR schreiben                     -> _devprocess/architecture/ADR-NNN-title.md
 2. Format: Kontext, Entscheidung, Alternativen (nummeriert), Konsequenzen
 3. Referenz zum Code einfuegen       -> ADR verweist auf Datei:Zeile
 4. Code-Kommentar einfuegen          -> "// See ADR-NNN"
@@ -215,26 +314,39 @@ Ab der zweiten Session weiss Claude alles aus der ersten.
 ```
 my-new-app/
   .github/
+    agents/                    Copilot Agents (Discovery & Design)
+      business-analyst.agent.md   Strukturiertes BA-Interview
+      requirements-engineer.agent.md   Epics, Features, ASRs
+      architect.agent.md       ADR-Vorschlaege + arc42 (KEINE Issues)
+    instructions/              Auto-Validierung fuer Agent-Outputs
+    templates/                 Dokument-Templates (Epic, Feature)
     workflows/
       sync-public.yml          Automatischer Sync zu Public Repo (bei Push auf main)
       release.yml              Manueller Release (workflow_dispatch)
       codeql.yml               Security-Scanning (auf dev/main + weekly)
     dependabot.yml             Woechentliche Dependency-Updates
 
-  _private/                    Interne Docs (nie im Public Repo)
+  _devprocess/                    Interne Docs (nie im Public Repo)
     architecture/
       arc42-skeleton.md        Architektur-Doku (12 leere Abschnitte)
       ADR-000-template.md      Template fuer neue ADRs
-    analysis/                  Analysen, Security-Scans, Research
+    analysis/                  Analysen, Research
+      security/                Security-Scan-Reports
     context/
       01_product-vision.md     Produktkontext-Dokumente (alle mit Ueberschriften-Skeleton)
       ...
       10_backlog.md            Lebendes Backlog (Features, Bugs, Tech Debt, Prioritaeten)
     implementation/            Technische Referenz-Docs (TECH-*, IMPL-*)
+    prompts/
+      security-scan.md         Security-Scanner-Prompt fuer Claude Code
     requirements/
       REQUIREMENTS-overview.md Anforderungs-Uebersicht
+      epics/                   Epics vom RE Agent (SAFe-Format)
       features/
         FEATURE-000-template.md  Template fuer neue Feature-Specs
+      handoff/                 Agent-Uebergabe-Dokumente
+                               architect-handoff.md (RE -> Architect)
+                               plan-context.md (Architect -> Claude Code)
 
   scripts/
     promote-to-test.sh         Dev -> Test/Main promoten (strippt Dev-Artefakte)
@@ -261,16 +373,28 @@ my-new-app/
 
 | Ich suche... | Datei / Ort |
 |--------------|-------------|
+| **Agent-Artefakte** | |
+| Copilot Agents (BA, RE, Architect) | `.github/agents/*.agent.md` |
+| Agent-Qualitaetsregeln | `.github/instructions/*.instructions.md` |
+| Dokument-Templates (Epic, Feature) | `.github/templates/*.md` |
+| Business Analysis | `_devprocess/analysis/BA-*.md` |
+| Epics | `_devprocess/requirements/epics/EPIC-*.md` |
+| RE -> Architect Uebergabe | `_devprocess/requirements/handoff/architect-handoff.md` |
+| Architect -> Claude Code (Tech-Summary) | `_devprocess/requirements/handoff/plan-context.md` |
+| Security-Scan-Reports | `_devprocess/analysis/security/SCAN-*.md` |
+| Security-Scanner-Prompt | `_devprocess/prompts/security-scan.md` |
+| **Projekt-Dokumentation** | |
 | Meine globalen Arbeits-Patterns | `~/.claude/CLAUDE.md` |
 | Projekt-spezifisches Claude-Wissen | `~/.claude/projects/-<path>/memory/MEMORY.md` |
 | Wie Memory funktioniert | `~/.claude/projects/-<path>/memory/SCAFFOLD-GUIDE.md` |
-| Architektur-Doku | `_private/architecture/arc42-skeleton.md` |
-| Architektur-Entscheidungen | `_private/architecture/ADR-*.md` |
-| Feature-Spezifikationen | `_private/requirements/features/FEATURE-*.md` |
-| Aktuelles Backlog | `_private/context/10_backlog.md` |
-| Produkt-Vision | `_private/context/01_product-vision.md` |
-| Analysen / Security-Scans | `_private/analysis/` |
-| Technische Referenz-Docs | `_private/implementation/` |
+| Architektur-Doku | `_devprocess/architecture/arc42-skeleton.md` |
+| Architektur-Entscheidungen | `_devprocess/architecture/ADR-*.md` |
+| Feature-Spezifikationen | `_devprocess/requirements/features/FEATURE-*.md` |
+| Aktuelles Backlog | `_devprocess/context/10_backlog.md` |
+| Produkt-Vision | `_devprocess/context/01_product-vision.md` |
+| Analysen / Research | `_devprocess/analysis/` |
+| Technische Referenz-Docs | `_devprocess/implementation/` |
+| **Infrastruktur** | |
 | CI/CD Workflows | `.github/workflows/` |
 | Deploy-Pfad Konfiguration | `.env` (lokal) |
 | Lokaler Deploy | `./deploy-local.sh` oder `npm run deploy` |
@@ -299,11 +423,11 @@ origin (privat)                    public (oeffentlich)
   test ---+---- main ------------> public/main
                   |                   |
                   | sync-public.yml   |
-                  | (strippt _private/) |
+                  | (strippt _devprocess/) |
 ```
 
-- `origin`: Alles. Alle Branches, alle Dateien inkl. `_private/`.
-- `public`: Nur `main`, ohne `_private/`. Automatisch synchronisiert.
+- `origin`: Alles. Alle Branches, alle Dateien inkl. `_devprocess/`.
+- `public`: Nur `main`, ohne `_devprocess/`. Automatisch synchronisiert.
 - Lokale Dateien (`.claude/`, `.env`, `forked-*/`): Nie committed, nirgends.
 
 ### Claude Code Memory -- Zwei Ebenen

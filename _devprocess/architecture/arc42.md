@@ -42,7 +42,7 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 ### 2.2 Organisatorische Randbedingungen
 - Apache 2.0 Lizenz
 - Kilo Code als Referenzimplementierung (`forked-kilocode/`, gitignored, device-local)
-- Private Dokumentation in `_private/` (nur im dev-Branch getrackt, nie publiziert)
+- Private Dokumentation in `_devprocess/` (nur im dev-Branch getrackt, nie publiziert)
 
 ---
 
@@ -545,7 +545,7 @@ VaultDNA ermoeglicht dem Agent die Nutzung aller installierten Obsidian-Plugins:
 
 ## 9. Architekturentscheidungen
 
-Siehe einzelne ADRs in `_private/architecture/`:
+Siehe einzelne ADRs in `_devprocess/architecture/`:
 
 | ADR | Entscheidung |
 |-----|-------------|

@@ -361,9 +361,19 @@ The SandboxBridge would process this as a legitimate bridge call from the sandbo
 **Fix:** Add `event.source` check:
 Validate `event.source === this.iframe?.contentWindow`
 
-### I-2: No CSP on the sandbox iframe
+### I-2: CSP added to sandbox iframe (RESOLVED 2026-03-01)
 
-The `srcdoc` content has no `Content-Security-Policy` meta tag. While the `sandbox` attribute provides similar restrictions, a CSP would add defense-in-depth (e.g., `script-src 'unsafe-inline'` to block any `<script src>` injections).
+~~The `srcdoc` content has no `Content-Security-Policy` meta tag.~~
+
+**Update:** CSP meta tag added to `sandboxHtml.ts`:
+`default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'`
+
+`'unsafe-eval'` is required because the sandbox uses `new Function()` to load
+compiled code. This is acceptable because:
+- The iframe `sandbox="allow-scripts"` attribute provides V8 origin isolation
+- The SandboxBridge validates all cross-boundary operations
+- The AstValidator pre-validates all user code before compilation
+- `new Function()` is fundamental to the sandbox architecture
 
 ### Enterprise MacBook Recommendation
 
@@ -389,7 +399,7 @@ For an enterprise MacBook deployment:
 | SH-4 | `spawn()` | ExecuteRecipeTool.ts | 29 | Confirmed | `resolveBinary` helper -- `shell: false`, safe. |
 | SH-5 | Weak crypto | -- | -- | False Positive | No crypto usage besides `crypto.subtle.digest` (SHA-256). |
 | SH-6 | `requestUrl` with dynamic URL | WebFetchTool.ts | 112 | Confirmed | SSRF-protected with IP blocklist. DNS rebinding risk noted. |
-| SH-7 | `requestUrl` with dynamic URL | EsbuildWasmManager.ts | 246 | Won't Fix | CDN URLs are hardcoded constants, not user-controlled. |
+| SH-7 | `requestUrl` with dynamic URL | EsbuildWasmManager.ts | 246+ | Confirmed | CDN base URLs are hardcoded (esm.sh, jsdelivr). Package names come from LLM-generated `dependencies` param. `resolveInternalImports()` recursively downloads absolute-path imports from CDN responses (e.g. `/node/buffer.mjs`). URLs are CDN-relative paths only, depth-limited to 5. |
 | SH-8 | Hardcoded credentials | -- | -- | False Positive | No hardcoded secrets found. API keys encrypted via safeStorage. |
 | SH-9 | `cors(*)` | -- | -- | False Positive | No web server; not applicable to Obsidian plugin. |
 | SH-10 | Empty catch blocks | VaultDNAScanner.ts | 900 | Confirmed | Non-critical background fetch -- acceptable. |
@@ -518,8 +528,8 @@ Downloads ~11MB of executable code from CDN at runtime. SHA-256 integrity verifi
 - **M-4:** Gate `testToolExecution()` behind `debugMode` check in production builds.
 - **M-6:** Provide enterprise-mode local-only provider restriction.
 - **M-7:** Provide mode config to disable `manage_source` for enterprise.
-- **M-9:** Add CSP meta tag to sandbox srcdoc HTML.
-- **M-11:** Document CDN runtime loading in enterprise security documentation.
+- ~~**M-9:** Add CSP meta tag to sandbox srcdoc HTML.~~ **RESOLVED 2026-03-01** — CSP added: `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'`.
+- **M-11:** Document CDN runtime loading in enterprise security documentation. **Note (2026-03-01):** CDN loading now uses esm.sh `?bundle` with recursive dependency resolution (incl. Node polyfills). `requestUrl` (Obsidian API) is used, not `fetch`.
 
 ### P3 -- Consider Fixing (Low + Info)
 
@@ -528,7 +538,7 @@ Downloads ~11MB of executable code from CDN at runtime. SHA-256 integrity verifi
 - **L-4:** MCP mutual TLS -- document as limitation for enterprise.
 - **L-5:** Package integrity checks for `ensurePackage()`.
 - **I-1:** `dangerouslyAllowBrowser` -- no action needed.
-- **I-2:** Add CSP to sandbox iframe -- defense-in-depth.
+- ~~**I-2:** Add CSP to sandbox iframe -- defense-in-depth.~~ **RESOLVED 2026-03-01.**
 
 ---
 

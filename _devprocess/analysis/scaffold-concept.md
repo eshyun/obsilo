@@ -16,7 +16,7 @@ das ein neues Projekt mit einem einzigen Befehl auf denselben Stand bringt.
 **Was wir haben:**
 - Zwei Remotes: `origin` (privat, alle Branches) + `public` (oeffentlich, nur `main`)
 - Branch-Flow: `dev` -> `test` -> `main` -> `public/main`
-- `_private/` wird in dev getrackt, aber automatisch von CI gestrippt
+- `_devprocess/` wird in dev getrackt, aber automatisch von CI gestrippt
 - Device-lokale Inhalte (`.claude/`, `.env`) sind in `.gitignore` und werden nie getrackt
 
 **Was ins Scaffold gehoert:**
@@ -32,14 +32,14 @@ das ein neues Projekt mit einem einzigen Befehl auf denselben Stand bringt.
 | `PUBLIC_REMOTE` | `obsilo` | Name des oeffentlichen Remote |
 | `PUBLIC_REPO` | `pssah4/obsilo` | GitHub-Pfad des Public Repo |
 | `PAT_SECRET_NAME` | `PUBLIC_REPO_TOKEN` | Name des GitHub Secrets fuer Push |
-| `INTERNAL_PATHS` | `_private, .claude, scripts, docs` | Pfade die beim Promote gestrippt werden |
+| `INTERNAL_PATHS` | `_devprocess, .claude, .github, scripts` | Pfade die beim Promote gestrippt werden |
 
 ---
 
 ### 2. CI/CD Workflows
 
 **Was wir haben:**
-- `sync-public.yml` -- Auto-Sync main -> public/main (strippt `_private/`)
+- `sync-public.yml` -- Auto-Sync main -> public/main (strippt `_devprocess/`)
 - `release.yml` -- Manueller Release mit Build + GitHub Release Assets
 - `codeql.yml` -- Security-Scanning auf dev/main + weekly
 - `dependabot.yml` -- Woechentliche Dependency-Updates
@@ -55,7 +55,7 @@ das ein neues Projekt mit einem einzigen Befehl auf denselben Stand bringt.
 
 **Was wir haben:**
 ```
-_private/
+_devprocess/
   architecture/
     arc42.md              # Vollstaendige Architekturdokumentation
     ADR-001.md ... ADR-N  # Architecture Decision Records
@@ -101,7 +101,7 @@ Datei automatisch in jeder Session, egal welches Projekt geoeffnet ist.
 
 - Konversation auf Deutsch
 - Commit-Messages auf Englisch mit konventionellen Prefixes (feat/fix/chore/docs/refactor)
-- Private Dokumentation (_private/) auf Deutsch
+- Private Dokumentation (_devprocess/) auf Deutsch
 - Public Dokumentation (README, docs/, ARCHITECTURE.md) auf Englisch
 - Keine Emojis -- nicht in Code, nicht in UI, nicht in Kommunikation
 - Technische Begriffe und Identifier bleiben immer Englisch, auch in deutschen Texten
@@ -132,7 +132,7 @@ Artefakt, sondern ein **kontinuierlicher Prozess**:
 1. BACKLOG          Feature als Eintrag in 10_backlog.md (Status: Geplant)
                     Prioritaet und Zeithorizont zuweisen
         |
-2. FEATURE-SPEC     _private/requirements/features/FEATURE-NNN-name.md
+2. FEATURE-SPEC     _devprocess/requirements/features/FEATURE-NNN-name.md
                     Schreiben VOR der Implementierung:
                     - Summary, Anforderungen, Abgrenzung, Akzeptanzkriterien
                     Backlog-Eintrag verlinkt auf die Spec
@@ -216,8 +216,8 @@ ist immer aktuell -- es gibt keinen Drift zwischen Code und Doku.
 - Branch-Flow: feature/* -> dev -> main -> public/main
 - Zwei-Stufen-Stripping:
   1. promote-to-test: Dev-Tooling entfernen (.claude, scripts, forked-code)
-  2. sync-public CI: Interne Docs entfernen (_private/)
-- _private/ als AI-lesbares Wissensarchiv (fuer Claude als Arbeitskontext geschrieben)
+  2. sync-public CI: Interne Docs entfernen (_devprocess/)
+- _devprocess/ als AI-lesbares Wissensarchiv (fuer Claude als Arbeitskontext geschrieben)
 - Pre-Push Quality-Checks (grep-basiert, framework-spezifisch)
 - Kein aktiver git hook -- Quality Gates ueber npm scripts und manuelle Checks
 
@@ -245,7 +245,7 @@ nicht nur auf explizite Anweisung ("merk dir das"), sondern proaktiv:
 **Wann NICHT speichern:**
 - Einmalige, session-spezifische Details (temporaere Workarounds, Debug-Zustaende)
 - Unbestaetigte Vermutungen (erst verifizieren, dann speichern)
-- Informationen die schon in CLAUDE.md oder _private/ Docs stehen (keine Duplikate)
+- Informationen die schon in CLAUDE.md oder _devprocess/ Docs stehen (keine Duplikate)
 
 **Wie gespeichert wird:**
 - MEMORY.md: Nur Eckdaten, Kurzreferenzen (<200 Zeilen)
@@ -532,6 +532,17 @@ erweitern das um stack-spezifische Dateien.
 ```
 project-scaffold/
   .github/
+    agents/                              # GitHub Copilot Agents (Discovery & Design)
+      business-analyst.agent.md          # Strukturierte BA-Interviews
+      requirements-engineer.agent.md     # Epics, Features, ASRs
+      architect.agent.md                 # ADR-Vorschlaege + arc42 (KEINE Issues)
+    instructions/                        # Auto-Validierung fuer Agent-Outputs
+      business-analyst.instructions.md   # BA-Dokument-Qualitaet
+      requirements-engineer.instructions.md  # NFR/ASR/Success-Criteria-Validierung
+      architect.instructions.md          # ADR/arc42-Validierung
+    templates/                           # Dokument-Templates fuer Agents
+      EPIC-TEMPLATE.md                   # Epic-Template (SAFe)
+      FEATURE-TEMPLATE.md               # Feature mit Benefits Hypothesis + tech-agn. SC
     workflows/
       sync-public.yml         # Platzhalter: __PUBLIC_REPO__
       release.yml              # Platzhalter: __PROJECT_NAME__, Build-Step leer
@@ -539,12 +550,14 @@ project-scaffold/
     dependabot.yml
     codeql/
       codeql-config.yml
-  _private/
+  _devprocess/
     architecture/
       arc42-skeleton.md
       ADR-000-template.md
     analysis/
       .gitkeep
+      security/                          # Security-Scan-Reports
+        .gitkeep
     context/
       01_product-vision.md
       02_stakeholders.md
@@ -558,10 +571,17 @@ project-scaffold/
       10_backlog.md
     implementation/
       .gitkeep
+    prompts/                             # Wiederverwendbare Prompts fuer Claude Code
+      security-scan.md                   # Security-Scanner (5-Phasen-Scan)
     requirements/
       REQUIREMENTS-overview.md
+      epics/                             # Epic-Dokumente (vom RE Agent)
+        .gitkeep
       features/
         FEATURE-000-template.md
+      handoff/                           # Agent-Uebergabe-Dokumente
+        .gitkeep                         # architect-handoff.md (RE->Architect)
+                                         # plan-context.md (Architect->Claude Code)
   scripts/
     init-scaffold.sh          # Loescht sich nach Ausfuehrung selbst
     promote-to-test.sh        # Platzhalter: __PUBLIC_REMOTE__
@@ -659,11 +679,83 @@ Config-Dateien                Branch-Struktur (dev/test)
 
 ---
 
+## Agent-Integration
+
+Details zur Agent-Integration: [scaffold-agents-konzept.md](scaffold-agents-konzept.md)
+
+### Kurzfassung
+
+Das Scaffold integriert einen **Hybrid-Ansatz** mit zwei Tools:
+
+| Phase | Tool | Agents | Output |
+|-------|------|--------|--------|
+| Discovery & Design | GitHub Copilot | @business-analyst, @requirements-engineer, @architect | Dokumente (VORSCHLAEGE) |
+| Finale Architektur + Implementation | Claude Code (Boss) | Developer + Debugger (eingebaut) | Finaler Plan + Code |
+| Security | Claude Code | Security-Scan-Prompt | Scan-Reports |
+
+**Warum Copilot fuer Discovery:** Agents sind bereits im Copilot-Format,
+interaktive Chat-UI fuer Interviews, native Handoffs zwischen Agents,
+Auto-Validierung via .instructions.md.
+
+**Warum Claude Code als Boss:** Voller Shell-Zugriff, Memory-System,
+Plan-Mode, Feature-Lifecycle, Git-Workflow. Trifft finale Architektur-
+Entscheidungen basierend auf dem realen Zustand der Codebase.
+
+**Warum nicht Kilo Code:** Drei Tools im Stack erhoehen Komplexitaet ohne
+proportionalen Nutzen. Copilot + Claude Code decken alle Phasen besser ab.
+
+### Vollstaendiger Workflow
+
+```
+Phase 0: Discovery       @business-analyst (Copilot)
+  -> _devprocess/analysis/BA-[PROJECT].md
+
+Phase 1: Requirements    @requirements-engineer (Copilot)
+  -> _devprocess/requirements/epics/EPIC-*.md
+  -> _devprocess/requirements/features/FEATURE-*.md
+  -> _devprocess/requirements/handoff/architect-handoff.md
+  -> QG1: NFRs quantifiziert? ASRs markiert? Success Criteria tech-agnostisch?
+
+Phase 2: Architektur-Vorschlag    @architect (Copilot)
+  -> _devprocess/architecture/ADR-*.md (Vorschlaege!)
+  -> _devprocess/architecture/arc42.md (Entwurf)
+  -> _devprocess/requirements/handoff/plan-context.md (Tech-Summary fuer Claude Code)
+  -> QG2: ADRs in MADR-Format? arc42 scope-passend?
+  -> KEINE Issues/Tasks!
+
+--- Wechsel zu Claude Code (der Boss) ---
+
+Phase 3: Finale Architektur + Plan    Claude Code
+  -> Liest: plan-context.md + ADRs + arc42 + Features
+  -> Trifft finale Architektur-Entscheidungen
+  -> Erstellt Implementierungsplan (Plan-Mode)
+  -> Definiert Issue-Zerlegung und Reihenfolge
+
+Phase 4: Implementation  Claude Code
+  -> Feature-Lifecycle: Backlog -> Spec -> Plan -> Code -> Update
+  -> QG3: Tests bestanden? Coverage >= 90%?
+
+Phase 5: Security        Claude Code (periodisch)
+  -> _devprocess/analysis/security/SCAN-*.md
+```
+
+### Orchestrierung ohne Kilo Code
+
+Die Orchestrierung funktioniert ueber drei Mechanismen:
+1. **Agent-Handoffs:** Jeder Agent sagt dem User, wen er als naechstes aufrufen soll
+2. **Datei-basierter Kontext:** Jeder Agent liest die Artefakte des Vorgaengers aus `_devprocess/`
+3. **Manueller Wechsel:** Der User tippt `@agent-name` in Copilot oder startet `claude` im Terminal
+
+---
+
 ## Naechste Schritte
 
 1. **Review dieses Konzepts** -- Feedback, fehlende Aspekte?
-2. **Template-Repo erstellen** (`pssah4/project-scaffold`, als GitHub Template markieren)
-3. **`main`-Branch**: Minimal-Flavor mit allen Docs, Scripts, Workflows
-4. **`obsidian-plugin`-Branch**: Erweitert main um Obsidian-spezifische Dateien
-5. **`init-scaffold.sh` implementieren** -- Interaktives Setup + Memory-Bootstrap
-6. **Dry-Run**: Neues Projekt aus Template erstellen, init ausfuehren, verifizieren
+2. **Review Agent-Konzept** -- [scaffold-agents-konzept.md](scaffold-agents-konzept.md)
+3. **Agent-Dateien erstellen** -- speckit-template als Basis, SpecKit entfernen, _devprocess/-Pfade
+4. **Template-Repo erstellen** (`pssah4/project-scaffold`, als GitHub Template markieren)
+5. **`main`-Branch**: Minimal-Flavor mit allen Docs, Scripts, Workflows, Agents
+6. **`obsidian-plugin`-Branch**: Erweitert main um Obsidian-spezifische Dateien
+7. **`init-scaffold.sh` implementieren** -- Interaktives Setup + Memory-Bootstrap
+8. **Security-Scanner-Prompt erstellen** -- Angepasste Version fuer Claude Code
+9. **Dry-Run**: Neues Projekt aus Template erstellen, init ausfuehren, verifizieren
