@@ -60,4 +60,6 @@ Dies verhindert den Totalabbruch des Tasks bei unvorhergesehener Context-Uebersc
 ## Implementierung
 
 - `src/core/AgentTask.ts` — `condenseHistory()`, Token-Schaetzung, Threshold-Check, Emergency Condensing im Catch-Block
-- Settings: `condensingEnabled` (boolean, Default: true), `condensingThreshold` (50-95, Default 80)
+- Settings: `condensingEnabled` (boolean, Default: true), `condensingThreshold` (50-95, Default 70)
+- Emergency Condensing: Auto-Retry statt Abbruch — nach erfolgreicher Notfall-Komprimierung wird der Agent-Loop automatisch fortgesetzt (max. 1 Retry)
+- Pre-Compaction Memory Flush wird auch vor Emergency Condensing ausgefuehrt
