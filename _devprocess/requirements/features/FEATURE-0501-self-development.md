@@ -78,7 +78,7 @@ Obsidian-Plugins laufen mit `nodeIntegration: true`. Code der aus vm ausbricht h
 > **Update:** Die iframe-Sandbox ist jetzt das Mobile-Fallback. Desktop nutzt
 > `child_process.fork()` mit OS-Level Prozess-Isolation (eigener OS-Prozess,
 > eigener V8-Heap, ELECTRON_RUN_AS_NODE=1). Siehe ADR-021 und
-> FEATURE-sandbox-os-isolation.md fuer die vollstaendige Spezifikation.
+> FEATURE-0502-sandbox-os-isolation.md fuer die vollstaendige Spezifikation.
 
 Die **Mobile**-Sicherheitsgrenze bleibt `<iframe sandbox="allow-scripts">`:
 

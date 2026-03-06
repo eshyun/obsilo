@@ -1,7 +1,7 @@
 # Feature: Semantisches Chat-Titling
 
-> **Feature ID**: FEATURE-302
-> **Epic**: EPIC-003 - Chat-Linking
+> **Feature ID**: FEATURE-0704
+> **Epic**: EPIC-007 - Chat-Linking
 > **Priority**: P1-High
 > **Effort Estimate**: S
 > **Status**: Implementiert
@@ -118,9 +118,9 @@ MODERATE ASR #1: API-Erweiterung für Titling
 
 ## Dependencies
 
-- **FEATURE-303 (Setting)**: Stellt `titlingModelKey` Modell-Dropdown bereit
+- **FEATURE-0705 (Setting)**: Stellt `titlingModelKey` Modell-Dropdown bereit
 - **ConversationStore**: `updateMeta()` existiert bereits
-- **FEATURE-301 (Auto-Frontmatter-Linking)**: Nutzt den generierten Titel; ohne Titling funktioniert der Fallback
+- **FEATURE-0703 (Auto-Frontmatter-Linking)**: Nutzt den generierten Titel; ohne Titling funktioniert der Fallback
 - **Bestehende Modell-Infrastruktur**: Analog zu `memoryModelKey` (Dropdown, Provider-Resolution)
 
 ## Assumptions

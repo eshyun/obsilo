@@ -1,7 +1,7 @@
 # Feature: Modell-Kompatibilitäts-Check
 
-> **Feature ID**: FEATURE-204
-> **Epic**: EPIC-002 - Files-to-Chat
+> **Feature ID**: FEATURE-0605
+> **Epic**: EPIC-006 - Files-to-Chat
 > **Priority**: P1-High
 > **Effort Estimate**: S
 
@@ -97,7 +97,7 @@ Prüft ob das aktive Modell die benötigten Capabilities für die angehängten D
 
 ### Functional
 - [ ] Vision-Check bei PPTX mit eingebetteten Bildern
-- [ ] Context-Window-Check (Überschneidung mit FEATURE-202)
+- [ ] Context-Window-Check (Überschneidung mit FEATURE-0603)
 - [ ] Modell-Empfehlung basierend auf konfigurierten Modellen
 - [ ] Nicht-blockierender Hinweis mit Schließen-Option
 
@@ -114,7 +114,7 @@ Prüft ob das aktive Modell die benötigten Capabilities für die angehängten D
 ## Dependencies
 
 - **Provider-Config**: `ModelInfo` muss um Vision-Capability erweiterbar sein
-- **FEATURE-203**: On-Demand Bild-Extraktion nutzt den Capability-Check
+- **FEATURE-0604**: On-Demand Bild-Extraktion nutzt den Capability-Check
 
 ## Assumptions
 

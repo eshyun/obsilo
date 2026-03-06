@@ -1,7 +1,7 @@
 # Feature: Protocol Handler (Deep-Links)
 
-> **Feature ID**: FEATURE-300
-> **Epic**: EPIC-003 - Chat-Linking
+> **Feature ID**: FEATURE-0702
+> **Epic**: EPIC-007 - Chat-Linking
 > **Priority**: P0-Critical
 > **Effort Estimate**: S
 > **Status**: Implementiert

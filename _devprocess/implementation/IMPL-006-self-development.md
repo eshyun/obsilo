@@ -3,7 +3,7 @@
 > Detaillierter, phasenweiser Plan mit Security, Performance und UX im Fokus
 
 **Datum**: 2026-02-28
-**Referenz**: [Analyse](../analysis/self-development-analysis.md), [Feature-Spec](../requirements/features/FEATURE-self-development.md)
+**Referenz**: [Analyse](../analysis/self-development-analysis.md), [Feature-Spec](../requirements/features/FEATURE-0501-self-development.md)
 
 ---
 

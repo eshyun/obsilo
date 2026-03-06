@@ -276,7 +276,7 @@ Chats sind dabei bewusst kein Vault-Content -- sie enthalten unreife Gedanken, B
 **Priorisierung der Komponenten:** Protocol Handler > Auto-Frontmatter-Linking > Semantisches Titling > Setting
 
 ### C. References
-- Feature-Spec: `_devprocess/requirements/features/FEATURE-chat-linking.md`
+- Feature-Spec: `_devprocess/requirements/features/FEATURE-0701-chat-linking.md`
 - ADR-022: `_devprocess/architecture/ADR-022-chat-linking.md`
 - Pipeline-Architektur: ADR-001 (Central Tool Execution Pipeline)
 - ConversationStore: `src/core/history/ConversationStore.ts`

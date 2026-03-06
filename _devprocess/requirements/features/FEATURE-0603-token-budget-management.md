@@ -1,7 +1,7 @@
 # Feature: Token-Budget-Management
 
-> **Feature ID**: FEATURE-202
-> **Epic**: EPIC-002 - Files-to-Chat
+> **Feature ID**: FEATURE-0603
+> **Epic**: EPIC-006 - Files-to-Chat
 > **Priority**: P1-High
 > **Effort Estimate**: M
 
@@ -125,7 +125,7 @@ Intelligentes Token-Budget-Management, das vor dem Senden einer Nachricht prüft
 
 ## Dependencies
 
-- **FEATURE-200**: Token-Budget arbeitet auf den extrahierten Texten der Parsing-Pipeline
+- **FEATURE-0601**: Token-Budget arbeitet auf den extrahierten Texten der Parsing-Pipeline
 - **Provider-Config**: Benötigt `ModelInfo.contextWindow` für das aktive Modell
 
 ## Assumptions

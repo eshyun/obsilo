@@ -208,7 +208,7 @@ ToolRegistry
   + DynamicToolFactory (runtime-registered custom tools)
 ```
 
-### 5.4 Ebene 2: Document Parser Pipeline (EPIC-002)
+### 5.4 Ebene 2: Document Parser Pipeline (EPIC-006)
 
 ```
 DocumentParserRegistry (Service-Kern)
@@ -232,7 +232,7 @@ Aufrufwege:
 
 ADR: [ADR-023](ADR-023-document-parser-tools.md), [ADR-024](ADR-024-parsing-library-selection.md), [ADR-025](ADR-025-on-demand-image-strategy.md).
 
-### 5.7 Ebene 2: Task Extraction Pipeline (FEATURE-100)
+### 5.7 Ebene 2: Task Extraction Pipeline (FEATURE-0801)
 
 ```
 AgentSidebarView.onComplete()
@@ -254,9 +254,9 @@ AgentSidebarView.onComplete()
                     │     └── Fehler: partial success (bereits erstellte Notes bleiben)
 ```
 
-ADR: [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md). Feature-Spec: `FEATURE-100-task-extraction.md`.
+ADR: [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md). Feature-Spec: `FEATURE-0801-task-extraction.md`.
 
-Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
+Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 
 ### 5.5 Ebene 2: Semantic Search Pipeline
 
@@ -296,7 +296,7 @@ Asynchrone Verarbeitung:
     └── LongTermExtractor -> LLM call -> update memory files
 ```
 
-ADR: [ADR-013](ADR-013-memory-architecture.md). Feature-Spec: `FEATURE-memory-personalization.md`.
+ADR: [ADR-013](ADR-013-memory-architecture.md). Feature-Spec: `FEATURE-0304-memory-personalization.md`.
 
 ### 5.6 Ebene 2: VaultDNA / Plugin Skills
 
@@ -318,7 +318,7 @@ Agent-Nutzung:
   └── call_plugin_api(plugin_id, method, args)
 ```
 
-ADR: [ADR-014](ADR-014-vault-dna-plugin-discovery.md). Feature-Spec: `FEATURE-local-skills.md`.
+ADR: [ADR-014](ADR-014-vault-dna-plugin-discovery.md). Feature-Spec: `FEATURE-0204-local-skills.md`.
 
 ---
 
@@ -493,13 +493,13 @@ Nutzer-Gerät:
 
 ### 8.3 Context Management
 
-- **System Prompt** wird pro Task einmalig aufgebaut (nicht pro Iteration). Modulare Architektur: 15 Sections als Pure Functions in `src/core/prompts/sections/`, orchestriert von `buildSystemPromptForMode()`. Tool-Beschreibungen kommen aus der zentralen `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Specs: `FEATURE-modular-system-prompt.md`, `FEATURE-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
+- **System Prompt** wird pro Task einmalig aufgebaut (nicht pro Iteration). Modulare Architektur: 15 Sections als Pure Functions in `src/core/prompts/sections/`, orchestriert von `buildSystemPromptForMode()`. Tool-Beschreibungen kommen aus der zentralen `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Specs: `FEATURE-0312-modular-system-prompt.md`, `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 - **Context Condensing** — wenn Kontext-Schätzung den `condensingThreshold` überschreitet: erste + letzte 4 Nachrichten behalten, Rest via LLM-Komprimierung. Standardmaessig aktiviert (`condensingEnabled: true`). Zusaetzlich: Emergency Condensing im Catch-Block bei 400 "context too long" Fehlern.
 - **Power Steering** — alle `powerSteeringFrequency` Iterationen wird der Mode-Reminder erneut injiziert.
 
 ### 8.4 Chat History & Memory System
 
-Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memory, Onboarding. Alle Daten liegen im Plugin-Verzeichnis (`.obsidian/plugins/obsidian-agent/`). Feature-Spec: `FEATURE-memory-personalization.md`. ADR: [ADR-007](ADR-007-event-separation.md).
+Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memory, Onboarding. Alle Daten liegen im Plugin-Verzeichnis (`.obsidian/plugins/obsidian-agent/`). Feature-Spec: `FEATURE-0304-memory-personalization.md`. ADR: [ADR-007](ADR-007-event-separation.md).
 
 #### Storage Layout
 

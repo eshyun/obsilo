@@ -6,7 +6,7 @@
 
 ## Context
 
-FEATURE-200 benoetigt Libraries zum Parsen von PPTX, XLSX, DOCX und PDF innerhalb der Electron/Obsidian-Sandbox. Die Constraints sind streng:
+FEATURE-0601 benoetigt Libraries zum Parsen von PPTX, XLSX, DOCX und PDF innerhalb der Electron/Obsidian-Sandbox. Die Constraints sind streng:
 
 - Kein `require()` (Review-Bot)
 - Kein `fetch()` (Review-Bot)

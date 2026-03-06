@@ -1,7 +1,8 @@
 # Epic: Chat-Linking (Provenienz & Nachvollziehbarkeit)
 
-> **Epic ID**: EPIC-003
-> **Business Alignment**: _devprocess/analysis/BA-chat-linking.md
+> **Epic ID**: EPIC-007
+> **Phase**: F
+> **Business Alignment**: _devprocess/analysis/BA-001-chat-linking.md
 > **Scope**: MVP
 
 ## Epic Hypothesis Statement
@@ -30,10 +31,11 @@ UNSERE LÖSUNG verknüpft Notes mit ihren Quell-Chats wie Fußnoten -- dezent, a
 
 | Feature ID | Name | Priority | Effort | Status |
 |------------|------|----------|--------|--------|
-| FEATURE-300 | Protocol Handler (Deep-Links) | P0-Critical | S | Implementiert |
-| FEATURE-301 | Auto-Frontmatter-Linking | P0-Critical | M | Implementiert |
-| FEATURE-302 | Semantisches Chat-Titling | P1-High | S | Implementiert |
-| FEATURE-303 | Chat-Linking Setting | P2-Medium | S | Implementiert |
+| FEATURE-0701 | Chat-Linking (Überblick) | P0-Critical | — | Implementiert |
+| FEATURE-0702 | Protocol Handler (Deep-Links) | P0-Critical | S | Implementiert |
+| FEATURE-0703 | Auto-Frontmatter-Linking | P0-Critical | M | Implementiert |
+| FEATURE-0704 | Semantisches Chat-Titling | P1-High | S | Implementiert |
+| FEATURE-0705 | Chat-Linking Setting | P2-Medium | S | Implementiert |
 
 **Priority Legend:**
 - P0-Critical: Ohne geht MVP nicht (Linking + Deep-Link = Kernfunktion)

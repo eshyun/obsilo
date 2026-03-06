@@ -1,7 +1,7 @@
 # Feature: On-Demand Bild-Extraktion
 
-> **Feature ID**: FEATURE-203
-> **Epic**: EPIC-002 - Files-to-Chat
+> **Feature ID**: FEATURE-0604
+> **Epic**: EPIC-006 - Files-to-Chat
 > **Priority**: P1-High
 > **Effort Estimate**: M
 
@@ -89,7 +89,7 @@ Dies ist ein zentrales Feature, weil in Unternehmens-Präsentationen Grafiken h�
 
 **MODERATE ASR #2: Vision-Capability-Check**
 - **Warum ASR**: Nicht alle Modelle unterstützen Vision; Bild-Nachlade muss graceful degraden
-- **Impact**: Überschneidung mit FEATURE-204 (Modell-Kompatibilitäts-Check); Tool muss Provider-Capabilities prüfen
+- **Impact**: Überschneidung mit FEATURE-0605 (Modell-Kompatibilitäts-Check); Tool muss Provider-Capabilities prüfen
 - **Quality Attribute**: Reliability, User Experience
 
 ### Constraints
@@ -128,8 +128,8 @@ Dies ist ein zentrales Feature, weil in Unternehmens-Präsentationen Grafiken h�
 
 ## Dependencies
 
-- **FEATURE-200**: PPTX-Parser muss Bild-Metadaten und Bild-Referenzen erfassen
-- **FEATURE-204**: Vision-Capability-Check muss verfügbar sein
+- **FEATURE-0601**: PPTX-Parser muss Bild-Metadaten und Bild-Referenzen erfassen
+- **FEATURE-0605**: Vision-Capability-Check muss verfügbar sein
 - **Tool Registry**: Neues Tool muss in der bestehenden Tool-Registry registriert werden
 
 ## Assumptions

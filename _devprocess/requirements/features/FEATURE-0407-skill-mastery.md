@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Priority**: High
-**Dependencies**: FEATURE-local-skills (PAS-1), FEATURE-memory-personalization, FEATURE-semantic-index
+**Dependencies**: FEATURE-0204-local-skills (PAS-1), FEATURE-0304-memory-personalization, FEATURE-0301-semantic-index
 **ADRs**: ADR-016, ADR-017, ADR-018
 
 ---

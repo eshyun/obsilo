@@ -19,7 +19,7 @@ Both sections are adapted from Kilo Code's equivalent (`src/core/prompts/section
 1. **Monolithic file**: All prompt content and assembly logic in one 300+ line file made it hard to find, review, or modify individual sections.
 2. **No separation of concerns**: Static content (vault context description), dynamic content (tool listing), and conditional content (memory, skills, rules) were all interleaved.
 3. **Missing prompt engineering**: Kilo Code's prompt has Objective (task decomposition strategy) and Capabilities (self-model) sections. Obsilo's original prompt lacked both, leading to less structured agent behavior on complex tasks.
-4. **Cross-cutting redundancy**: Tool descriptions were duplicated between the system prompt and the UI's ToolPickerPopover (addressed separately in FEATURE-tool-metadata-registry.md).
+4. **Cross-cutting redundancy**: Tool descriptions were duplicated between the system prompt and the UI's ToolPickerPopover (addressed separately in FEATURE-0506-tool-metadata-registry.md).
 
 ### Solution
 Extract each logical section into a pure function in `src/core/prompts/sections/`. The orchestrator imports all sections and assembles them in order. Adding, removing, or reordering sections is now a one-line change in the orchestrator.
@@ -107,7 +107,7 @@ return sections.filter(Boolean).join('\n');
 - `MemoryService` — provides memoryContext string
 - `RulesLoader` — provides rulesContent string
 - `SkillsManager` — provides skillsSection XML
-- `toolMetadata.ts` — tools section delegates to `buildToolPromptSection()` (see FEATURE-tool-metadata-registry.md)
+- `toolMetadata.ts` — tools section delegates to `buildToolPromptSection()` (see FEATURE-0506-tool-metadata-registry.md)
 
 ## Kilo Code Reference
 - `forked-kilocode/src/core/prompts/system.ts` — modular section architecture (same pattern adopted)

@@ -4,7 +4,7 @@
 **Revision:** 5
 **Branch:** `sandbox-hardening`
 **ADR:** ADR-021-sandbox-os-isolation.md
-**Feature:** FEATURE-sandbox-os-isolation.md
+**Feature:** FEATURE-0502-sandbox-os-isolation.md
 **Bezug:** AUDIT-obsilo-2026-03-01.md, Finding H-1
 **Audit-Review:** Security-Audit Rev 2 (2026-03-03), 8 Findings; Re-Audit Rev 3 (2026-03-03), 3 Findings (M-4, L-3, L-4); Re-Audit Rev 4 (2026-03-03), 3 Findings (M-5, L-5, Info-2)
 

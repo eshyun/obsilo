@@ -1,7 +1,7 @@
 # Feature: Context Management (Active Files & Tabs)
 **Status:** Implemented
 Priority: P0
-Related Epic: Agentic Core & Interaction Layer (siehe FEATURE-agent-core.md, Epic Context)
+Related Epic: Agentic Core & Interaction Layer (siehe FEATURE-0101-agent-core.md, Epic Context)
 
 ## Description
 Mechanisms to give the agent awareness of the user's IDE state: currently open tabs, the active file, and explicitly "pinned" context. This mirrors the "Open Editors" concept in VS Code.

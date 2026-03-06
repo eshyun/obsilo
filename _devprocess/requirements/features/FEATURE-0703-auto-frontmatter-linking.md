@@ -1,7 +1,7 @@
 # Feature: Auto-Frontmatter-Linking
 
-> **Feature ID**: FEATURE-301
-> **Epic**: EPIC-003 - Chat-Linking
+> **Feature ID**: FEATURE-0703
+> **Epic**: EPIC-007 - Chat-Linking
 > **Priority**: P0-Critical
 > **Effort Estimate**: M
 > **Status**: Implementiert
@@ -146,8 +146,8 @@ MODERATE ASR #3: conversationId-Durchreichung
 
 ## Dependencies
 
-- **FEATURE-300 (Protocol Handler)**: Links im Frontmatter müssen funktionieren -> Protocol Handler muss registriert sein
-- **FEATURE-302 (Semantisches Titling)**: Für vollwertige Titel; ohne Titling funktioniert der Fallback (60 Zeichen)
+- **FEATURE-0702 (Protocol Handler)**: Links im Frontmatter müssen funktionieren -> Protocol Handler muss registriert sein
+- **FEATURE-0704 (Semantisches Titling)**: Für vollwertige Titel; ohne Titling funktioniert der Fallback (60 Zeichen)
 - **ToolExecutionPipeline**: Hook-Point (ADR-001)
 - **ConversationStore**: Conversation-Metadaten (Titel)
 - **Obsidian `processFrontMatter` API**: Atomare YAML-Updates

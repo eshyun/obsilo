@@ -46,13 +46,13 @@ Date: 2026-02-16
 Evidence: `requirements/forked-kilocode-filetree.md`
 
 Upstream capabilities that are now explicitly captured in requirements:
-- Custom Instructions / Custom Modes / Rules: `requirements/features/FEATURE-custom-instructions-modes-rules.md`
-- Browser tool & URL fetch: `requirements/features/FEATURE-browser-tool.md`
-- Attachments / clipboard / images: `requirements/features/FEATURE-attachments-clipboard-images.md`
-- Budget limits + rate limit handling: updated in `requirements/features/FEATURE-provider-management.md`
-- Context condensing + truncation transparency: updated in `requirements/features/FEATURE-context-management.md`
-- Follow-up suggestions + task resume: updated in `requirements/features/FEATURE-core-interaction.md`
-- Auto-approval limits: updated in `requirements/features/FEATURE-approval-safety.md`
+- Custom Instructions / Custom Modes / Rules: `requirements/features/FEATURE-0210-custom-instructions-modes-rules.md`
+- Browser tool & URL fetch: `requirements/features/FEATURE-0402-web-tools.md`
+- Attachments / clipboard / images: `requirements/features/FEATURE-0112-attachments-clipboard-images.md`
+- Budget limits + rate limit handling: updated in `requirements/features/FEATURE-0403-providers-models.md`
+- Context condensing + truncation transparency: updated in `requirements/features/FEATURE-0303-context-management.md`
+- Follow-up suggestions + task resume: updated in `requirements/features/FEATURE-0102-core-interaction.md`
+- Auto-approval limits: updated in `requirements/features/FEATURE-0106-permissions-approval.md`
 
 Upstream capabilities intentionally not pulled into Obsidian Agent MVP (local-only Obsidian scope):
 - Team/cloud billing and org dashboards

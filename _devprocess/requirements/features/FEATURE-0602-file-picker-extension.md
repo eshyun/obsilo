@@ -1,7 +1,7 @@
 # Feature: File Picker Erweiterung
 
-> **Feature ID**: FEATURE-201
-> **Epic**: EPIC-002 - Files-to-Chat
+> **Feature ID**: FEATURE-0602
+> **Epic**: EPIC-006 - Files-to-Chat
 > **Priority**: P0-Critical
 > **Effort Estimate**: S
 > **Status**: Implementiert
@@ -123,7 +123,7 @@ Erweiterung beider File-Picker-Mechanismen (OS File Picker via Büroklammer und 
 
 ## Dependencies
 
-- **FEATURE-200**: Parsing-Pipeline muss die ausgewählten Dateien verarbeiten können (kann parallel entwickelt werden, Integration am Ende)
+- **FEATURE-0601**: Parsing-Pipeline muss die ausgewählten Dateien verarbeiten können (kann parallel entwickelt werden, Integration am Ende)
 
 ## Assumptions
 

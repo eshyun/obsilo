@@ -86,70 +86,70 @@ Branch: `feature/task-management`
 
 | Feature | Spec | Key Files |
 |---------|------|-----------|
-| Agent Core Loop | FEATURE-agent-core.md | `src/core/AgentTask.ts` |
-| Core Interaction & Modes | FEATURE-core-interaction.md | `src/ui/AgentSidebarView.ts` |
-| Context Management | FEATURE-context-management.md | `src/core/systemPrompt.ts` |
-| Providers & Models | FEATURE-providers-models.md | `src/api/` |
-| Custom Instructions/Modes/Rules | FEATURE-custom-instructions-modes-rules.md | `src/core/modes/ModeService.ts` |
-| Permissions & Approval | FEATURE-permissions-approval.md | `src/core/governance/IgnoreService.ts` |
-| Checkpoints | FEATURE-checkpoints.md | `src/core/checkpoints/GitCheckpointService.ts` |
-| Operation Logging | FEATURE-operation-logging.md | `src/core/governance/OperationLogger.ts` |
-| Vault Operations (CRUD) | FEATURE-vault-ops.md | `src/core/tools/vault/` |
-| Content Editing | FEATURE-content-editing.md | `src/core/tools/vault/EditFileTool.ts` |
-| Canvas & Bases | FEATURE-canvas-bases.md | `src/core/tools/vault/` |
-| Semantic Index | FEATURE-semantic-index.md | `src/core/semantic/SemanticIndexService.ts` |
-| Keyword Search Upgrade | FEATURE-keyword-search-upgrade.md | `src/core/semantic/SemanticIndexService.ts` |
-| MCP Support | FEATURE-mcp.md | `src/core/mcp/McpClient.ts` |
-| Web Tools | FEATURE-web-tools.md | `src/core/tools/web/` |
-| Workflows & Skills | FEATURE-workflows.md, FEATURE-skills.md | `src/core/context/WorkflowLoader.ts` |
-| Local Skills | FEATURE-local-skills.md | `src/core/skills/SkillRegistry.ts` |
-| Memory & Personalization | FEATURE-memory-personalization.md | `src/core/memory/MemoryService.ts` |
-| Multi-Agent | FEATURE-multi-agent.md | `src/core/tools/agent/NewTaskTool.ts` |
-| VaultDNA & Plugin Skills | FEATURE-vault-dna.md | `src/core/skills/CorePluginLibrary.ts` |
-| i18n | FEATURE-localization.md | `src/i18n/` |
-| Global Storage | FEATURE-global-storage.md | `src/core/storage/GlobalFileService.ts` |
-| Safe Storage | FEATURE-safe-storage.md | `src/core/security/SafeStorageService.ts` |
-| Parallel Tool Execution | FEATURE-parallel-tools.md | `src/core/AgentTask.ts` |
-| Diff Stats | FEATURE-diff-stats.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
-| Context Condensing | FEATURE-context-condensing.md | `src/core/AgentTask.ts` |
-| Power Steering | FEATURE-power-steering.md | `src/core/AgentTask.ts` |
-| Tool Repetition Detection | FEATURE-tool-repetition-detection.md | `src/core/tool-execution/ToolRepetitionDetector.ts` |
-| Chat History | FEATURE-chat-history.md | `src/core/history/ConversationStore.ts` |
-| Autocomplete | FEATURE-autocomplete.md | `src/ui/sidebar/AutocompleteHandler.ts` |
-| Notifications | FEATURE-notifications.md | `src/ui/AgentSidebarView.ts` |
-| Modular System Prompt | FEATURE-modular-system-prompt.md | `src/core/systemPrompt.ts`, `src/core/prompts/sections/` |
-| Tool Execution Pipeline | FEATURE-tool-execution-pipeline.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
-| Tool Metadata Registry | FEATURE-tool-metadata-registry.md | `src/core/tools/toolMetadata.ts` |
-| Rules | FEATURE-rules.md | `src/core/context/RulesLoader.ts` |
-| Custom Prompts | FEATURE-custom-prompts.md | `src/core/context/SupportPrompts.ts` |
-| Modes | FEATURE-modes.md | `src/core/modes/ModeService.ts` |
-| Agent Tools (17) | FEATURE-agent-tools.md | `src/core/tools/agent/` |
-| Vault Tools (22) | FEATURE-vault-tools.md | `src/core/tools/vault/` |
-| Settings Tools | FEATURE-settings-tools.md | `src/core/tools/agent/UpdateSettingsTool.ts` |
-| Plugin API | FEATURE-plugin-api.md | `src/core/tools/agent/CallPluginApiTool.ts` |
-| Code Import Models | FEATURE-code-import-models.md | `src/ui/settings/CodeImportModal.ts` |
-| Attachments & Clipboard | FEATURE-attachments-clipboard-images.md | `src/ui/sidebar/AttachmentHandler.ts` |
-| Self-Development (alle Stufen) | FEATURE-self-development.md | `src/core/self-development/`, `src/core/sandbox/` |
-| Sandbox OS-Level Isolation | FEATURE-sandbox-os-isolation.md | `src/core/sandbox/ProcessSandboxExecutor.ts` |
-| Agent Skill Mastery | FEATURE-skill-mastery.md | `src/core/mastery/` |
-| Onboarding | FEATURE-onboarding.md | `src/core/memory/OnboardingService.ts` |
-| Chat-Linking | FEATURE-chat-linking.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
-| Protocol Handler | FEATURE-300-protocol-handler.md | `src/main.ts` |
-| Auto-Frontmatter-Linking | FEATURE-301-auto-frontmatter-linking.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
-| Semantic Chat-Titling | FEATURE-302-semantic-chat-titling.md | `src/ui/AgentSidebarView.ts` |
-| Chat-Linking Setting | FEATURE-303-chat-linking-setting.md | `src/types/settings.ts` |
-| Document Parsing Pipeline | FEATURE-200-document-parsing-pipeline.md | `src/core/document-parsers/` |
-| File Picker Erweiterung | FEATURE-201-file-picker-extension.md | `src/ui/sidebar/VaultFilePicker.ts` |
-| Task Extraction & Management | FEATURE-100-task-extraction.md | `src/core/tasks/` |
+| Agent Core Loop | FEATURE-0101-agent-core.md | `src/core/AgentTask.ts` |
+| Core Interaction & Modes | FEATURE-0102-core-interaction.md | `src/ui/AgentSidebarView.ts` |
+| Context Management | FEATURE-0303-context-management.md | `src/core/systemPrompt.ts` |
+| Providers & Models | FEATURE-0403-providers-models.md | `src/api/` |
+| Custom Instructions/Modes/Rules | FEATURE-0210-custom-instructions-modes-rules.md | `src/core/modes/ModeService.ts` |
+| Permissions & Approval | FEATURE-0106-permissions-approval.md | `src/core/governance/IgnoreService.ts` |
+| Checkpoints | FEATURE-0107-checkpoints.md | `src/core/checkpoints/GitCheckpointService.ts` |
+| Operation Logging | FEATURE-0108-operation-logging.md | `src/core/governance/OperationLogger.ts` |
+| Vault Operations (CRUD) | FEATURE-0103-vault-ops.md | `src/core/tools/vault/` |
+| Content Editing | FEATURE-0105-content-editing.md | `src/core/tools/vault/EditFileTool.ts` |
+| Canvas & Bases | FEATURE-0309-canvas-bases.md | `src/core/tools/vault/` |
+| Semantic Index | FEATURE-0301-semantic-index.md | `src/core/semantic/SemanticIndexService.ts` |
+| Keyword Search Upgrade | FEATURE-0302-keyword-search-upgrade.md | `src/core/semantic/SemanticIndexService.ts` |
+| MCP Support | FEATURE-0401-mcp.md | `src/core/mcp/McpClient.ts` |
+| Web Tools | FEATURE-0402-web-tools.md | `src/core/tools/web/` |
+| Workflows & Skills | FEATURE-0202-workflows.md, FEATURE-0203-skills.md | `src/core/context/WorkflowLoader.ts` |
+| Local Skills | FEATURE-0204-local-skills.md | `src/core/skills/SkillRegistry.ts` |
+| Memory & Personalization | FEATURE-0304-memory-personalization.md | `src/core/memory/MemoryService.ts` |
+| Multi-Agent | FEATURE-0305-multi-agent.md | `src/core/tools/agent/NewTaskTool.ts` |
+| VaultDNA & Plugin Skills | FEATURE-0205-vault-dna.md | `src/core/skills/CorePluginLibrary.ts` |
+| i18n | FEATURE-0404-localization.md | `src/i18n/` |
+| Global Storage | FEATURE-0310-global-storage.md | `src/core/storage/GlobalFileService.ts` |
+| Safe Storage | FEATURE-0311-safe-storage.md | `src/core/security/SafeStorageService.ts` |
+| Parallel Tool Execution | FEATURE-0110-parallel-tools.md | `src/core/AgentTask.ts` |
+| Diff Stats | FEATURE-0111-diff-stats.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
+| Context Condensing | FEATURE-0306-context-condensing.md | `src/core/AgentTask.ts` |
+| Power Steering | FEATURE-0307-power-steering.md | `src/core/AgentTask.ts` |
+| Tool Repetition Detection | FEATURE-0308-tool-repetition-detection.md | `src/core/tool-execution/ToolRepetitionDetector.ts` |
+| Chat History | FEATURE-0208-chat-history.md | `src/core/history/ConversationStore.ts` |
+| Autocomplete | FEATURE-0206-autocomplete.md | `src/ui/sidebar/AutocompleteHandler.ts` |
+| Notifications | FEATURE-0406-notifications.md | `src/ui/AgentSidebarView.ts` |
+| Modular System Prompt | FEATURE-0312-modular-system-prompt.md | `src/core/systemPrompt.ts`, `src/core/prompts/sections/` |
+| Tool Execution Pipeline | FEATURE-0109-tool-execution-pipeline.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
+| Tool Metadata Registry | FEATURE-0506-tool-metadata-registry.md | `src/core/tools/toolMetadata.ts` |
+| Rules | FEATURE-0201-rules.md | `src/core/context/RulesLoader.ts` |
+| Custom Prompts | FEATURE-0207-custom-prompts.md | `src/core/context/SupportPrompts.ts` |
+| Modes | FEATURE-0209-modes.md | `src/core/modes/ModeService.ts` |
+| Agent Tools (17) | FEATURE-0503-agent-tools.md | `src/core/tools/agent/` |
+| Vault Tools (22) | FEATURE-0104-vault-tools.md | `src/core/tools/vault/` |
+| Settings Tools | FEATURE-0504-settings-tools.md | `src/core/tools/agent/UpdateSettingsTool.ts` |
+| Plugin API | FEATURE-0505-plugin-api.md | `src/core/tools/agent/CallPluginApiTool.ts` |
+| Code Import Models | FEATURE-0313-code-import-models.md | `src/ui/settings/CodeImportModal.ts` |
+| Attachments & Clipboard | FEATURE-0112-attachments-clipboard-images.md | `src/ui/sidebar/AttachmentHandler.ts` |
+| Self-Development (alle Stufen) | FEATURE-0501-self-development.md | `src/core/self-development/`, `src/core/sandbox/` |
+| Sandbox OS-Level Isolation | FEATURE-0502-sandbox-os-isolation.md | `src/core/sandbox/ProcessSandboxExecutor.ts` |
+| Agent Skill Mastery | FEATURE-0407-skill-mastery.md | `src/core/mastery/` |
+| Onboarding | FEATURE-0405-onboarding.md | `src/core/memory/OnboardingService.ts` |
+| Chat-Linking | FEATURE-0701-chat-linking.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
+| Protocol Handler | FEATURE-0702-protocol-handler.md | `src/main.ts` |
+| Auto-Frontmatter-Linking | FEATURE-0703-auto-frontmatter-linking.md | `src/core/tool-execution/ToolExecutionPipeline.ts` |
+| Semantic Chat-Titling | FEATURE-0704-semantic-chat-titling.md | `src/ui/AgentSidebarView.ts` |
+| Chat-Linking Setting | FEATURE-0705-chat-linking-setting.md | `src/types/settings.ts` |
+| Document Parsing Pipeline | FEATURE-0601-document-parsing-pipeline.md | `src/core/document-parsers/` |
+| File Picker Erweiterung | FEATURE-0602-file-picker-extension.md | `src/ui/sidebar/VaultFilePicker.ts` |
+| Task Extraction & Management | FEATURE-0801-task-extraction.md | `src/core/tasks/` |
 
 ### Geplant (nicht implementiert)
 
 | Feature | Spec | Prioritaet |
 |---------|------|------------|
-| Token Budget Management | FEATURE-202-token-budget-management.md | P1-High |
-| On-Demand Image Extraction | FEATURE-203-on-demand-image-extraction.md | P1-High |
-| Model Compatibility Check | FEATURE-204-model-compatibility-check.md | P2-Medium |
-| Obsilo Gateway | FEATURE-obsilo-gateway.md | Nach Stabilisierung (Monetarisierung) |
+| Token Budget Management | FEATURE-0603-token-budget-management.md | P1-High |
+| On-Demand Image Extraction | FEATURE-0604-on-demand-image-extraction.md | P1-High |
+| Model Compatibility Check | FEATURE-0605-model-compatibility-check.md | P2-Medium |
+| Obsilo Gateway | FEATURE-0901-obsilo-gateway.md | Nach Stabilisierung (Monetarisierung) |
 
 ---
 
@@ -201,9 +201,9 @@ Branch: `feature/task-management`
 
 ### Kurzfristig (2-4 Wochen)
 
-1. Token Budget Management (FEATURE-202) -- limitiert Kontext-Ueberladung
-2. On-Demand Image Extraction (FEATURE-203) -- komplettiert Document Parsing
-3. Model Compatibility Check (FEATURE-204) -- verhindert Feature-Fehlkonfiguration
+1. Token Budget Management (FEATURE-0603) -- limitiert Kontext-Ueberladung
+2. On-Demand Image Extraction (FEATURE-0604) -- komplettiert Document Parsing
+3. Model Compatibility Check (FEATURE-0605) -- verhindert Feature-Fehlkonfiguration
 4. UI Event-Listener Cleanup (FIX-04)
 
 ### Mittelfristig (4-8 Wochen)

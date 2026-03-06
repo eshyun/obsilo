@@ -1,7 +1,7 @@
 # Feature: Document Parsing Pipeline
 
-> **Feature ID**: FEATURE-200
-> **Epic**: EPIC-002 - Files-to-Chat
+> **Feature ID**: FEATURE-0601
+> **Epic**: EPIC-006 - Files-to-Chat
 > **Priority**: P0-Critical
 > **Effort Estimate**: L
 > **Status**: Implementiert
@@ -10,7 +10,7 @@
 
 Lokale Parsing-Pipeline für Office- und Datenformate innerhalb der Obsidian/Electron-Sandbox. Unterstützt PPTX, XLSX, DOCX, PDF sowie strukturierte Datenformate (JSON, XML, CSV). Jeder Parser extrahiert Text mit erhaltener Dokumentstruktur (Folien, Sheets, Überschriften, Tabellen) und gibt das Ergebnis als strukturierten Textblock zurück, der als Kontext an die API gesendet wird.
 
-Bilder werden in diesem Feature nur als Metadaten erfasst (Anzahl, Position). Die eigentliche Bild-Extraktion und -Übergabe erfolgt in FEATURE-203 (On-Demand Bild-Extraktion).
+Bilder werden in diesem Feature nur als Metadaten erfasst (Anzahl, Position). Die eigentliche Bild-Extraktion und -Übergabe erfolgt in FEATURE-0604 (On-Demand Bild-Extraktion).
 
 ## Benefits Hypothesis
 
@@ -177,7 +177,7 @@ Bilder werden in diesem Feature nur als Metadaten erfasst (Anzahl, Position). Di
 ## Dependencies
 
 - **Parsing-Libraries**: Geeignete JS-Libraries müssen identifiziert und evaluiert werden (Architekt-Aufgabe)
-- **FEATURE-201**: File Picker muss die neuen Formate anbieten, damit Dateien überhaupt in die Pipeline gelangen
+- **FEATURE-0602**: File Picker muss die neuen Formate anbieten, damit Dateien überhaupt in die Pipeline gelangen
 
 ## Assumptions
 
@@ -187,6 +187,6 @@ Bilder werden in diesem Feature nur als Metadaten erfasst (Anzahl, Position). Di
 
 ## Out of Scope
 
-- Bild-Extraktion und -Übergabe an API (siehe FEATURE-203)
-- Token-Budget-Prüfung (siehe FEATURE-202)
+- Bild-Extraktion und -Übergabe an API (siehe FEATURE-0604)
+- Token-Budget-Prüfung (siehe FEATURE-0603)
 - Erzeugung von Office-Dateien (separates Feature, nicht in diesem Epic)

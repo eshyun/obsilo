@@ -3,11 +3,11 @@
 **Status:** Akzeptiert, implementiert
 **Date:** 2026-03-06
 **Deciders:** Architect Agent, Claude Code
-**Feature:** FEATURE-100 Task Extraction & Management
+**Feature:** FEATURE-0801 Task Extraction & Management
 
 ## Context
 
-Task Extraction (FEATURE-100) erstellt eigenstaendige Notes fuer jede vom Nutzer ausgewaehlte Aufgabe. Diese Notes brauchen ein strukturiertes Frontmatter-Schema mit 10 Properties, das als Schnittstelle dient zwischen:
+Task Extraction (FEATURE-0801) erstellt eigenstaendige Notes fuer jede vom Nutzer ausgewaehlte Aufgabe. Diese Notes brauchen ein strukturiertes Frontmatter-Schema mit 10 Properties, das als Schnittstelle dient zwischen:
 
 1. **Plugin → Note**: Task-Note-Erstellung mit Initialdaten
 2. **Note → Base**: Base-Views filtern und sortieren anhand der Properties
@@ -16,7 +16,7 @@ Task Extraction (FEATURE-100) erstellt eigenstaendige Notes fuer jede vom Nutzer
 
 Das Schema muss von Anfang an stabil sein, da Aenderungen bestehende Task-Notes brechen wuerden (Bases-Filter, Iconic-Mappings). Deutsche Property-Namen sind gewuenscht (konsistent mit dem Obsidian-Oekosystem deutschsprachiger Nutzer).
 
-**Triggering ASR:** CRITICAL ASR #2 aus FEATURE-100
+**Triggering ASR:** CRITICAL ASR #2 aus FEATURE-0801
 **Quality Attribute:** Maintainability, Interoperability
 
 ## Decision Drivers
@@ -189,6 +189,6 @@ Tasks/{Zusammenfassung-slug}.md
 
 ## References
 
-- FEATURE-100: Task Extraction & Management (SC-04: 10 definierte Felder)
+- FEATURE-0801: Task Extraction & Management (SC-04: 10 definierte Felder)
 - Iconic Plugin: Frontmatter-basierte Icon-Zuweisung
 - Obsidian Bases: YAML `.base` Format mit Filter-Syntax

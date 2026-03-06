@@ -52,31 +52,31 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 ### P0 (Core — alle implementiert)
 | Feature Ref | Feature Name | Spec |
 |---|---|---|
-| CORE-01 | Agent Interaction & Modes | `FEATURE-core-interaction.md` |
-| CORE-02 | Context Management | `FEATURE-context-management.md` |
-| CORE-04 | Custom Instructions, Modes, Rules | `FEATURE-custom-instructions-modes-rules.md` |
-| GOV-01 | Permissions & Approval | `FEATURE-permissions-approval.md` |
-| GOV-02 | Local Checkpoints & Restore | `FEATURE-checkpoints.md` |
-| OPS-01 | Vault Operations (CRUD) | `FEATURE-vault-ops.md` |
-| OPS-02 | Controlled Content Editing | `FEATURE-content-editing.md` |
-| VIS-01 | Canvas & Bases | `FEATURE-canvas-bases.md` |
+| CORE-01 | Agent Interaction & Modes | `FEATURE-0102-core-interaction.md` |
+| CORE-02 | Context Management | `FEATURE-0303-context-management.md` |
+| CORE-04 | Custom Instructions, Modes, Rules | `FEATURE-0210-custom-instructions-modes-rules.md` |
+| GOV-01 | Permissions & Approval | `FEATURE-0106-permissions-approval.md` |
+| GOV-02 | Local Checkpoints & Restore | `FEATURE-0107-checkpoints.md` |
+| OPS-01 | Vault Operations (CRUD) | `FEATURE-0103-vault-ops.md` |
+| OPS-02 | Controlled Content Editing | `FEATURE-0105-content-editing.md` |
+| VIS-01 | Canvas & Bases | `FEATURE-0309-canvas-bases.md` |
 
 ### P1 (Extended — alle implementiert)
 | Feature Ref | Feature Name | Spec |
 |---|---|---|
-| EXT-01 | MCP Support | `FEATURE-mcp.md` |
-| CORE-03 | Providers & Models | `FEATURE-providers-models.md` |
-| KNOW-01 | Semantic Index & Retrieval | `FEATURE-semantic-index.md` |
-| FLOW-01 | Workflows & Skills | `FEATURE-workflows.md`, `FEATURE-skills.md` |
-| MEM-01 | Memory & Personalization | `FEATURE-memory-personalization.md` |
-| MULTI-01 | Multi-Agent (new_task) | `FEATURE-multi-agent.md` |
-| SKILL-01 | VaultDNA & Plugin Skills | `FEATURE-local-skills.md` |
-| MASTERY-01 | Agent Skill Mastery | `FEATURE-skill-mastery.md` |
-| I18N-01 | Localization | `FEATURE-localization.md` |
-| STORE-01 | Global Storage | `FEATURE-global-storage.md` |
-| SAFE-01 | Safe Storage | `FEATURE-safe-storage.md` |
-| SELF-01 | Self-Development & Sandbox | `FEATURE-self-development.md` |
-| LOG-01 | Agent Log Viewer | `FEATURE-agent-logs.md` |
+| EXT-01 | MCP Support | `FEATURE-0401-mcp.md` |
+| CORE-03 | Providers & Models | `FEATURE-0403-providers-models.md` |
+| KNOW-01 | Semantic Index & Retrieval | `FEATURE-0301-semantic-index.md` |
+| FLOW-01 | Workflows & Skills | `FEATURE-0202-workflows.md`, `FEATURE-0203-skills.md` |
+| MEM-01 | Memory & Personalization | `FEATURE-0304-memory-personalization.md` |
+| MULTI-01 | Multi-Agent (new_task) | `FEATURE-0305-multi-agent.md` |
+| SKILL-01 | VaultDNA & Plugin Skills | `FEATURE-0204-local-skills.md` |
+| MASTERY-01 | Agent Skill Mastery | `FEATURE-0407-skill-mastery.md` |
+| I18N-01 | Localization | `FEATURE-0404-localization.md` |
+| STORE-01 | Global Storage | `FEATURE-0310-global-storage.md` |
+| SAFE-01 | Safe Storage | `FEATURE-0311-safe-storage.md` |
+| SELF-01 | Self-Development & Sandbox | `FEATURE-0501-self-development.md` |
+| LOG-01 | Agent Log Viewer | `FEATURE-0503-agent-tools.md` |
 
 ## Top Success Criteria
 - SC-01 Users explicitly approve 100% of write operations before execution (or auto-approve per category).
@@ -96,27 +96,27 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 
 ## Implementierte Epics
 
-### EPIC-002: Files-to-Chat (Office-Format-Support) — Teilweise implementiert
+### EPIC-006: Files-to-Chat (Office-Format-Support) — Teilweise implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
 |---|---|---|---|---|
-| FEATURE-200 | Document Parsing Pipeline | P0 | `FEATURE-200-document-parsing-pipeline.md` | Implementiert |
-| FEATURE-201 | File Picker Erweiterung | P0 | `FEATURE-201-file-picker-extension.md` | Implementiert |
-| FEATURE-202 | Token-Budget-Management | P1 | `FEATURE-202-token-budget-management.md` | Geplant |
-| FEATURE-203 | On-Demand Bild-Extraktion | P1 | `FEATURE-203-on-demand-image-extraction.md` | Geplant |
-| FEATURE-204 | Modell-Kompatibilitäts-Check | P1 | `FEATURE-204-model-compatibility-check.md` | Geplant |
+| FEATURE-0601 | Document Parsing Pipeline | P0 | `FEATURE-0601-document-parsing-pipeline.md` | Implementiert |
+| FEATURE-0602 | File Picker Erweiterung | P0 | `FEATURE-0602-file-picker-extension.md` | Implementiert |
+| FEATURE-0603 | Token-Budget-Management | P1 | `FEATURE-0603-token-budget-management.md` | Geplant |
+| FEATURE-0604 | On-Demand Bild-Extraktion | P1 | `FEATURE-0604-on-demand-image-extraction.md` | Geplant |
+| FEATURE-0605 | Modell-Kompatibilitäts-Check | P1 | `FEATURE-0605-model-compatibility-check.md` | Geplant |
 
-### EPIC-003: Chat-Linking (Provenienz & Nachvollziehbarkeit) — Vollständig implementiert
+### EPIC-007: Chat-Linking (Provenienz & Nachvollziehbarkeit) — Vollständig implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
 |---|---|---|---|---|
-| FEATURE-300 | Protocol Handler (Deep-Links) | P0 | `FEATURE-300-protocol-handler.md` | Implementiert |
-| FEATURE-301 | Auto-Frontmatter-Linking | P0 | `FEATURE-301-auto-frontmatter-linking.md` | Implementiert |
-| FEATURE-302 | Semantisches Chat-Titling | P1 | `FEATURE-302-semantic-chat-titling.md` | Implementiert |
-| FEATURE-303 | Chat-Linking Setting | P2 | `FEATURE-303-chat-linking-setting.md` | Implementiert |
+| FEATURE-0702 | Protocol Handler (Deep-Links) | P0 | `FEATURE-0702-protocol-handler.md` | Implementiert |
+| FEATURE-0703 | Auto-Frontmatter-Linking | P0 | `FEATURE-0703-auto-frontmatter-linking.md` | Implementiert |
+| FEATURE-0704 | Semantisches Chat-Titling | P1 | `FEATURE-0704-semantic-chat-titling.md` | Implementiert |
+| FEATURE-0705 | Chat-Linking Setting | P2 | `FEATURE-0705-chat-linking-setting.md` | Implementiert |
 
-### FEATURE-100: Task Extraction & Management — Implementiert
+### EPIC-008: Task Extraction & Management — Implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
 |---|---|---|---|---|
-| FEATURE-100 | Task Extraction & Management | P1 | `FEATURE-100-task-extraction.md` | Implementiert |
+| FEATURE-0801 | Task Extraction & Management | P1 | `FEATURE-0801-task-extraction.md` | Implementiert |
 
 ## ASR Summary
 - ASR-01: isomorphic-git Checkpoints (ADR-002) — Implemented

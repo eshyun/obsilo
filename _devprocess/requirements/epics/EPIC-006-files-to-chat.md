@@ -1,7 +1,8 @@
 # Epic: Files-to-Chat (Office-Format-Support)
 
-> **Epic ID**: EPIC-002
-> **Business Alignment**: _devprocess/analysis/BA-files-to-chat.md
+> **Epic ID**: EPIC-006
+> **Phase**: F
+> **Business Alignment**: _devprocess/analysis/BA-002-files-to-chat.md
 > **Scope**: MVP
 
 ## Epic Hypothesis Statement
@@ -30,11 +31,11 @@ UNSERE LÖSUNG extrahiert Inhalte lokal, strukturiert und performant -- mit inte
 
 | Feature ID | Name | Priority | Effort | Status |
 |------------|------|----------|--------|--------|
-| FEATURE-200 | Document Parsing Pipeline | P0-Critical | L | Implementiert |
-| FEATURE-201 | File Picker Erweiterung | P0-Critical | S | Implementiert |
-| FEATURE-202 | Token-Budget-Management | P1-High | M | Geplant |
-| FEATURE-203 | On-Demand Bild-Extraktion | P1-High | M | Geplant |
-| FEATURE-204 | Modell-Kompatibilitäts-Check | P1-High | S | Geplant |
+| FEATURE-0601 | Document Parsing Pipeline | P0-Critical | L | Implementiert |
+| FEATURE-0602 | File Picker Erweiterung | P0-Critical | S | Implementiert |
+| FEATURE-0603 | Token-Budget-Management | P1-High | M | Geplant |
+| FEATURE-0604 | On-Demand Bild-Extraktion | P1-High | M | Geplant |
+| FEATURE-0605 | Modell-Kompatibilitäts-Check | P1-High | S | Geplant |
 
 **Priority Legend:**
 - P0-Critical: Ohne geht MVP nicht
@@ -55,7 +56,7 @@ UNSERE LÖSUNG extrahiert Inhalte lokal, strukturiert und performant -- mit inte
 ## Dependencies & Risks
 
 ### Dependencies
-- **Parsing-Libraries**: Geeignete JS-Libraries für OOXML und PDF müssen sandbox-kompatibel sein. Blockiert FEATURE-200 wenn keine geeignete Library gefunden wird.
+- **Parsing-Libraries**: Geeignete JS-Libraries für OOXML und PDF müssen sandbox-kompatibel sein. Blockiert FEATURE-0601 wenn keine geeignete Library gefunden wird.
 - **Obsidian Plugin Review-Bot**: Compliance muss für alle Libraries sichergestellt sein. Blockiert Release.
 
 ### Risks

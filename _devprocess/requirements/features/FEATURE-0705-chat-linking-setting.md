@@ -1,7 +1,7 @@
 # Feature: Chat-Linking Setting
 
-> **Feature ID**: FEATURE-303
-> **Epic**: EPIC-003 - Chat-Linking
+> **Feature ID**: FEATURE-0705
+> **Epic**: EPIC-007 - Chat-Linking
 > **Priority**: P2-Medium
 > **Effort Estimate**: S
 > **Status**: Implementiert
@@ -67,7 +67,7 @@ Platzierung in Settings > Interface.
 - **Setting-Key 2**: `titlingModelKey: string` (Default: leer / nicht konfiguriert)
 - **Platzierung**: Settings > Interface, unterhalb des History-Bereichs
 - **Wirkungsbereich Toggle**: Frontmatter-Stamping + Semantisches Titling
-- **Wirkungsbereich Modell**: Nur semantisches Titling (FEATURE-302)
+- **Wirkungsbereich Modell**: Nur semantisches Titling (FEATURE-0704)
 
 ### Integration
 - **Pipeline-Check**: `if (settings.chatLinking === true)` vor Stamp-Hook
@@ -115,8 +115,8 @@ Keine ASRs -- einfaches Boolean-Setting mit Standardpattern.
 
 ## Dependencies
 
-- **FEATURE-301 (Auto-Frontmatter-Linking)**: Setting steuert den Hook
-- **FEATURE-302 (Semantisches Titling)**: Setting steuert die Titling-Logik
+- **FEATURE-0703 (Auto-Frontmatter-Linking)**: Setting steuert den Hook
+- **FEATURE-0704 (Semantisches Titling)**: Setting steuert die Titling-Logik
 - **Settings-Infrastruktur**: `src/types/settings.ts`, `src/ui/settings/InterfaceTab.ts`
 
 ## Assumptions
