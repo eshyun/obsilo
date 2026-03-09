@@ -1,8 +1,13 @@
 # ADR-030: Library-Selection fuer Office-Format-Erzeugung
 
-**Status:** Proposed
+**Status:** Amended (PPTX-Teil superseded by ADR-032)
 **Date:** 2026-03-06
+**Amended:** 2026-03-09
 **Deciders:** Sebastian Hanke
+
+> **Hinweis:** Die PPTX-Library-Entscheidung (pptxgenjs) wurde durch ADR-032 (Template-basierte PPTX-Erzeugung) ersetzt.
+> pptxgenjs wird entfernt. PPTX-Erzeugung erfolgt ueber JSZip + OOXML-XML-Manipulation.
+> Die Entscheidungen fuer DOCX (docx), XLSX (exceljs) und PDF (pdf-lib) bleiben unveraendert.
 
 ## Context
 
@@ -24,18 +29,15 @@ Die Sandbox-SKILL.md (bundled-skills/sandbox-environment/SKILL.md) hat bereits L
 
 ## Considered Options
 
-### PPTX: pptxgenjs vs. officegen vs. docxtemplater
+### PPTX: ~~pptxgenjs~~ -> JSZip + OOXML (SUPERSEDED by ADR-032)
 
-| Kriterium | pptxgenjs | officegen | docxtemplater |
-|-----------|-----------|-----------|---------------|
-| GitHub Stars | ~2.5k | ~2.5k | ~2.8k |
-| Letzes Update | Aktiv | 2021 (inaktiv) | Aktiv |
-| Pure JS | Ja | Ja | Ja |
-| API-Reichhaltigkeit | Hoch (Tabellen, Charts, Bilder, Master) | Mittel | Template-basiert |
-| ArrayBuffer Output | `write({outputType:'arraybuffer'})` | Nein (Stream) | Ja |
-| Bundle-Groesse | ~500 KB | ~300 KB | ~200 KB + Templates |
+> **SUPERSEDED:** pptxgenjs kann keine bestehenden Templates oeffnen oder modifizieren.
+> Drei Iterationen haben gezeigt, dass der Extraktionsansatz (Design-Elemente aus Template lesen
+> und programmatisch nachbauen) die Design-Treue einer echten Vorlage nicht erreichen kann.
+> PPTX-Erzeugung erfolgt nun template-basiert ueber JSZip (bereits vorhanden) + OOXML-XML-Manipulation.
+> Siehe [ADR-032](ADR-032-template-based-pptx.md) fuer Details.
 
-**Empfehlung: pptxgenjs** -- Reichhaltigste API, aktiv maintained, ArrayBuffer-Output, bereits in SKILL.md empfohlen.
+~~**Empfehlung: pptxgenjs**~~ -> **Entscheidung: JSZip + OOXML** (Template-Kopie + Slide-Injection)
 
 ### DOCX: docx vs. officegen vs. docxtemplater
 
@@ -82,15 +84,16 @@ Die Sandbox-SKILL.md (bundled-skills/sandbox-environment/SKILL.md) hat bereits L
 
 **Vorgeschlagene Libraries:**
 
-| Format | Library | Version | Bundle-Groesse (est.) |
-|--------|---------|---------|----------------------|
-| PPTX | pptxgenjs | latest | ~500 KB |
-| DOCX | docx | latest | ~400 KB |
-| XLSX | exceljs | latest | ~1 MB |
-| PDF | pdf-lib | latest | ~500 KB |
-| **Gesamt** | | | **~2.4 MB** |
+| Format | Library | Version | Bundle-Groesse (est.) | Hinweis |
+|--------|---------|---------|----------------------|---------|
+| PPTX | ~~pptxgenjs~~ JSZip + OOXML | -- | ~0 KB (JSZip bereits vorhanden) | Superseded by ADR-032 |
+| DOCX | docx | latest | ~400 KB | Unveraendert |
+| XLSX | exceljs | latest | ~1 MB | Unveraendert |
+| PDF | pdf-lib | latest | ~500 KB | Unveraendert |
+| **Gesamt** | | | **~1.9 MB** | Reduktion durch pptxgenjs-Entfernung |
 
-Alle vier sind pure JavaScript, keine nativen Addons, MIT/Apache-lizensiert, ArrayBuffer/Buffer-Output.
+DOCX, XLSX, PDF: Pure JavaScript, keine nativen Addons, MIT/Apache-lizensiert, ArrayBuffer/Buffer-Output.
+PPTX: JSZip (bereits als Dependency fuer Document Parsing vorhanden) + natives DOMParser fuer OOXML-XML.
 
 **Hinweis:** Dies ist ein VORSCHLAG. Claude Code entscheidet final basierend auf dem realen Zustand der Codebase und konkreten Kompatibilitaetstests.
 

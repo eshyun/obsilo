@@ -257,21 +257,35 @@ AgentSidebarView.onComplete()
 
 ADR: [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md). Feature-Spec: `FEATURE-0801-task-extraction.md`.
 
-### 5.8 Ebene 2: Office Document Creation (EPIC-010)
+### 5.8 Ebene 2: Office Document Creation (EPIC-010 + EPIC-011)
 
 ```
-CreateDocxTool / CreatePptxTool / CreateXlsxTool
+CreateDocxTool / CreateXlsxTool (EPIC-010 -- programmatisch)
   │
-  ├── Input: Strukturiertes Schema (Sections/Slides/Sheets mit Inhalt, Styling)
-  ├── Library: docx (DOCX), pptxgenjs (PPTX), ExcelJS (XLSX)
+  ├── Input: Strukturiertes Schema (Sections/Sheets mit Inhalt, Styling)
+  ├── Library: docx (DOCX), ExcelJS (XLSX)
   ├── Output: ArrayBuffer → writeBinaryToVault()
   │     ├── Path-Traversal-Schutz (../, absolute Pfade)
   │     ├── Extension-Validierung (erzwungen)
   │     └── Ordner-Erstellung (automatisch)
-  └── Limits: max 100 Sections (DOCX), 50 Slides (PPTX), 20 Sheets (XLSX)
+  └── Limits: max 100 Sections (DOCX), 20 Sheets (XLSX)
+
+CreatePptxTool (EPIC-011 -- template-basiert, ADR-032)
+  │
+  ├── Input: Strukturiertes Schema (Slides mit Inhalt, Layout-Typ)
+  ├── Template: User-Upload ODER Default-Template (assets/templates/)
+  ├── Engine: PptxTemplateEngine (JSZip + OOXML-XML-Injection)
+  │     ├── Template oeffnen (JSZip)
+  │     ├── Content-Slides entfernen (Masters/Layouts/Theme bleiben)
+  │     ├── Neue Slides als OOXML-XML injizieren (SlideXmlBuilder)
+  │     ├── Relationships + Content-Types aktualisieren
+  │     └── ZIP schliessen → ArrayBuffer
+  ├── Output: ArrayBuffer → writeBinaryToVault()
+  ├── Pre-Creation: Agent fragt nach Template (officeBaseRules Prompt-Section)
+  └── Limits: max 50 Slides
 ```
 
-ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md), [ADR-031](ADR-031-binary-write-pattern.md).
+ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md) (PPTX-Teil superseded), [ADR-031](ADR-031-binary-write-pattern.md), [ADR-032](ADR-032-template-based-pptx.md).
 
 Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 
@@ -691,7 +705,8 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-027](ADR-027-task-note-schema.md) | Task-Note Frontmatter Schema (10 Properties, deutsch, Eisenhower-kompatibel) |
 | [ADR-028](ADR-028-base-plugin-integration.md) | Eigene Base-YAML-Generierung + Iconic-Detection via direkte Obsidian-API |
 | [ADR-029](ADR-029-office-tool-input-schema.md) | Office-Tool Input-Schema (strukturierte Slides/Sections/Sheets statt Freitext) |
-| [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: pptxgenjs + docx + ExcelJS fuer native Dokumenterzeugung |
+| [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: docx + ExcelJS (PPTX-Teil superseded by ADR-032) |
+| [ADR-032](ADR-032-template-based-pptx.md) | Template-basierte PPTX-Erzeugung: JSZip + OOXML statt pptxgenjs (EPIC-011) |
 | [ADR-031](ADR-031-binary-write-pattern.md) | Binary-Write-Pattern: Shared writeBinaryToVault() mit Path-Traversal-Schutz |
 
 ---
