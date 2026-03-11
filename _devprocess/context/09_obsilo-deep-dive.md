@@ -149,15 +149,32 @@ In dieser Reihenfolge:
 
 Das ist das Herzstück. Wenn du eine Nachricht sendest, passiert folgendes:
 
+### Pro-Nachricht vs. Pro-Iteration
+
+**Wichtig:** Der System Prompt wird **pro User-Nachricht** frisch gebaut -- nicht pro Iteration innerhalb einer Aufgabe. Jede User-Nachricht erzeugt einen neuen `AgentTask`. Innerhalb dieses Tasks wird der System Prompt gecacht und über alle Iterationen hinweg wiederverwendet (Ausnahme: Mode-Switch invalidiert den Cache).
+
+Das bedeutet:
+- **Skills werden pro Nachricht frisch gematcht.** `buildSkillsSection(userMessageText)` läuft VOR dem Bau des System Prompts. Nur Skills deren Trigger-Regex zur aktuellen Nachricht passt, werden in den System Prompt injiziert.
+- **Intent-Wechsel sind kein Problem.** Wenn der User erst "Erstelle Präsentation" schreibt und dann "Analysiere meine Daten", wird für jede Nachricht ein neuer AgentTask mit frisch gematchten Skills erstellt.
+- **Innerhalb einer Aufgabe** (z.B. 12 Iterationen für eine PPTX-Erstellung) bleibt der System Prompt stabil -- der Agent arbeitet konsistent mit denselben Skills und Anweisungen.
+
 ### Der Loop im Detail
 
 ```
 Benutzer sendet Nachricht
         │
         ▼
-┌─ Iteration 0 ─────────────────────────────────┐
-│  1. System Prompt bauen (inkl. Mode, Memory,   │
-│     Tools, Rules, Skills, Rezepte)             │
+┌─ VOR dem Loop ────────────────────────────────┐
+│  - Skills matchen (Regex auf User-Message)     │
+│  - Memory-Context laden                        │
+│  - Rezepte matchen                             │
+│  - System Prompt aus 16 Sektionen bauen        │
+│  - Neuen AgentTask erstellen                   │
+└────────────────────────────────────────────────┘
+        │
+        ▼
+┌─ Iteration 0..24 ─────────────────────────────┐
+│  1. System Prompt (gecacht, nicht neu gebaut)   │
 │  2. An LLM senden (Streaming)                  │
 │  3. Antwort empfangen:                         │
 │     - Text-Chunks → an UI streamen             │
@@ -178,7 +195,19 @@ Benutzer sendet Nachricht
     Ergebnis an User
 ```
 
+### Wer entscheidet, wann der Agent fertig ist?
+
+Das LLM entscheidet autonom. Es gibt drei Wege zur Terminierung:
+
+1. **Implizit (häufigstes):** Das LLM antwortet nur mit Text, ohne Tool-Calls. AgentTask interpretiert das als "fertig" und beendet den Loop.
+2. **Explizit:** Das LLM ruft `attempt_completion(result="...")` auf. Der Loop endet sofort.
+3. **Erzwungen:** Bei Iteration 25 (Hard Limit) wird ein finaler Text-Only-API-Call erzwungen -- ohne Tool-Definitionen, damit der Agent gezwungen ist, eine abschließende Textnachricht zu generieren.
+
+**Keine automatische Qualitätskontrolle:** Aktuell prüft niemand, ob die Antwort oder das Ergebnis den Design-Prinzipien entspricht. Das LLM entscheidet allein. Quality Gates (Phase 7.10) adressieren dieses Problem durch Self-Check-Checklisten, die an Tool-Results angehängt werden.
+
 ### Wichtige Mechanismen im Loop
+
+**System Prompt Caching:** Der System Prompt wird beim ersten API-Call des AgentTasks gebaut und für alle folgenden Iterationen gecacht. Nur ein Mode-Switch (via `switch_mode` Tool) invalidiert den Cache und triggert einen Neubau. Das spart Token und sorgt für Konsistenz innerhalb einer Aufgabe.
 
 **Parallel-Ausführung:** Read-only Tools (`read_file`, `search_files`, `semantic_search`, `web_fetch` etc.) werden parallel ausgeführt wenn mehrere gleichzeitig auftreten. Write-Tools immer sequenziell.
 
@@ -188,9 +217,9 @@ Benutzer sendet Nachricht
 
 **Power Steering:** Alle N Iterationen wird eine Erinnerung an die aktuelle Rolle injiziert, damit der Agent bei langen Aufgaben nicht abdriftet.
 
-**Soft + Hard Limit:** Bei 60% der Max-Iterationen bekommt der Agent einen Hinweis, sich zu beeilen. Bei 100% wird ein finaler Text-Only-API-Call erzwungen, damit immer eine Antwort kommt.
+**Soft + Hard Limit:** Bei 60% der Max-Iterationen (ca. Iteration 15) bekommt der Agent einen Hinweis, sich zu beeilen. Bei 100% (Iteration 25) wird ein finaler Text-Only-API-Call erzwungen, damit immer eine Antwort kommt.
 
-**Sub-Agents** (`new_task` Tool): Der Agent kann Kind-Agenten spawnen mit eigenem Modus und eigener History. Maximale Verschachtelungstiefe: 2 Ebenen. Sub-Agents teilen den Approval-Callback des Elternteils.
+**Sub-Agents** (`new_task` Tool): Der Agent kann Kind-Agenten spawnen mit eigenem Modus und eigener History. Maximale Verschachtelungstiefe: 2 Ebenen. Sub-Agents teilen den Approval-Callback des Elternteils. Sub-Agents bekommen eine abgespeckte Version des System Prompts (ohne Memory, Rezepte, Response-Format, Custom Instructions).
 
 **Abort:** Jeder Task hat einen `AbortController`. Wenn der User auf "Stop" klickt, wird der Signal an die LLM-API und alle laufenden Tools weitergegeben.
 
@@ -442,6 +471,74 @@ Der System Prompt wird aus **16 modularen Sektionen** zusammengebaut, jeweils ei
 | 16 | Rules | `rules.ts` | Benutzerdefinierte Regeln |
 
 **Wichtig:** Sub-Tasks (Kind-Agenten) bekommen eine **abgespeckte Version** ohne Memory, Rezepte, Response-Format und Custom Instructions — sie sind Arbeiter, keine Konversationspartner.
+
+### Wann wird der System Prompt gebaut?
+
+Der System Prompt wird **nicht** per LLM generiert -- er wird programmatisch aus den 16 Sektionen zusammengesetzt (`buildSystemPromptForMode()` in `src/core/systemPrompt.ts`). Das passiert:
+
+1. **Pro User-Nachricht:** `AgentSidebarView.handleSendMessage()` baut den Prompt und erstellt einen neuen `AgentTask`
+2. **Innerhalb des AgentTasks:** Der Prompt wird beim ersten API-Call gecacht (Zeilen 290-320 in `AgentTask.ts`)
+3. **Cache-Invalidierung:** Nur bei Mode-Switch wird der Prompt neu gebaut
+4. **Kein LLM-Overhead:** Reiner String-Assembly, deterministisch, <1ms
+
+### Skills vs. Tools: Die Metaebene
+
+**Tools** sind die Hände des Agenten -- sie führen Aktionen aus (Dateien lesen, PPTX erstellen, im Web suchen).
+
+**Skills** sind die Meta-Ebene über den Tools -- sie beschreiben dem Agenten **wie** er Tools für bestimmte Aufgabentypen kombinieren soll. Ein Skill ist eine Markdown-Datei (SKILL.md) mit:
+- **YAML-Frontmatter:** `name`, `description`, `trigger` (Regex-Pattern), `requiredTools` (welche Tool-Gruppen nötig sind)
+- **Instruktionen:** Schritt-für-Schritt-Anleitung, Design-Prinzipien, Anti-Patterns, Checklisten
+
+**Beispiel:** Der Skill `presentation-design` weiß, dass eine gute Präsentation Action Titles braucht, Layouts variieren sollte und Speaker Notes haben muss. Er beschreibt diese Prinzipien und verweist auf `create_pptx` als Werkzeug -- aber der Skill selbst erstellt keine Datei.
+
+### Skill-Matching: Wie der richtige Skill geladen wird
+
+Skills werden **pro User-Nachricht** frisch gematcht -- VOR dem Bau des System Prompts:
+
+```
+User-Nachricht: "Erstelle eine Präsentation über Q3-Ergebnisse"
+        │
+        ▼
+buildSkillsSection(userMessageText)
+        │
+        ├─ Regex-Match: /praesentation.*erstell/ → Treffer!
+        │
+        ▼
+Skill "presentation-design" wird in System Prompt Sektion 15 injiziert
+        │
+        ▼
+Agent sieht im System Prompt: Tools (Sek. 5) + Skill-Anleitung (Sek. 15)
+        │
+        ▼
+Agent kombiniert beides: Nutzt create_pptx GEMÄSS Skill-Prinzipien
+```
+
+**Skill-Quellen:**
+- `~/.obsidian-agent/skills/` — Manuell definierte Skills (User-Skills)
+- `bundled-skills/` — Mit dem Plugin ausgelieferte Skills
+- `~/.obsidian-agent/self-authored-skills/` — Vom Agent selbst erstellte Skills (Phase E)
+
+**Keine Skills geladen?** Der Agent arbeitet trotzdem -- er hat seine Tool-Definitionen und allgemeine Anweisungen. Skills verbessern die Qualität bei spezialisierten Aufgaben, sind aber nicht zwingend erforderlich.
+
+### Quality Gates: Selbstkontrolle nach komplexen Tool-Outputs (geplant, Phase 7.10)
+
+Aktuell entscheidet das LLM allein, wann es fertig ist. Quality Gates erweitern Tool-Results um Self-Check-Checklisten:
+
+```
+Agent ruft create_pptx auf → PPTX wird erstellt
+        │
+        ▼
+Tool-Result: "Created Q3-Report.pptx, 12 slides, 48 KB"
++ Quality Gate: "SELF-CHECK: Action Titles? Layout-Variation? Speaker Notes? ..."
+        │
+        ▼
+Agent prüft sich selbst in der nächsten Iteration
+        │
+        ├─ Alles ok → Antwortet dem User
+        └─ Mängel gefunden → Korrigiert automatisch (1 extra Iteration)
+```
+
+Kein extra API-Call -- der Quality-Prompt ist Teil des Tool-Results. Unsichtbar für den User.
 
 ---
 
