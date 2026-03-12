@@ -1,4 +1,4 @@
-# Epic: Office Document Quality -- Template-basierte PPTX-Erzeugung
+# Epic: Office Document Quality -- Intelligente Template-basierte PPTX-Erzeugung
 
 > **Epic ID**: EPIC-011
 > **Business Alignment**: _devprocess/analysis/BA-006-office-document-quality.md
@@ -9,98 +9,123 @@
 
 FUER Wissensarbeiter und Berater
 DIE professionelle Praesentationen aus ihrem Vault erstellen wollen
-IST DAS Template-basierte PPTX-Erzeugungssystem
-EIN Architektur-Pivot von programmatischer Generierung (pptxgenjs) zu Template-Manipulation (JSZip + OOXML)
-DAS Corporate-Designs 1:1 uebernimmt und mitgelieferte Default-Templates auf professionellem Niveau bietet
-IM GEGENSATZ ZU programmatisch erzeugten Praesentationen die sofort als "generiert" erkennbar sind
-UNSERE LOESUNG erzeugt Praesentationen mit voller Design-Treue direkt aus dem Chat
+IST DAS intelligente Template-Analyse- und Kompositionssystem
+EIN Architektur-Pivot von text-basiertem Slide-Cloning zu element-basierter Template-Analyse mit Brand-DNA-Extraktion
+DAS beliebige Corporate-Templates automatisch versteht, deren Design-Elemente katalogisiert und semantisch korrekt anwendet
+IM GEGENSATZ ZU manuell geschriebenen Template-Skills die nicht skalieren und text-basierten Keys die nicht eindeutig sind
+UNSERE LOESUNG erzeugt Praesentationen mit voller Design-Treue aus jedem Template direkt aus dem Chat
 
 ## Business Outcomes (messbar)
 
-1. **Design-Treue**: User-Template wird 1:1 uebernommen (Hintergruende, Layouts, Logos, Fonts, Farben) -- statt nur Farbe + Font
-2. **Professional-Level Default**: Mitgelieferte Templates sind ohne Nachbearbeitung praesentierbar
-3. **Einheitlicher Code-Pfad**: Ob mit oder ohne User-Vorlage -- identische Engine, keine Sonderfaelle
+1. **Template-Universalitaet**: Jede PPTX-Vorlage kann automatisch analysiert und genutzt werden -- kein manuelles Reverse-Engineering
+2. **Design-Treue**: Template-Elemente (Shapes, Diagramme, Formen) werden semantisch korrekt eingesetzt
+3. **Skalierbarkeit**: Neue Templates in <60 Sekunden eingerichtet (einmalige Analyse)
 
 ## Leading Indicators (Fruehindikatoren)
 
-- OOXML-Slide-Injection: Neue Slides koennen in beliebige PPTX-Templates injiziert werden ohne Korruption
-- Default-Templates: 2-3 professionelle Templates sind im Plugin gebundelt und oeffnen fehlerfrei in PowerPoint/LibreOffice
-- Pre-Creation-Dialog: Agent fragt vor PPTX-Erstellung nach Template-Praeferenz
+- Template-Analyse: Tool extrahiert Element-Katalog + Brand-DNA aus beliebiger PPTX
+- Shape-Name-Matching: 100% Ersetzungsrate bei Platzhalter-Texten
+- Folientyp-Vielfalt: Agent nutzt mind. 5 verschiedene Folientypen pro 15-Folien-Deck
+- Kein Lorem ipsum: Alle Platzhalter-Texte werden zuverlaessig ersetzt
 
-## Architektur-Entscheidung: Template-basiert statt Programmatisch
+## Architektur: Drei-Schichten-System
 
-### Problem mit dem bisherigen Ansatz (pptxgenjs)
+### Kern-Paradigmenwechsel: Von Slide-Level zu Element-Level
 
-pptxgenjs erzeugt PPTX-Dateien programmatisch "from scratch". Das bedeutet:
-- Keine echten Slide-Masters: Hintergruende, Logos, Akzentformen gehen verloren
-- Keine echten Slide-Layouts: Platzhalter-Positionen muessen manuell approximiert werden
-- Kein Theme-XML: Farben/Fonts werden pro Element gesetzt statt im zentralen Theme
-- Selbst bei perfekter Extraktion aller Design-Elemente sieht das Ergebnis "generiert" aus
+**Bisheriger Ansatz (Iterationen 1-3):**
 
-Drei Iterationen der Extraktionslogik (Farben/Fonts -> Hintergruende/Shapes -> Positionen/Sizing) haben gezeigt: der Extraktions-Ansatz kann die Design-Treue einer echten Vorlage nicht erreichen.
+1. pptxgenjs programmatisch (Design-Treue nicht erreichbar)
+2. Template-Cloning mit text-basierten Keys ("Lorem ipsum" nicht eindeutig)
+3. Manuelles SKILL.md pro Template (skaliert nicht)
 
-### Neuer Ansatz: Template-Kopie + OOXML-Injection
+**Neuer Ansatz: Automatische Template-Analyse + Element-Katalog**
 
-1. Template-PPTX kopieren (User-Upload oder Default-Template)
-2. Bestehende Slides entfernen (nur Masters/Layouts/Theme behalten)
-3. Neue Slides als OOXML-XML erzeugen und in die ZIP-Struktur injizieren
-4. Relationships und Content-Types aktualisieren
-5. Fertige PPTX speichern
+```
+Schicht 1: Template-Analyse-Tool (einmalig pro Template, generiert Skill)
+           Extrahiert: Element-Katalog + Brand-DNA + Slide-Kompositionen
 
-**Vorteil:** Alles was im Template ist -- Masters, Layouts, Theme, Hintergruende, Logos, Schriftarten -- bleibt exakt erhalten. Der Code muss nur Inhalte in die richtigen Platzhalter schreiben.
+Schicht 2: Praesentation-Methodik-Skill (generisch, immer geladen)
+           Lehrt: Content Classification, Visualisierungs-Entscheidungsbaum, Best Practices
 
-### Konsequenz fuer "ohne Vorlage"
+Schicht 3: Template-Skill (generiert, pro Vorlage)
+           Beschreibt: Verfuegbare Elemente, Brand-DNA, Shape-Name-Mapping
+```
 
-2-3 Default-Templates werden als Assets im Plugin gebundelt (~50-150 KB pro Template). Der Code-Pfad ist identisch -- nur die Quelle der Template-Datei unterscheidet sich.
+### Recherche-Grundlage
+
+| Service | Pattern | Uebernommenes Konzept |
+|---------|---------|----------------------|
+| **PPTAgent** (EMNLP 2025) | deepcopy(shape._element) | Shapes als XML-Snippets klonen |
+| **Presenton** (Open Source) | Brand-DNA-Extraktion | Design-System aus Template extrahieren |
+| **Microsoft Copilot** | Layout-Name-Matching | Layouts ueber Keywords zuordnen |
+| **OOXML-Spec** | a:prstGeom / a:custGeom | 187+ Preset-Shapes als XML-Snippets wiederverwendbar |
+
+### Schluessel-Innovationen
+
+1. **Shape-Name-Matching (S0)**: Shapes ueber OOXML-Namen identifizieren statt ueber mehrdeutigen Text
+2. **Element-Katalog**: Alle einzigartigen Design-Elemente template-uebergreifend dedupliziert
+3. **Brand-DNA**: Farben, Fonts, Spacing programmatisch aus theme1.xml extrahiert
+4. **Skill-Generierung**: Analyse-Tool erzeugt automatisch einen Template-Skill
 
 ## MVP Features
 
 | Feature ID | Name | Priority | Effort | Status |
 |------------|------|----------|--------|--------|
-| FEATURE-1100 | Template-Engine (JSZip + OOXML) | P0 | L | Not Started |
-| FEATURE-1101 | Default-Templates (2-3 bundled PPTX) | P0 | M | Not Started |
-| FEATURE-1102 | Pre-Creation Dialog & Template-Upload | P0 | S | Not Started |
-| FEATURE-1103 | Theme-Extraktion (vereinfacht) | P1 | S | Not Started |
-| FEATURE-1104 | Storyline-Framework-Skills | P1 | M | Not Started |
-| FEATURE-1105 | Basis-Praesentationsregeln (Prompt) | P0 | S | Not Started |
-| FEATURE-1106 | Design-Memory-Integration | P1 | S | Not Started |
-| FEATURE-1107 | Follow-up Questions | P1 | S | Not Started |
+| FEATURE-1100 | Template-Engine (JSZip + OOXML) | P0 | L | **Implementiert** |
+| FEATURE-1101 | Default-Templates (HTML-Pipeline) | P0 | M | **Teilweise** |
+| FEATURE-1102 | Pre-Creation Dialog & Template-Upload | P0 | S | **Implementiert** |
+| FEATURE-1105 | Basis-Praesentationsregeln (Skills) | P0 | S | **Implementiert** |
+| FEATURE-1108 | Template-Analyse-Tool | P0 | L | Not Started |
+| FEATURE-1109 | Content Classification Framework | P0 | S | Not Started |
+| FEATURE-1110 | Shape-Name-Matching (S0) | P0 | S | Not Started |
+| FEATURE-1111 | Template-Skill-Format + Generator | P0 | M | Not Started |
 
-**Priority Legend:**
-- P0-Critical: Ohne geht MVP nicht
-- P1-High: Wichtig fuer vollstaendige User Experience
+**Effort:** S (1-2 Tage), M (3-5 Tage), L (1-2 Wochen)
 
-**Effort:** S (1-2 Sprints), M (3-5 Sprints), L (6+ Sprints)
+### Entfallene Features (mit Begruendung)
+
+| Feature ID | Name | Grund |
+|------------|------|-------|
+| FEATURE-1103 | Theme-Extraktion (vereinfacht) | In FEATURE-1108 integriert (Brand-DNA liefert mehr) |
+| FEATURE-1104 | Storyline-Framework-Skills | In FEATURE-1109 integriert |
+| FEATURE-1106 | Design-Memory-Integration | Spaeter als eigenstaendiges Feature |
+| FEATURE-1107 | Follow-up Questions | Durch office-workflow Skill abgedeckt |
 
 ## Explizit Out-of-Scope
 
 - **Animations/Uebergaenge:** Keine Slide-Transitions oder Element-Animationen
 - **Video/Audio-Embedding:** Keine Multimedia-Inhalte in PPTX
-- **Bearbeitung bestehender Slides:** Kein "oeffne PPTX und aendere Folie 3" -- nur Neuerstellung
-- **DOCX/XLSX Template-System:** Nur PPTX in dieser Epic. DOCX/XLSX bleiben bei bestehenden Libraries
-- **Chart-Generierung:** Keine nativen PowerPoint-Charts (Daten als Tabellen dargestellt)
-- **Custom-Theme-Editor in Settings:** Design wird ueber Chat/Template gesteuert
+- **Bearbeitung bestehender Slides:** Kein "oeffne PPTX und aendere Folie 3"
+- **DOCX/XLSX Template-System:** Nur PPTX in dieser Epic
+- **Freie Element-Komposition:** Slides werden als Ganzes geklont, nicht aus Einzelelementen zusammengesetzt
+- **Custom-Theme-Editor in Settings:** Design ueber Chat/Template
 
 ## Dependencies & Risks
 
 ### Dependencies
-- **JSZip:** Bereits als Dependency vorhanden (fuer Document Parsing)
-- **DOMParser:** Nativ verfuegbar in Electron
-- **OOXML-Wissen:** XML-Strukturen der PPTX-Slides muessen korrekt erzeugt werden
+- **JSZip:** Bereits vorhanden
+- **DOMParser:** Nativ in Electron
+- **OOXML-Wissen:** Shape-Geometrie, Theme-XML
 
 ### Risks
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| OOXML-Slide-XML komplex und fehleranfaellig | H | H | Referenz-Slides aus echten PPTX-Dateien extrahieren und als Vorlage nutzen; defensive Validation |
-| Verschiedene PowerPoint-Versionen erzeugen unterschiedliches XML | M | M | Testen mit PowerPoint 2016+, LibreOffice, Google Slides; nur Standard-Elemente nutzen |
-| Content-Types und Relationships muessen exakt stimmen | H | H | Unit-Tests fuer ZIP-Struktur-Integritaet; Referenz-Dateien als Test-Fixtures |
-| Default-Templates erhoehen Plugin-Groesse | L | L | Templates sind typischerweise 50-150 KB; gesamt < 500 KB |
-| Template-Cleanup (alte Slides entfernen) kann Referenzen brechen | M | H | Systematisches Relationship-Tracking; nur Slides entfernen, nie Masters/Layouts |
-| pptxgenjs-Entfernung bricht bestehende Funktionalitaet | L | M | Parallel implementieren, erst nach vollstaendiger Verifikation umschalten |
+| Shape-Namen nicht aussagekraeftig (auto-generiert) | M | M | Semantische Alias-Generierung, Kombination mit Position/Typ |
+| Template-Analyse >60s fuer grosse Templates | L | M | Einmalige Analyse, Skill persistiert |
+| Generierter Skill >16k chars (SkillsManager-Limit) | M | H | Kompakte Formatierung, nur content-bearing Elemente |
+| SmartArt nicht korrekt analysierbar (dgm-Namespace) | H | M | Als Sonderfall behandeln oder vorab konvertieren |
+| Element-Deduplizierung zu aggressiv/konservativ | M | L | Fingerprint-Tuning, manuelle Skill-Nachbearbeitung |
 
 ## Abhaengigkeit von EPIC-010
 
-EPIC-010 (Basis-Implementierung) bleibt bestehen und wird NICHT geaendert. EPIC-011 ERSETZT die PPTX-Erzeugungslogik in CreatePptxTool, nutzt aber weiterhin:
-- `writeBinaryToVault()` fuer die Vault-Speicherung
-- Das Input-Schema (ADR-029) fuer die LLM-Schnittstelle
-- Die Tool-Registrierung und Mode-Integration
+EPIC-010 bleibt bestehen. EPIC-011 ERWEITERT die Engine um:
+- Shape-Name-Matching (S0) in PptxTemplateCloner
+- Template-Analyse-Tool (neues Tool)
+- Skill-Generierung (neues Tool-Feature)
+- Content Classification (Skill-Erweiterung)
+
+Bestehende Infrastruktur wird weiterhin genutzt:
+- `writeBinaryToVault()` fuer Vault-Speicherung
+- Input-Schema (ADR-029) fuer LLM-Schnittstelle
+- Tool-Registrierung und Mode-Integration
+- PptxTemplateCloner mit Strategien S1-S6 als Fallback

@@ -5,6 +5,7 @@
 > **Priority**: P0-Critical
 > **Effort Estimate**: L
 > **ADR**: ADR-032
+> **Status**: **Implementiert** (PptxTemplateCloner + 6-Strategie-Matching)
 
 ## Feature Description
 
