@@ -1,103 +1,152 @@
-# Feature: Template-Analyse-Tool
+# Feature: In-Plugin Template-Analyzer (Spatial Analysis + Skill-Generierung)
 
 > **Feature ID**: FEATURE-1108
 > **Epic**: EPIC-011 - Office Document Quality
-> **Priority**: P0-Critical
-> **Effort Estimate**: L (1-2 Wochen)
+> **Priority**: P1-High
+> **Effort Estimate**: M (3-5 Tage)
+> **Status**: Ueberarbeitung (von "Template-Analyse-Tool" zu "In-Plugin Fallback mit Spatial Analysis")
 > **Ersetzt**: FEATURE-1103 (Theme-Extraktion)
 
 ## Feature Description
 
-Einmal-Analyse-Tool das beliebige PPTX-Templates automatisch versteht. Extrahiert drei Dinge:
-1. **Element-Katalog**: Alle einzigartigen Design-Elemente (Shapes, Formen, Diagramme) dedupliziert ueber Vektor-Fingerprint
-2. **Brand-DNA**: Farben, Fonts, Spacing aus theme1.xml und slideMaster
-3. **Slide-Kompositionen**: Wie Elemente auf den Original-Slides zusammengesetzt sind (inkl. Shape-Namen)
+In-Plugin Analyse-Tool das beliebige PPTX-Templates deterministisch analysiert -- als Fallback fuer User die den Web-Service (FEATURE-1112) nicht nutzen wollen oder koennen. Extrahiert Shape-Daten, Brand-DNA, Slide-Kompositionen und generiert daraus ein Visual Design Language Document (FEATURE-1111).
 
-Das Tool generiert einen Template-Skill (SKILL.md) der als User-Skill im Vault gespeichert wird.
+**Einschraenkung gegenueber dem Web-Service**: Kein LibreOffice-Rendering (keine Bilder), daher kein visuelles Verstaendnis von custGeom-Shapes, keine Gesamtwirkung, keine emotionale Wirkung. Fuer einfache Templates ausreichend, fuer komplexe Corporate-Templates empfiehlt sich der Web-Service.
+
+**Erweiterung gegenueber IST-Zustand**: Die bestehende `PptxTemplateAnalyzer.ts` wird um Spatial Analysis (Kompositionsmuster-Erkennung) erweitert. Der `AnalyzePptxTemplateTool.ts` generiert das neue Visual Design Language Format statt des alten Element-Katalog-Formats.
 
 ## Benefits Hypothesis
 
-**Wir glauben dass** ein automatisches Template-Analyse-Tool
+**Wir glauben dass** ein erweiterter In-Plugin Template-Analyzer
 **Folgende messbare Outcomes liefert:**
-- Jedes PPTX-Template in <60s analysiert und als Skill nutzbar
-- Kein manuelles Reverse-Engineering von Template-Slides mehr noetig
-- Agent versteht die verfuegbaren Design-Elemente und kann sie semantisch einsetzen
+- Templates ohne externen Service analysierbar (Offline-Faehigkeit)
+- Spatial Analysis erkennt Kompositionsmuster (Sequenzen, Grids, Hierarchien)
+- Generierter Skill im neuen Visual Design Language Format
 
 **Wir wissen dass wir erfolgreich sind wenn:**
-- EnBW-Template (108 Slides) korrekt analysiert: ~80 einzigartige Elemente, Brand-Farben erkannt
-- Generierter Skill wird vom SkillsManager erkannt und geladen
-- Agent kann mit generiertem Skill diverse Folientypen waehlen
+- EnBW-Template (108 Slides) korrekt analysiert: Brand-Farben, Kompositionen, Shape-Mappings
+- Generierter Skill enthaelt semantische Bedeutung pro Komposition (wenn auch weniger tiefgruendig als Web-Service)
+- Skill wird vom SkillsManager erkannt und geladen
+- Tool-Aufruf in unter 60 Sekunden fuer 108-Slide Template
 
 ## User Stories
 
-### Story 1: Template einrichten
-**Als** Berater
-**moechte ich** mein Corporate-Template einmal analysieren lassen
-**um** ab dann jederzeit Praesentationen im Corporate-Design erstellen zu koennen
+### Story 1: Offline-Analyse
+**Als** Wissensarbeiter ohne Internet
+**moechte ich** mein Template direkt im Plugin analysieren
+**um** auch offline einen Template-Skill zu erhalten
 
-### Story 2: Beliebiges Template nutzen
-**Als** Wissensarbeiter
-**moechte ich** jedes PPTX-Template analysieren koennen
-**um** nicht auf vordefinierte Templates beschraenkt zu sein
+### Story 2: Schnelle Analyse
+**Als** Berater der gerade eine Praesentation braucht
+**moechte ich** mein Template im Chat analysieren lassen
+**um** sofort damit arbeiten zu koennen
 
-## Technical Design
+---
 
-### Kernkomponenten
+## Success Criteria (Tech-Agnostic)
 
-1. **PptxTemplateAnalyzer** (`src/core/office/PptxTemplateAnalyzer.ts`)
-   - Oeffnet PPTX via JSZip
-   - Extrahiert alle `<p:sp>` Shapes aus allen Slides
-   - Vektor-Fingerprint pro Shape: Geometrie-Typ + Fill + Line + Aspect-Ratio
-   - Deduplizierung: ~60-120 einzigartige Elemente bei 108-Slide Template
-   - Kategorisierung: content-bearing / decorative / structural / connector / media
-   - Brand-DNA: clrScheme aus theme1.xml, fontScheme, Spacing aus Master
-   - Slide-Kompositionen: welche Elemente + Shape-Namen pro Slide
-   - Output: Strukturiertes JSON (TemplateAnalysis Interface)
+| ID | Criterion | Target | Measurement |
+|----|-----------|--------|-------------|
+| SC-01 | Beliebige Vorlagen werden analysiert und als nutzbarer Skill gespeichert | Jede PPTX | Test mit 5 verschiedenen Templates |
+| SC-02 | Generierter Skill beschreibt Kompositionen mit semantischer Bedeutung | Alle content-bearing Kompositionen | Manuelle Pruefung |
+| SC-03 | Analyse ist ohne externe Dienste durchfuehrbar | Funktioniert offline | Funktionstest |
+| SC-04 | Ergebnis ist sofort einsetzbar fuer Praesentationserstellung | Skill wird geladen und genutzt | End-to-End Test |
+| SC-05 | Grosse Vorlagen werden in akzeptabler Zeit analysiert | Unter einer Minute | Zeitmessung |
 
-2. **AnalyzePptxTemplateTool** (`src/core/tools/vault/AnalyzePptxTemplateTool.ts`)
-   - Input: `{ template_path: string }`
-   - Laedt PPTX aus Vault
-   - Ruft PptxTemplateAnalyzer auf
-   - Generiert Template-Skill als SKILL.md (siehe FEATURE-1111)
-   - Speichert als User-Skill
-   - In read-Toolgroup registriert
+---
 
-### Element-Fingerprint
+## Technical NFRs (fuer Architekt)
 
-```typescript
-interface ElementFingerprint {
-  geometryType: string;        // "rect" | "roundRect" | "chevron" | "custGeom:hash"
-  fillType: string;            // "solid:accent1" | "gradient:..." | "none"
-  lineStyle: string;           // "1pt:solid:accent2" | "none"
-  aspectRatio: number;         // width/height
-}
-```
+### Performance
+- **Analyse-Dauer**: <60s fuer 108-Slide Template
+- **Memory**: <200 MB Peak waehrend Analyse
 
-### Brand-DNA Extraktion
+### Integration
+- **Tool-Registration**: In read-Toolgroup registriert
+- **Output**: Visual Design Language Document (SKILL.md) im Format von FEATURE-1111
+- **Vault-Speicherung**: Generierter Skill wird als User-Skill im Vault gespeichert
 
-```typescript
-interface BrandDNA {
-  colors: Record<string, string>;   // dk1, lt1, accent1-6 -> hex
-  fonts: { major: string; minor: string };
-  spacing: { margins: EMURect; contentArea: EMURect };
-  logo?: { position: EMURect; relationship: string };
-}
-```
+---
+
+## Erweiterungen gegenueber IST-Zustand
+
+### 1. Spatial Analysis (Kompositionsmuster-Erkennung)
+
+Neue Analyse-Schicht die ueber die bestehende `classifySlide()` Heuristik hinausgeht:
+
+- **Sequenz-Erkennung**: N gleich grosse Shapes horizontal angeordnet -> Prozess/Timeline
+- **Grid-Erkennung**: M*N Shapes in regelmaessigem Raster -> Dashboard/Matrix
+- **Radial-Erkennung**: Shapes um einen Mittelpunkt -> Zyklus/Hub-and-Spoke
+- **Hierarchie-Erkennung**: Pyramidenfoermig angeordnet -> Hierarchie/Priorisierung
+- **Paarungs-Erkennung**: Zwei dominante Bereiche -> Vergleich/Zwei-Spalten
+
+### 2. Semantische Beschreibungs-Generierung
+
+Statt nur `classification: "process"` generiert der Analyzer eine semantische Beschreibung:
+
+- **Alt**: "Prozessablauf mit 5 Shapes"
+- **Neu**: "5-stufiger linearer Prozess (Chevron-Kette) -- kommuniziert Fortschritt und Sequenz. Chevron-Titel max 2-3 Worte, Beschreibung darunter max 15 Worte."
+
+### 3. Visual Design Language Output
+
+`AnalyzePptxTemplateTool` generiert Skill im neuen Format (FEATURE-1111) statt im alten Element-Katalog-Format. Enthaelt:
+- Brand-DNA
+- Visuelles Vokabular mit Bedeutung (deterministisch hergeleitet aus Geometrie + Position)
+- Kompositionen nach Narrativ-Phase
+- Design-Regeln
+- Shape-Name-Mappings
+
+---
+
+## Architecture Considerations
+
+### ASRs
+
+**MODERATE ASR #1: Deterministische Qualitaet ohne Bilder**
+- **Warum ASR**: Ohne Claude Vision ist die semantische Analyse auf Heuristiken beschraenkt. custGeom-Shapes (Custom-Geometrien) koennen nicht visuell interpretiert werden.
+- **Impact**: Qualitaet des generierten Skills ist geringer als beim Web-Service. Muss dennoch funktional sein.
+- **Quality Attribute**: Reliability, Usability
+
+### Open Questions fuer Architekt
+- Soll der In-Plugin Analyzer den User auf den Web-Service hinweisen wenn viele custGeom-Shapes erkannt werden?
+- Soll der generierte Skill einen Qualitaets-Indikator enthalten (z.B. "Analysiert ohne visuelles Verstaendnis")?
+
+---
 
 ## Definition of Done
 
 ### Functional
-- [ ] PptxTemplateAnalyzer extrahiert alle Shapes aus beliebiger PPTX
-- [ ] Vektor-Fingerprint dedupliziert korrekt (~60-120 einzigartige Elemente bei 108 Slides)
-- [ ] Kategorisierung unterscheidet content-bearing / decorative / structural
-- [ ] Brand-DNA: Farben und Fonts aus theme1.xml korrekt extrahiert
-- [ ] Slide-Kompositionen: Shape-Namen korrekt aufgeloest
+- [ ] PptxTemplateAnalyzer um Spatial Analysis erweitert (Sequenz, Grid, Radial, Hierarchie, Paarung)
+- [ ] Semantische Beschreibungs-Generierung pro Komposition
+- [ ] AnalyzePptxTemplateTool generiert Visual Design Language Format (FEATURE-1111)
+- [ ] Generierter Skill enthaelt Brand-DNA, Vokabular, Kompositionen, Regeln, Mappings
+- [ ] Skill wird als User-Skill im Vault gespeichert
 - [ ] Tool in read-Toolgroup registriert und aufrufbar
 
 ### Quality
 - [ ] Performance: <60s fuer 108-Slide Template
 - [ ] Fehlerbehandlung: Korrupte/leere Templates
-- [ ] Review-Bot-konform (kein console.log, kein innerHTML etc.)
+- [ ] Review-Bot-konform
+- [ ] Skill bleibt unter 16k Zeichen
+
+### Documentation
+- [ ] Feature-Spec aktualisiert (Status: Implemented)
+- [ ] Backlog aktualisiert
+
+---
+
+## Dependencies
+
+- **FEATURE-1111**: Visual Design Language Document Format
+- **FEATURE-1110**: Shape-Name-Matching (S0) fuer korrekte Shape-Namen
+- **Bestehend**: PptxTemplateAnalyzer.ts, AnalyzePptxTemplateTool.ts, SkillsManager
+
+## Out of Scope
+
+- Multimodale Analyse mit Bildern (das ist FEATURE-1112)
+- LibreOffice-Rendering
+- custGeom-Interpretation (nur geometrischer Hash)
+- Community-Gallery-Integration
 
 ## Dependencies
 

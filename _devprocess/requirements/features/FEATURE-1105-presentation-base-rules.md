@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P0-Critical
 > **Effort Estimate**: S
-> **Status**: **Implementiert** -- office-workflow + presentation-design Skills
+> **Status**: **Abgeloest** durch FEATURE-1105-universal-design-principles.md -- Die Basis-Praesentationsregeln sind in office-workflow + presentation-design Skills implementiert. Neue Feature-Datei erweitert den Scope um universelle Design-Prinzipien (visuelles Vokabular, Gestalt-Prinzipien, Design-Reasoning).
 
 ## Feature Description
 

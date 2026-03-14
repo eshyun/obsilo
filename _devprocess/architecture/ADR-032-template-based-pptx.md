@@ -1,9 +1,16 @@
 # ADR-032: Template-basierte PPTX-Erzeugung (JSZip + OOXML)
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-09
+**Amended:** 2026-03-13
 **Deciders:** Sebastian Hanke
 **Supersedes:** PPTX-Teil von ADR-030 (pptxgenjs)
+
+> **Amendment 2026-03-13:** ADR bleibt gueltig fuer die PPTX-Engine-Schicht.
+> Die semantische Analyse-Schicht darueber wird durch zwei neue ADRs abgedeckt:
+> - ADR-033: Multimodaler Template-Analyzer (Cloud Run + BYOK)
+> - ADR-034: Visual Design Language Document als Skill-Format
+> Zusammen bilden diese drei ADRs die Architektur von EPIC-011 (Template Design Intelligence).
 
 ## Context
 
@@ -149,3 +156,5 @@ Der entscheidende Unterschied zu pptxgenjs: Slides referenzieren echte Slide-Lay
 - ADR-029: Input-Schema-Design (Schema bleibt unveraendert -- nur Engine dahinter aendert sich)
 - ADR-031: Binary-Write-Pattern (writeBinaryToVault() bleibt unveraendert)
 - ADR-024: Parsing-Library-Selection (JSZip bereits gewaehlt)
+- ADR-033: Multimodaler Template-Analyzer (semantische Analyse-Schicht ueber dieser Engine)
+- ADR-034: Visual Design Language Document (Skill-Format fuer die Analyse-Ergebnisse)

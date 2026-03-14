@@ -283,9 +283,29 @@ CreatePptxTool (EPIC-011 -- template-basiert, ADR-032)
   ├── Output: ArrayBuffer → writeBinaryToVault()
   ├── Pre-Creation: Agent fragt nach Template (officeBaseRules Prompt-Section)
   └── Limits: max 50 Slides
+
+AnalyzePptxTemplateTool (EPIC-011 -- Template Design Intelligence)
+  │
+  ├── In-Plugin (Fallback, ADR-032 + ADR-034):
+  │     ├── PptxTemplateAnalyzer: Shape-Extraktion + Fingerprint + Spatial Analysis
+  │     ├── Deterministisch: Positionen, Geometrien, Brand-DNA, Kompositionen
+  │     └── Output: Visual Design Language Document (SKILL.md, <16k chars)
+  │
+  ├── Extern (Primaer, ADR-033 + ADR-034):
+  │     ├── Cloud Run Backend (obsilo-template-analyzer)
+  │     ├── Multimodale Pipeline: python-pptx + LibreOffice + Claude Vision
+  │     ├── BYOK-only: User API Key, kein Storage, kein Account
+  │     └── Output: Visual Design Language Document (SKILL.md, <16k chars)
+  │
+  └── Skill-Integration:
+        ├── Visual Design Language Document = Template-Skill (source: user)
+        ├── Beschreibt: Brand-DNA, Visuelles Vokabular (Bedeutung + Wirkung),
+        │   Kompositionen nach Narrativ-Phase, Design-Regeln, Shape-Mappings
+        ├── SkillsManager laedt Skill automatisch bei Trigger-Match
+        └── Zusammenspiel: presentation-design (universell) + Template-Skill (spezifisch)
 ```
 
-ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md) (PPTX-Teil superseded), [ADR-031](ADR-031-binary-write-pattern.md), [ADR-032](ADR-032-template-based-pptx.md).
+ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md) (PPTX-Teil superseded), [ADR-031](ADR-031-binary-write-pattern.md), [ADR-032](ADR-032-template-based-pptx.md), [ADR-033](ADR-033-multimodal-template-analyzer.md), [ADR-034](ADR-034-visual-design-language-document.md).
 
 Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 
@@ -706,8 +726,10 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-028](ADR-028-base-plugin-integration.md) | Eigene Base-YAML-Generierung + Iconic-Detection via direkte Obsidian-API |
 | [ADR-029](ADR-029-office-tool-input-schema.md) | Office-Tool Input-Schema (strukturierte Slides/Sections/Sheets statt Freitext) |
 | [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: docx + ExcelJS (PPTX-Teil superseded by ADR-032) |
-| [ADR-032](ADR-032-template-based-pptx.md) | Template-basierte PPTX-Erzeugung: JSZip + OOXML statt pptxgenjs (EPIC-011) |
 | [ADR-031](ADR-031-binary-write-pattern.md) | Binary-Write-Pattern: Shared writeBinaryToVault() mit Path-Traversal-Schutz |
+| [ADR-032](ADR-032-template-based-pptx.md) | Template-basierte PPTX-Erzeugung: JSZip + OOXML statt pptxgenjs (EPIC-011) |
+| [ADR-033](ADR-033-multimodal-template-analyzer.md) | Multimodaler Template-Analyzer: Cloud Run + BYOK + Claude Vision (EPIC-011) |
+| [ADR-034](ADR-034-visual-design-language-document.md) | Visual Design Language Document als Skill-Format (EPIC-011) |
 
 ---
 
