@@ -300,12 +300,57 @@ Zusaetzlich fehlt Struktur-Intelligenz: das LLM entscheidet ad-hoc ueber die Fol
 
 ---
 
-## 10. Next Steps
+## 10. Architektur-Pivot (2026-03-09)
 
-- [ ] Review durch Stakeholder (Sebastian)
-- [ ] Uebergabe an Requirements Engineer -- Epics und Features definieren
-- [ ] Design-Benchmark: 3-5 Referenz-Praesentationen von McKinsey/BCG als Qualitaets-Referenz analysieren
-- [ ] PPTX-Theme-XML-Struktur evaluieren (Machbarkeit der Extraktion verifizieren)
+> **Wichtige Aktualisierung:** Nach drei Iterationen des Extraktionsansatzes (pptxgenjs + Theme-Extraktion)
+> wurde entschieden, auf einen template-basierten Ansatz zu wechseln.
+
+### Problem mit dem Extraktionsansatz
+
+Drei Iterationen haben gezeigt, dass das programmatische Nachbauen von Design-Elementen (pptxgenjs)
+die Design-Treue einer echten Vorlage nicht erreichen kann:
+1. Iteration 1: Nur Farben + Fonts -> generisch
+2. Iteration 2: + Hintergruende, Shapes, Logos -> Positionierung ungenau
+3. Iteration 3: + Platzhalter-Positionen -> strukturelle OOXML-Elemente fehlen
+
+**Root Cause:** pptxgenjs erzeugt keine echten OOXML Slide-Masters/Layouts/Theme-Referenzen.
+
+### Neuer Ansatz: Template-Kopie + OOXML-Injection
+
+- Template-PPTX kopieren (User-Upload oder Default-Template aus Plugin-Assets)
+- Bestehende Slides entfernen, Masters/Layouts/Theme behalten
+- Neue Slides als OOXML-XML injizieren
+- Einheitlicher Code-Pfad fuer User-Templates und Default-Templates
+
+### Konsequenzen fuer BA-006
+
+- **Schicht 1 (Design):** Vereinfacht sich erheblich. Kein komplexes Design-System noetig --
+  das Design kommt aus dem Template selbst. Farbpalette/Fonts werden nur fuer Memory/Agent-Kontext extrahiert.
+- **Schicht 2 (Storyline):** Unveraendert -- Framework-Skills und Basis-Regeln bleiben.
+- **pptxgenjs:** Wird als Dependency entfernt.
+- **Default-Templates:** 2-3 professionelle PPTX-Vorlagen werden mit dem Plugin ausgeliefert.
+
+### Auswirkungen auf Features
+
+| Feature (BA-006) | Status |
+|-------------------|--------|
+| Design-System Datenstruktur | Vereinfacht (nur Farben/Fonts fuer Kontext) |
+| 3 Default-Themes | -> 2-3 Default-Templates (PPTX-Dateien statt Code-Themes) |
+| Master-PPTX-Extraktion | -> Template-Kopie (viel einfacher, volle Treue) |
+| Slide-Layout-System | Entfaellt (Layouts kommen aus dem Template) |
+| Storyline-Framework-Skills | Unveraendert |
+| Basis-Praesentationsregeln | Unveraendert |
+| Design-Memory-Integration | Vereinfacht (speichert Template-Referenz statt Theme-JSON) |
+| Follow-up Questions | Unveraendert |
+
+Siehe: EPIC-011, ADR-032, FEATURE-1100 bis FEATURE-1105.
+
+## 11. Original Next Steps (vor Pivot)
+
+- [x] Review durch Stakeholder (Sebastian) -> Pivot-Entscheidung
+- [x] Uebergabe an Requirements Engineer -> EPIC-011 erstellt
+- [ ] Design-Benchmark: 3-5 Referenz-Praesentationen als Qualitaets-Referenz
+- [x] PPTX-Theme-XML-Struktur evaluieren -> Extraktionsansatz verworfen, Template-Ansatz gewaehlt
 
 ---
 

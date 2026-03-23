@@ -257,21 +257,59 @@ AgentSidebarView.onComplete()
 
 ADR: [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md). Feature-Spec: `FEATURE-0801-task-extraction.md`.
 
-### 5.8 Ebene 2: Office Document Creation (EPIC-010)
+### 5.8 Ebene 2: Office Document Creation (EPIC-010 + EPIC-011)
 
 ```
-CreateDocxTool / CreatePptxTool / CreateXlsxTool
+CreateDocxTool / CreateXlsxTool (EPIC-010 -- programmatisch)
   │
-  ├── Input: Strukturiertes Schema (Sections/Slides/Sheets mit Inhalt, Styling)
-  ├── Library: docx (DOCX), pptxgenjs (PPTX), ExcelJS (XLSX)
+  ├── Input: Strukturiertes Schema (Sections/Sheets mit Inhalt, Styling)
+  ├── Library: docx (DOCX), ExcelJS (XLSX)
   ├── Output: ArrayBuffer → writeBinaryToVault()
   │     ├── Path-Traversal-Schutz (../, absolute Pfade)
   │     ├── Extension-Validierung (erzwungen)
   │     └── Ordner-Erstellung (automatisch)
-  └── Limits: max 100 Sections (DOCX), 50 Slides (PPTX), 20 Sheets (XLSX)
+  └── Limits: max 100 Sections (DOCX), 20 Sheets (XLSX)
+
+CreatePptxTool (EPIC-011 -- Direct Template Mode, ADR-046)
+  │
+  ├── Modus 1: Template Mode (source_slide + content mit physischen Shape-Namen)
+  │     ├── Input: source_slide (Slide-Nr. aus Slide-Type-Guide) + content (Shape-Name → Wert)
+  │     ├── Engine: TemplateEngine.ts (pptx-automizer) — klont Slides, manipuliert Shapes
+  │     ├── 10 Content-Typen: string, styled_text, html_text, replace_text, chart, table,
+  │     │   image, duotone, position, rotate, hyperlink
+  │     ├── Auto-Remove: unbenutzte removable Shapes verschwinden (Fail-Safe)
+  │     ├── Auto-Upgrade: Multi-Line Strings → styled_text mit Bullets (Body-Shapes)
+  │     └── Output: ArrayBuffer → writeBinaryToVault()
+  │
+  └── Modus 2: Adhoc Mode (html)
+        ├── Input: html-Inhalt pro Slide
+        ├── Engine: AdhocSlideBuilder.ts (PptxGenJS)
+        └── Output: ArrayBuffer → writeBinaryToVault()
+
+IngestTemplateTool (EPIC-011 -- Template-Ingestion, ADR-046)
+  │
+  ├── Shape Discovery: pptx-automizer extrahiert alle Shapes + Layouts
+  ├── groupByLayoutName(): Gruppiert Slides nach PowerPoint-Layout-Namen
+  │     ├── Kein Clustering, keine Fuzzy-Logik — nativer OOXML-Grupierungsschlüssel
+  │     ├── Representative Slide: Slide mit meisten nicht-dekorativen Shapes
+  │     └── SlideType: id, layout_name, representative_slide, alternate_slides, shapes
+  ├── Slide-Type-Guide: Markdown-Format, direkt lesbar durch Agent + LLM
+  │     ├── Pro Typ: id, description, REQUIRED/optional-Status, max_chars
+  │     └── Shape-Namen = direkte Content-Keys für CreatePptxTool
+  ├── Vision-Enrichment (optional, LibreOffice erforderlich):
+  │     ├── Rendert representative Slides → PNG
+  │     ├── Ein LLM-Call für alle Slide-Types (kein pro-Slide-Call)
+  │     └── Ergänzt: visual_description + use_when pro SlideType
+  └── Output: catalog.json (.obsilo/themes/{name}/) + Slide-Type-Guide im Tool-Result
+
+RenderPresentationTool (EPIC-011 -- Visuelle QA)
+  │
+  ├── LibreOffice headless: PPTX → PDF → PNG
+  ├── Agent prüft Slides visuell (multimodale Tool-Ergebnisse)
+  └── Optionaler Schritt nach create_pptx
 ```
 
-ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md), [ADR-031](ADR-031-binary-write-pattern.md).
+ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md), [ADR-031](ADR-031-binary-write-pattern.md), [ADR-046](ADR-046-direct-template-mode.md). (ADR-032, ADR-033, ADR-034, ADR-035, ADR-044, ADR-045: deprecated, superseded by ADR-046)
 
 Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 
@@ -691,8 +729,15 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-027](ADR-027-task-note-schema.md) | Task-Note Frontmatter Schema (10 Properties, deutsch, Eisenhower-kompatibel) |
 | [ADR-028](ADR-028-base-plugin-integration.md) | Eigene Base-YAML-Generierung + Iconic-Detection via direkte Obsidian-API |
 | [ADR-029](ADR-029-office-tool-input-schema.md) | Office-Tool Input-Schema (strukturierte Slides/Sections/Sheets statt Freitext) |
-| [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: pptxgenjs + docx + ExcelJS fuer native Dokumenterzeugung |
+| [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: docx + ExcelJS (PPTX-Teil superseded by ADR-046) |
 | [ADR-031](ADR-031-binary-write-pattern.md) | Binary-Write-Pattern: Shared writeBinaryToVault() mit Path-Traversal-Schutz |
+| ~~[ADR-032](ADR-032-template-based-pptx.md)~~ | ~~Template-basierte PPTX-Erzeugung: JSZip + OOXML~~ — **Deprecated**, superseded by ADR-046 |
+| ~~[ADR-033](ADR-033-multimodal-template-analyzer.md)~~ | ~~Multimodaler Template-Analyzer: Cloud Run + BYOK~~ — **Deprecated**, nie implementiert, superseded by ADR-046 |
+| ~~[ADR-034](ADR-034-visual-design-language-document.md)~~ | ~~Visual Design Language Document als Skill-Format~~ — **Deprecated**, nie implementiert, superseded by ADR-046 |
+| ~~[ADR-035](ADR-035-embedding-enhanced-template-analysis.md)~~ | ~~Agent-basierte Template-Analyse~~ — **Deprecated**, superseded by ADR-046 |
+| ~~[ADR-044](ADR-044-css-svg-slide-engine.md)~~ | ~~CSS-SVG Slide Engine~~ — **Deprecated**, superseded by ADR-046 |
+| ~~[ADR-045](ADR-045-pptx-automizer-pipeline.md)~~ | ~~pptx-automizer Template Pipeline~~ — **Deprecated**, superseded by ADR-046 |
+| [ADR-046](ADR-046-direct-template-mode.md) | Direct Template Mode: groupByLayoutName + physische Shape-Namen statt Composition-Abstraktion |
 
 ---
 
