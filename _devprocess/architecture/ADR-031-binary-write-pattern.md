@@ -1,6 +1,6 @@
 # ADR-031: Binary-Write-Pattern fuer Office-Format-Dateien
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-06
 **Deciders:** Sebastian Hanke
 

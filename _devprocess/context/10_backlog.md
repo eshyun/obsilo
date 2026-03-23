@@ -144,6 +144,21 @@ Branch: `feature/task-management`
 
 ### Geplant (nicht implementiert)
 
+**EPIC-011: Office Document Quality (Template-basierte PPTX-Erzeugung)**
+
+| Feature | Spec | Prioritaet |
+|---------|------|------------|
+| PPTX Template-Engine | FEATURE-1100-template-engine.md | P0-Critical |
+| Default PPTX Templates | FEATURE-1101-default-templates.md | P0-Critical |
+| Pre-Creation Dialog | FEATURE-1102-pre-creation-dialog.md | P0-Critical |
+| Theme-Extraktion (vereinfacht) | FEATURE-1103-theme-extraction-simplified.md | P1-High |
+| Storyline-Framework-Skills | FEATURE-1104 (Spec ausstehend) | P1-High |
+| Basis-Praesentationsregeln | FEATURE-1105-presentation-base-rules.md | P0-Critical |
+| Design-Memory-Integration | FEATURE-1106 (Spec ausstehend) | P1-High |
+| Follow-up Questions | FEATURE-1107 (Spec ausstehend) | P1-High |
+
+**Sonstige geplante Features**
+
 | Feature | Spec | Prioritaet |
 |---------|------|------------|
 | Token Budget Management | FEATURE-0603-token-budget-management.md | P1-High |
@@ -207,7 +222,18 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 
 ## Naechste Prioritaeten
 
-### Kurzfristig (2-4 Wochen)
+### Kurzfristig -- EPIC-011: Office Document Quality (Architektur-Pivot)
+
+> pptxgenjs wird durch template-basierte PPTX-Erzeugung ersetzt (ADR-032).
+> Siehe EPIC-011 fuer Details.
+
+1. **PPTX Template-Engine (FEATURE-1100)** -- JSZip + OOXML-Injection, ersetzt pptxgenjs
+2. **Default-Templates (FEATURE-1101)** -- 2-3 professionelle PPTX-Vorlagen als Plugin-Assets
+3. **Pre-Creation Dialog (FEATURE-1102)** -- Agent fragt vor PPTX-Erstellung nach Template
+4. **Basis-Praesentationsregeln (FEATURE-1105)** -- Konditionale Prompt-Section
+5. **Theme-Extraktion vereinfacht (FEATURE-1103)** -- Nur Farben/Fonts fuer Agent-Kontext
+
+### Kurzfristig (parallel)
 
 1. Token Budget Management (FEATURE-0603) -- limitiert Kontext-Ueberladung
 2. On-Demand Image Extraction (FEATURE-0604) -- komplettiert Document Parsing
@@ -215,9 +241,11 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 
 ### Mittelfristig (4-8 Wochen)
 
-1. UI Refactoring (SidebarView Split, ~3500 LOC -> Unterkomponenten)
-2. Virtual Scrolling fuer lange Chats
-3. npm-Package Integrity (Known-Good-Hashes fuer Sandbox-CDN-Pakete)
+1. Storyline-Framework-Skills (FEATURE-1104) -- SCQA, Pyramid etc.
+2. Design-Memory-Integration (FEATURE-1106) -- Template-Praeferenz persistent
+3. UI Refactoring (SidebarView Split, ~3500 LOC -> Unterkomponenten)
+4. Virtual Scrolling fuer lange Chats
+5. npm-Package Integrity (Known-Good-Hashes fuer Sandbox-CDN-Pakete)
 
 ### Langfristig
 
