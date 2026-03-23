@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P1-High
 > **Effort Estimate**: M (3-5 Tage)
-> **Status**: Ueberarbeitung (von "Template-Analyse-Tool" zu "In-Plugin Fallback mit Spatial Analysis")
+> **Status**: **DEPRECATED** -- Abgeloest durch IngestTemplateTool (ADR-046/047)
 > **Ersetzt**: FEATURE-1103 (Theme-Extraktion)
 
 ## Feature Description

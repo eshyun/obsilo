@@ -1,8 +1,18 @@
 # ADR-044: CSS-SVG Slide Engine (Ablösung PPTX Template Analyzer)
 
-**Status:** Akzeptiert
+**Status:** Deprecated (Phase 5 der PPTX-Evolution, siehe ADR-047 fuer vollstaendige Historie)
+**Superseded by:** ADR-045 → ADR-046 → ADR-047 (Schema-Constrained Slide Generation)
+**Deprecated:** 2026-03-22
 **Datum:** 2026-03-18
 **Ersetzt:** ADR-032, ADR-033, ADR-035 (Template-Analyzer-Ansatz)
+
+> ### Lesson Learned
+> HTML/CSS ist gut fuer Adhoc-Slides, aber fuer Corporate Design ungeeignet (~70% Design-Treue).
+> 100% Design-Treue erfordert Arbeit mit dem Original-PPTX, nicht Nachbau in anderem Format.
+> CSS-Themes wurden generiert aber nie konsumiert (HtmlSlideParser liest nur inline styles).
+> SVG Asset Store (Phase 3) wurde nie gebaut. Paradigmenwechsel war zu radikal.
+> **Erkenntnis:** Das Original-PPTX ist die Single Source of Truth fuer Corporate Design.
+> → Geloest durch pptx-automizer in ADR-045 (klont Original-Slides statt nachzubauen).
 
 ---
 

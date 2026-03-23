@@ -1,8 +1,17 @@
 # ADR-033: Multimodaler Template-Analyzer (Cloud Run + BYOK)
 
-**Status:** Proposed
+**Status:** Deprecated (Phase 3 der PPTX-Evolution, siehe ADR-047 fuer vollstaendige Historie)
+**Superseded by:** ADR-046 → ADR-047 (Schema-Constrained Slide Generation)
+**Deprecated:** 2026-03-22 (nie implementiert)
 **Date:** 2026-03-13
 **Deciders:** Sebastian Hanke
+
+> ### Lesson Learned
+> Externe Cloud-Services (Docker, Cloud Run, CORS, BYOK-Key-Handling) sind fuer ein
+> Obsidian Plugin der falsche Weg. Die Analyse muss lokal und schnell sein (<3 Min, nicht 30-60 Min).
+> Das 16k-Skill-Limit ist eine harte Grenze -- 37k chars Visual Design Language Document passt nicht.
+> **Erkenntnis:** Lokale Shape-Discovery via pptx-automizer + kompakter Guide ist ausreichend.
+> Vision-Enrichment optional (render_previews in ADR-046/047).
 
 ## Context
 

@@ -4,6 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P0-Critical
 > **Effort Estimate**: S (1-2 Tage)
+> **Status**: **DEPRECATED** -- S0-S6 Strategie-Flow durch direkte Shape-Namen ersetzt (ADR-046)
 
 ## Feature Description
 

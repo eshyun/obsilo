@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P1-High
 > **Effort Estimate**: S
-> **Status**: **Entfaellt** -- In FEATURE-1108 (Template-Analyse-Tool) integriert. Brand-DNA-Extraktion liefert mehr als nur Theme.
+> **Status**: **DEPRECATED** -- In FEATURE-1108 integriert, dann durch ADR-044-047 abgeloest
 
 ## Feature Description
 

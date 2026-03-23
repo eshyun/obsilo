@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P0-Critical
 > **Effort Estimate**: L (1-2 Wochen)
-> **Status**: Neu
+> **Status**: **DEPRECATED** -- Cloud Run nie implementiert, durch lokales IngestTemplateTool ersetzt
 
 ## Feature Description
 

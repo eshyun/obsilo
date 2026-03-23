@@ -1,16 +1,18 @@
 # ADR-032: Template-basierte PPTX-Erzeugung (JSZip + OOXML)
 
-**Status:** Accepted
+**Status:** Deprecated (Phase 2 der PPTX-Evolution, siehe ADR-047 fuer vollstaendige Historie)
+**Superseded by:** ADR-045 → ADR-046 → ADR-047 (Schema-Constrained Slide Generation)
+**Deprecated:** 2026-03-22
 **Date:** 2026-03-09
 **Amended:** 2026-03-13
 **Deciders:** Sebastian Hanke
 **Supersedes:** PPTX-Teil von ADR-030 (pptxgenjs)
 
-> **Amendment 2026-03-13:** ADR bleibt gueltig fuer die PPTX-Engine-Schicht.
-> Die semantische Analyse-Schicht darueber wird durch zwei neue ADRs abgedeckt:
-> - ADR-033: Multimodaler Template-Analyzer (Cloud Run + BYOK)
-> - ADR-034: Visual Design Language Document als Skill-Format
-> Zusammen bilden diese drei ADRs die Architektur von EPIC-011 (Template Design Intelligence).
+> ### Lesson Learned
+> Rohes OOXML-XML per JSZip zu schreiben ist zu fragil fuer beliebige Templates.
+> Custom Geometry (custGeom) nicht manipulierbar via String-Templates. Kein Shape-Discovery.
+> **Erkenntnis:** Man braucht eine Library die OOXML-Komplexitaet abstrahiert UND Shape-Discovery bietet.
+> → Geloest durch pptx-automizer in ADR-045/046/047.
 
 ## Context
 

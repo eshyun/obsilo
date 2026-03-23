@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P0-Critical
 > **Effort Estimate**: M (3-5 Tage)
-> **Status**: Ueberarbeitung (von "Element-Katalog" zu "Visual Design Language")
+> **Status**: **DEPRECATED** -- Visual Design Language Document durch formatSlideTypeGuide ersetzt (ADR-046/047)
 
 ## Feature Description
 

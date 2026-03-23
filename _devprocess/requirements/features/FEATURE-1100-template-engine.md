@@ -5,7 +5,7 @@
 > **Priority**: P0-Critical
 > **Effort Estimate**: L
 > **ADR**: ADR-032
-> **Status**: **Implementiert** (PptxTemplateCloner + 6-Strategie-Matching)
+> **Status**: **DEPRECATED** -- Abgeloest durch ADR-046/047 (pptx-automizer statt JSZip OOXML)
 
 ## Feature Description
 

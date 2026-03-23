@@ -1,9 +1,18 @@
 # ADR-035: Visual Intelligence -- Lokale Qualitaetskontrolle und Agent-basierte Template-Analyse
 
-**Status:** Accepted
+**Status:** Deprecated (Phase 4 der PPTX-Evolution, siehe ADR-047 fuer vollstaendige Historie)
+**Superseded by:** ADR-046 → ADR-047 (Schema-Constrained Slide Generation)
+**Deprecated:** 2026-03-22
 **Date:** 2026-03-14
 **Deciders:** Sebastian Hanke
-**Supersedes:** ADR-035 (Embedding-basierte Kompositions-Gruppierung) -- Ansatz vereinfacht
+**Supersedes:** ADR-035 alt (Embedding-basierte Kompositions-Gruppierung) -- Ansatz vereinfacht
+
+> ### Lesson Learned
+> Two-Tier Retrieval (kompakter Skill + on-demand compositions.json) ist unnoetig wenn
+> die Primaer-Information kompakt genug ist. On-demand Nachladen erzeugt mehr Fehler als es loest
+> (Agent vergisst get_composition_details aufzurufen). Die multimodale QA via LibreOffice
+> (render_presentation) hat sich dagegen bewaehrt und ist in ADR-046/047 erhalten.
+> **Erkenntnis:** Ein kompakter Guide mit allen Infos > aufgeteilte Daten mit Tool-Calls.
 
 ## Context
 

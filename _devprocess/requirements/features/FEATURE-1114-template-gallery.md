@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P2-Medium
 > **Effort Estimate**: S (1-2 Tage)
-> **Status**: Neu
+> **Status**: **GEPLANT** -- Community Gallery noch nicht umgesetzt, Prioritaet gesunken
 
 ## Feature Description
 

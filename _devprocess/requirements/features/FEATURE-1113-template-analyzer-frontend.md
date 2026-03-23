@@ -4,7 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P1-High
 > **Effort Estimate**: M (3-5 Tage)
-> **Status**: Neu
+> **Status**: **DEPRECATED** -- Web-Frontend nie implementiert, Analyse lokal im Plugin
 
 ## Feature Description
 

@@ -1,8 +1,17 @@
 # ADR-034: Visual Design Language Document als Skill-Format
 
-**Status:** Proposed
+**Status:** Deprecated (Phase 3 der PPTX-Evolution, siehe ADR-047 fuer vollstaendige Historie)
+**Superseded by:** ADR-046 (formatSlideTypeGuide) → ADR-047 (+ JSON-Beispiele pro Slide-Typ)
+**Deprecated:** 2026-03-22 (nie implementiert)
 **Date:** 2026-03-13
 **Deciders:** Sebastian Hanke
+
+> ### Lesson Learned
+> Das Dilemma "semantisch reich + technisch praezise + kompakt" ist real. Die Loesung war aber
+> nicht ein komplexes Hybrid-Format (Bedeutung + Wirkung + Einsatzregeln + Shape-Mapping),
+> sondern ein einfacher Markdown-Guide mit kopierfertigen JSON-Beispielen (ADR-047).
+> Die "Design-Intelligenz" kommt aus dem presentation-design Skill, nicht aus dem Template-Skill.
+> **Erkenntnis:** Trennung: Design-Wissen im Skill, Template-Struktur im Guide, Constraints im Tool.
 
 ## Context
 
