@@ -1,3 +1,6 @@
+> **Status: VERALTET** -- Dieses Dokument stammt aus der fruehen Planungsphase (pre-Phase C).
+> Aktueller Scope: siehe 10_backlog.md und REQUIREMENTS-overview.md.
+
 # Capability Scope
 
 ## Implementierungsstrategie

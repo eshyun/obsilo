@@ -2,7 +2,7 @@
 
 > EPIC-011: Intelligente Template-basierte Praesentation
 > Stand: 2026-03-12
-> Status: Bereit zur Implementierung (Phase 1-4)
+> Status: IMPLEMENTIERT (2026-03-23). Referenz: ADR-048.
 
 ---
 

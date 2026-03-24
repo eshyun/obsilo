@@ -39,3 +39,39 @@ Vollstaendige Liste aller ADRs. Details in `_devprocess/architecture/ADR-NNN-*.m
 | ADR-026 | Post-Processing Hook fuer Task Extraction | Akzeptiert, implementiert |
 | ADR-027 | Task-Note Frontmatter Schema | Akzeptiert, implementiert |
 | ADR-028 | Base Plugin Integration (Task-Uebersicht) | Akzeptiert, teilweise implementiert |
+
+## Office Document Creation & PPTX Pipeline
+
+| ADR | Titel | Status |
+|-----|-------|--------|
+| ADR-029 | Office-Tool Input-Schema | Akzeptiert, implementiert |
+| ADR-030 | Office-Library-Auswahl (docx, ExcelJS) | Akzeptiert, implementiert (PPTX-Teil superseded by ADR-046) |
+| ADR-031 | Binary-Write-Pattern (writeBinaryToVault) | Akzeptiert, implementiert |
+| ~~ADR-032~~ | ~~Template-basierte PPTX (JSZip + OOXML)~~ | Deprecated, superseded by ADR-046 |
+| ~~ADR-033~~ | ~~Multimodaler Template-Analyzer~~ | Deprecated, nie implementiert |
+| ~~ADR-034~~ | ~~Visual Design Language Document~~ | Deprecated, nie implementiert |
+| ~~ADR-035~~ | ~~Embedding-Enhanced Template Analysis~~ | Deprecated, superseded by ADR-046 |
+| ~~ADR-044~~ | ~~CSS-SVG Slide Engine~~ | Deprecated, superseded by ADR-046 |
+| ~~ADR-045~~ | ~~pptx-automizer Pipeline~~ | Deprecated, superseded by ADR-046 |
+| ADR-046 | Direct Template Mode (groupByLayoutName + physische Shape-Namen) | Akzeptiert, implementiert |
+| ADR-047 | Schema-Constrained Slide Generation | Akzeptiert, implementiert |
+| ADR-048 | plan_presentation Pipeline (interner LLM-Call) | Akzeptiert, implementiert |
+| ADR-049 | Raw XML Clear-Generate | Akzeptiert, implementiert |
+
+## GitHub Copilot Provider
+
+| ADR | Titel | Status |
+|-----|-------|--------|
+| ADR-036 | Copilot Streaming Strategy | Akzeptiert, implementiert |
+| ADR-037 | Copilot Provider Architecture | Akzeptiert, implementiert |
+| ADR-038 | Copilot Token Storage | Akzeptiert, implementiert |
+| ADR-039 | Copilot Content Normalization | Akzeptiert, implementiert |
+
+## Kilo Gateway Provider
+
+| ADR | Titel | Status |
+|-----|-------|--------|
+| ADR-040 | Kilo Provider Architecture | Akzeptiert, implementiert |
+| ADR-041 | Kilo Auth & Session Architecture | Akzeptiert, implementiert |
+| ADR-042 | Kilo Metadata Discovery | Akzeptiert, implementiert |
+| ADR-043 | Kilo Embedding Gating Strategy | Akzeptiert, implementiert |

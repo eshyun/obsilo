@@ -1,6 +1,6 @@
 # Requirements Overview — Obsidian Agent
 Scope: Production (alle Phasen A-F komplett)
-Date: 2026-03-06 (aktualisiert)
+Date: 2026-03-24 (aktualisiert)
 
 ## Goal
 Local-only, agentic operating layer fuer Obsidian: safe, governed vault operations, multi-provider support, MCP extensibility, semantic search, persistent memory, multi-agent orchestration, and plugin auto-discovery.
@@ -39,6 +39,8 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 - Document Parsing Pipeline (PPTX, XLSX, DOCX, PDF, JSON, XML, CSV)
 - File Picker Erweiterung (Office-Formate)
 - Task Extraction & Management (TaskExtractor, TaskNoteCreator, TaskSelectionModal)
+- Office Document Creation (create_docx, create_pptx, create_xlsx)
+- PPTX Template Pipeline (ingest_template, plan_presentation, render_presentation)
 
 **Out of Scope:**
 - Direct manipulation of Obsidian internal Memory Graph
@@ -118,6 +120,27 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 |---|---|---|---|---|
 | FEATURE-0801 | Task Extraction & Management | P1 | `FEATURE-0801-task-extraction.md` | Implementiert |
 
+### EPIC-009: Office Document Creation — Implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-0901 | create_docx Tool | P0 | -- | Implementiert |
+| FEATURE-0902 | create_pptx Tool | P0 | -- | Implementiert |
+| FEATURE-0903 | create_xlsx Tool | P0 | -- | Implementiert |
+
+### EPIC-011: PPTX Template Pipeline — Teilweise implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-1100 | PPTX Template-Engine | P0 | `FEATURE-1100-template-engine.md` | Implementiert |
+| FEATURE-1117 | plan_presentation Tool | P0 | ADR-048 | Implementiert |
+| FEATURE-1118 | Catalog-Enrichment (ingest_template) | P0 | ADR-046 | Implementiert |
+| FEATURE-1115 | render_presentation (Visual QA) | P0 | -- | Implementiert |
+| FEATURE-1105 | Basis-Praesentationsregeln | P0 | `FEATURE-1105-presentation-base-rules.md` | Implementiert |
+| FEATURE-1101 | Default PPTX Templates | P1 | `FEATURE-1101-default-templates.md` | Geplant |
+| FEATURE-1103 | Theme-Extraktion (vereinfacht) | P1 | `FEATURE-1103-theme-extraction-simplified.md` | Geplant |
+| FEATURE-1104 | Storyline-Framework-Skills | P1 | Spec ausstehend | Geplant |
+| FEATURE-1106 | Design-Memory-Integration | P2 | Spec ausstehend | Geplant |
+| FEATURE-1107 | Follow-up Questions | P2 | Spec ausstehend | Geplant |
+
 ## ASR Summary
 - ASR-01: isomorphic-git Checkpoints (ADR-002) — Implemented
 - ASR-02: Central Tool Execution Pipeline (ADR-001) — Implemented
@@ -133,3 +156,9 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 3. Command whitelist: execute_command via Obsidian command palette, Plugin API via allowlist
 4. API key encryption: Electron safeStorage (ADR-019)
 5. Cross-vault settings: GlobalFileService at ~/.obsidian-agent/ (ADR-020)
+6. Office libraries: docx + ExcelJS + PptxGenJS — ADR-030
+7. Binary write pattern: writeBinaryToVault() mit Path-Traversal-Schutz — ADR-031
+8. PPTX template mode: Direct Template Mode (groupByLayoutName) — ADR-046
+9. PPTX content planning: plan_presentation interner LLM-Call — ADR-048
+10. Copilot provider: Streaming Strategy + Token Storage — ADR-036/ADR-038
+11. Kilo Gateway: Provider Architecture + Metadata Discovery — ADR-040/ADR-042

@@ -1,5 +1,8 @@
 # Feature: create_pdf Tool
 
+> **Status: DEPRECATED** -- Dieses Feature wurde nie implementiert.
+> PDF-Export ist nicht geplant. Siehe PLAN-EPIC-004.
+
 > **Feature ID**: FEATURE-403
 > **Epic**: EPIC-004 - Office Document Creation
 > **Priority**: P0-Critical
