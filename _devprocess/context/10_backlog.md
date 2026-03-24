@@ -1,7 +1,7 @@
 # Obsilo Agent -- Vollstaendiges Backlog
 
-Stand: 2026-03-06
-Branch: `feature/task-management`
+Stand: 2026-03-24
+Branch: `dev`
 
 ---
 
@@ -71,18 +71,20 @@ Branch: `feature/task-management`
 - Plugin API (CallPluginApiTool, EnablePluginTool, pluginApiAllowlist)
 - ExecuteCommandTool, ResolveCapabilityGapTool, ExecuteRecipeTool
 
-### Phase F: Chat-Linking & Document Parsing
+### Phase F: Chat-Linking, Document Parsing & Office Creation
 
 - Chat-Linking (semantisches Chat-Titling, Auto-Frontmatter-Linking, Protocol Handler, chatLinking Setting)
 - Document Parsing Pipeline (ReadDocumentTool, parseDocument fuer PPTX/XLSX/DOCX/PDF/JSON/XML/CSV)
 - File Picker Erweiterung (VaultFilePicker fuer Office-Formate)
 - Task Extraction (TaskExtractor, TaskNoteCreator, TaskSelectionModal)
+- Office Document Creation (create_docx, create_pptx, create_xlsx)
+- PPTX Template Pipeline (ingest_template, plan_presentation, render_presentation -- ADR-046/047/048/049)
 
 ---
 
 ## Aktueller Feature-Status
 
-### Vollstaendig implementiert (43+ Tools, alle Features)
+### Vollstaendig implementiert (49 Tools, alle Features)
 
 | Feature | Spec | Key Files |
 |---------|------|-----------|
@@ -124,7 +126,7 @@ Branch: `feature/task-management`
 | Custom Prompts | FEATURE-0207-custom-prompts.md | `src/core/context/SupportPrompts.ts` |
 | Modes | FEATURE-0209-modes.md | `src/core/modes/ModeService.ts` |
 | Agent Tools (17) | FEATURE-0503-agent-tools.md | `src/core/tools/agent/` |
-| Vault Tools (22) | FEATURE-0104-vault-tools.md | `src/core/tools/vault/` |
+| Vault Tools (24) | FEATURE-0104-vault-tools.md | `src/core/tools/vault/` |
 | Settings Tools | FEATURE-0504-settings-tools.md | `src/core/tools/agent/UpdateSettingsTool.ts` |
 | Plugin API | FEATURE-0505-plugin-api.md | `src/core/tools/agent/CallPluginApiTool.ts` |
 | Code Import Models | FEATURE-0313-code-import-models.md | `src/ui/settings/CodeImportModal.ts` |
@@ -141,21 +143,23 @@ Branch: `feature/task-management`
 | Document Parsing Pipeline | FEATURE-0601-document-parsing-pipeline.md | `src/core/document-parsers/` |
 | File Picker Erweiterung | FEATURE-0602-file-picker-extension.md | `src/ui/sidebar/VaultFilePicker.ts` |
 | Task Extraction & Management | FEATURE-0801-task-extraction.md | `src/core/tasks/` |
+| PPTX Template-Engine | FEATURE-1100-template-engine.md | `src/core/office/pptx/TemplateEngine.ts` |
+| plan_presentation Tool | -- (ADR-048) | `src/core/tools/vault/PlanPresentationTool.ts` |
+| ingest_template Tool | -- (ADR-046) | `src/core/tools/vault/IngestTemplateTool.ts` |
+| render_presentation Tool | FEATURE-1115 | `src/core/tools/vault/RenderPresentationTool.ts` |
+| Basis-Praesentationsregeln | FEATURE-1105-presentation-base-rules.md | Presentation-Design Skill (ADR-047) |
 
 ### Geplant (nicht implementiert)
 
-**EPIC-011: Office Document Quality (Template-basierte PPTX-Erzeugung)**
+**EPIC-011: Office Document Quality -- verbleibende Features**
 
 | Feature | Spec | Prioritaet |
 |---------|------|------------|
-| PPTX Template-Engine | FEATURE-1100-template-engine.md | P0-Critical |
-| Default PPTX Templates | FEATURE-1101-default-templates.md | P0-Critical |
-| Pre-Creation Dialog | FEATURE-1102-pre-creation-dialog.md | P0-Critical |
+| Default PPTX Templates | FEATURE-1101-default-templates.md | P1-High |
 | Theme-Extraktion (vereinfacht) | FEATURE-1103-theme-extraction-simplified.md | P1-High |
 | Storyline-Framework-Skills | FEATURE-1104 (Spec ausstehend) | P1-High |
-| Basis-Praesentationsregeln | FEATURE-1105-presentation-base-rules.md | P0-Critical |
-| Design-Memory-Integration | FEATURE-1106 (Spec ausstehend) | P1-High |
-| Follow-up Questions | FEATURE-1107 (Spec ausstehend) | P1-High |
+| Design-Memory-Integration | FEATURE-1106 (Spec ausstehend) | P2-Medium |
+| Follow-up Questions | FEATURE-1107 (Spec ausstehend) | P2-Medium |
 
 **Sonstige geplante Features**
 
@@ -222,22 +226,12 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 
 ## Naechste Prioritaeten
 
-### Kurzfristig -- EPIC-011: Office Document Quality (Architektur-Pivot)
+### Kurzfristig
 
-> pptxgenjs wird durch template-basierte PPTX-Erzeugung ersetzt (ADR-032).
-> Siehe EPIC-011 fuer Details.
-
-1. **PPTX Template-Engine (FEATURE-1100)** -- JSZip + OOXML-Injection, ersetzt pptxgenjs
-2. **Default-Templates (FEATURE-1101)** -- 2-3 professionelle PPTX-Vorlagen als Plugin-Assets
-3. **Pre-Creation Dialog (FEATURE-1102)** -- Agent fragt vor PPTX-Erstellung nach Template
-4. **Basis-Praesentationsregeln (FEATURE-1105)** -- Konditionale Prompt-Section
-5. **Theme-Extraktion vereinfacht (FEATURE-1103)** -- Nur Farben/Fonts fuer Agent-Kontext
-
-### Kurzfristig (parallel)
-
-1. Token Budget Management (FEATURE-0603) -- limitiert Kontext-Ueberladung
-2. On-Demand Image Extraction (FEATURE-0604) -- komplettiert Document Parsing
-3. Model Compatibility Check (FEATURE-0605) -- verhindert Feature-Fehlkonfiguration
+1. **Default PPTX Templates (FEATURE-1101)** -- professionelle Vorlagen als Plugin-Assets
+2. **Theme-Extraktion vereinfacht (FEATURE-1103)** -- Farben/Fonts aus ingested Templates
+3. **Token Budget Management (FEATURE-0603)** -- limitiert Kontext-Ueberladung
+4. **On-Demand Image Extraction (FEATURE-0604)** -- komplettiert Document Parsing
 
 ### Mittelfristig (4-8 Wochen)
 
@@ -250,4 +244,4 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 ### Langfristig
 
 1. Obsilo Gateway MVP (Monetarisierung)
-2. Token-Estimation mit js-tiktoken (Verbesserung, nicht kritisch)
+2. Token-Estimation mit js-tiktoken

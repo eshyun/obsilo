@@ -1,3 +1,5 @@
+> **Status: IMPLEMENTIERT (2026-03-23)** -- Dieser Plan wurde vollstaendig umgesetzt. Referenz: ADR-048.
+
 # plan-context: PPTX Pipeline v2 (plan_presentation + Catalog-Enrichment)
 
 **Datum:** 2026-03-23

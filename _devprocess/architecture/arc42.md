@@ -1,8 +1,8 @@
 # arc42 — Obsidian Agent Architecture
 
-**Version:** 3.6
-**Stand:** 2026-03-06
-**Status:** Aktuell — alle Features implementiert, alle bekannten Bugs resolved, AUDIT-003 abgeglichen
+**Version:** 3.7
+**Stand:** 2026-03-24
+**Status:** Aktuell — alle Features implementiert, alle bekannten Bugs resolved, AUDIT-003 abgeglichen, EPIC-011 PPTX-Pipeline teilweise implementiert
 
 ---
 
@@ -184,7 +184,7 @@ AgentTask.run()
   └── Context Condensing (wenn threshold erreicht)
 ```
 
-### 5.3 Ebene 2: Tool Registry (46+ Tools, 7 Gruppen)
+### 5.3 Ebene 2: Tool Registry (49 Tools, 7 Gruppen)
 
 ```
 ToolRegistry
@@ -192,19 +192,20 @@ ToolRegistry
   ├── vault group (8):  get_frontmatter, search_by_tag, get_vault_stats,
   │                     get_linked_notes, get_daily_note, open_note,
   │                     semantic_search, query_base
-  ├── edit group (14):  write_file, edit_file, append_to_file, create_folder,
+  ├── edit group (16):  write_file, edit_file, append_to_file, create_folder,
   │                     delete_file, move_file, update_frontmatter,
   │                     generate_canvas, create_excalidraw,
   │                     create_base, update_base,
-  │                     create_docx, create_pptx, create_xlsx
+  │                     create_docx, create_pptx, create_xlsx,
+  │                     ingest_template, plan_presentation
   ├── web group (2):    web_fetch, web_search
   ├── agent group (12): ask_followup_question, attempt_completion,
   │                     update_todo_list, new_task, switch_mode,
   │                     update_settings, configure_model,
   │                     read_agent_logs, manage_mcp_server,
   │                     manage_skill, evaluate_expression, manage_source
-  ├── skill group (5):  execute_command, execute_recipe, call_plugin_api,
-  │                     resolve_capability_gap, enable_plugin
+  ├── skill group (6):  execute_command, execute_recipe, call_plugin_api,
+  │                     resolve_capability_gap, enable_plugin, render_presentation
   └── mcp group (1):    use_mcp_tool
   + DynamicToolFactory (runtime-registered custom tools)
 ```
@@ -738,6 +739,17 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | ~~[ADR-044](ADR-044-css-svg-slide-engine.md)~~ | ~~CSS-SVG Slide Engine~~ — **Deprecated**, superseded by ADR-046 |
 | ~~[ADR-045](ADR-045-pptx-automizer-pipeline.md)~~ | ~~pptx-automizer Template Pipeline~~ — **Deprecated**, superseded by ADR-046 |
 | [ADR-046](ADR-046-direct-template-mode.md) | Direct Template Mode: groupByLayoutName + physische Shape-Namen statt Composition-Abstraktion |
+| [ADR-047](ADR-047-schema-constrained-slide-generation.md) | Schema-Constrained Slide Generation: Validierung + Quality Gates |
+| [ADR-048](ADR-048-plan-presentation-pipeline.md) | plan_presentation: Interner LLM-Call fuer Source -> Outline -> Content-Transformation |
+| [ADR-049](ADR-049-raw-xml-clear-generate.md) | Raw XML Clear-Generate Strategie fuer Shape-Content |
+| [ADR-036](ADR-036-copilot-streaming-strategy.md) | Copilot Streaming Strategy (Chat Completions API) |
+| [ADR-037](ADR-037-copilot-provider-architecture.md) | Copilot Provider Architecture (VS Code Language Model API) |
+| [ADR-038](ADR-038-copilot-token-storage.md) | Copilot Token Storage (VS Code Authentication API) |
+| [ADR-039](ADR-039-copilot-content-normalization.md) | Copilot Content Normalization (tool_use -> function_call) |
+| [ADR-040](ADR-040-kilo-provider-architecture.md) | Kilo Provider Architecture (Gateway-Mode, lokale Modelle + Cloud-Routing) |
+| [ADR-041](ADR-041-kilo-auth-session-architecture.md) | Kilo Auth & Session Architecture (JWT + Refresh Token) |
+| [ADR-042](ADR-042-kilo-metadata-discovery.md) | Kilo Metadata Discovery (Model-Catalog vom Gateway) |
+| [ADR-043](ADR-043-kilo-embedding-gating-strategy.md) | Kilo Embedding Gating Strategy (Feature-Flags pro Modell) |
 
 ---
 
