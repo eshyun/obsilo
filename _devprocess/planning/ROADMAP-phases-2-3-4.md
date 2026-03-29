@@ -242,26 +242,149 @@ Vault (Obsidian)          <- heute
 
 ---
 
+## Phase 2.5: Unified Knowledge Layer (EPIC -- eigenstaendig)
+
+> Entscheidung: 2026-03-29. Priorisiert wegen kritischem vectra-Bug (507MB Index, RangeError bei endUpdate).
+> Geht durch vollstaendigen V-Model Workflow: BA -> RE -> Architektur -> Implementierung -> Test
+
+### Kontext und Motivation
+
+**Akuter Bug:** vectra speichert alle Vektoren in einer JSON-Datei (507MB). `JSON.stringify()` sprengt V8's String-Limit (~512MB) bei `endUpdate()`. Index wird nie vollstaendig gespeichert -> Full Rebuild bei jedem Startup -> Endlosschleife. 4096-dimensionale Vektoren (Qwen3-Embedding-8b) verschaerfen das Problem.
+
+**Strategische Motivation:** Obsilo braucht einen skalierbaren, mobil-kompatiblen Knowledge Layer der vernetztes Denken ermoeglicht -- nicht nur "finde aehnliche Chunks", sondern "erkenne implizite Verbindungen zwischen Notes".
+
+### 4-Stufen Knowledge Layer
+
+```
+Stufe 1: Vector Search (SQLite/sql.js)       <- Semantische Aehnlichkeit
+  "Finde Chunks die aehnlich klingen"
+  Migration von vectra -> SQLite mit vault.adapter Persistenz
+  Desktop + Mobile kompatibel
+
+Stufe 2: Graph Expansion (Obsidian Links)     <- Strukturelle Verbindung
+  "Folge Wikilinks von Treffern"
+  Wikilinks + Tags in Knowledge DB extrahieren
+  get_linked_notes als Erweiterung der Suchergebnisse
+  0 Token-Kosten (nur Vault-Links traversieren)
+
+Stufe 3: Implicit Connections                 <- Vernetztes Denken
+  "Notes die semantisch nah aber nicht verlinkt sind"
+  Vorberechnete semantische Naehe in der DB
+  Aufdecken versteckter Verbindungen die der User nicht gemacht hat
+  SQL-Query auf Embeddings, 0 zusaetzliche Token-Kosten
+
+Stufe 4: Reranking                            <- Praezision
+  Cross-Encoder Reranking der Top-k Ergebnisse
+  Lokal: BGE-Reranker-v2-m3 via ONNX (278M Params, CPU)
+  Alternativ: Cohere/Jina Rerank API ($0.0009/Query)
+  Verbessert Precision um 33-47%
+```
+
+### Unified Knowledge DB (SQLite via sql.js WASM)
+
+```
+obsilo-knowledge.db
++-- vectors           <- Vault-Embeddings (ersetzt vectra, 98MB statt 507MB)
++-- wikilinks         <- Explizite Links (aus Vault extrahiert)
++-- tag_map           <- Tag-zu-Note Mapping
++-- implicit_edges    <- Vorberechnete semantische Naehe
++-- sessions          <- Conversation-Summaries + Embeddings
++-- episodes          <- Tool-Sequenz-Records
++-- recipes           <- Statische + Gelernte Recipes
+```
+
+**learnings.md entfaellt** -- redundant mit Recipes + patterns.md + errors.md.
+LongTermExtractor routet Erkenntnisse an die richtige Stelle:
+- Tool-Sequenzen -> Episode -> Recipe Promotion Pipeline
+- Praeferenzen -> user-profile.md
+- Fehler -> errors.md
+- Verhaltensregeln -> patterns.md
+
+### Technische Eckdaten
+
+**sql.js (WASM SQLite):**
+- Keine Native Addons, laeuft in Electron + Mobile WebView
+- Persistenz ueber vault.adapter.writeBinary() (plattformuebergreifend)
+- Inkrementelle Updates (INSERT/DELETE, kein Full-Rewrite)
+- Vektoren als Float32Array BLOBs (4 Bytes/Float statt ~8 Bytes/Float in JSON)
+
+**Adjacent-Chunk-Retrieval:**
+- Bei jedem Treffer auch chunk-1 und chunk+1 mitliefern
+- Triviale SQL-Query auf chunk_index
+- Verhindert Kontextverlust an Chunk-Grenzen
+
+**Reranking-Optionen (evaluiert 2026-03-29):**
+- Lokal: BGE-Reranker-v2-m3 (ONNX, 278M Params, CPU-faehig)
+- Lokal: Jina-ColBERT (Late Interaction, bis 8K Token, Multi-Vektor)
+- API: Cohere Rerank ($0.0009/Query)
+- LLM-basiert: Konfiguriertes Modell kurz fragen (teuerste Option)
+
+**Evaluierte und verworfene Alternativen:**
+- Orama 2.x: Gleiche JSON-Serialisierungslimitation wie vectra
+- LanceDB: Exzellent, aber Native Binding -- Electron/Review-Risiko
+- Sharded vectra: Hack, nicht skalierbar
+- Full GraphRAG: 100-1000x teurer als Vector RAG fuer Indexierung
+- PageIndex: Fuer kurze Notes ungeeignet, designed fuer lange Dokumente
+
+### Token-Kosten-Vergleich
+
+| Ansatz | Indexierung (826 Dateien) | Pro Query | Vernetzung |
+|--------|--------------------------|-----------|------------|
+| Vector only (aktuell) | ~$0.50 | ~$0 | Keine |
+| + Graph Expansion | +$0 | +$0 | Explizite Links |
+| + Implicit Connections | +$0 | +$0 | Semantische Naehe |
+| + Reranking (lokal) | +$0 | +$0 | Bessere Precision |
+| Full GraphRAG | ~$5-20 | ~$0.05 | Exzellent |
+
+**Der Hybrid-Ansatz liefert ~80% des GraphRAG-Nutzens zu <5% der Kosten**, weil Obsidian den expliziten Graph (Wikilinks, Tags) bereits hat.
+
+### Betroffene Services
+
+- SemanticIndexService (vectra -> SQLite, Stufe 1)
+- MemoryRetriever (Session-Retrieval via DB, Stufe 1)
+- EpisodicExtractor (Episode-Storage in DB)
+- RecipeStore (Learned Recipes in DB)
+- RecipePromotionService (Pattern-Storage in DB)
+- Neue Services: GraphExpander (Stufe 2), ImplicitConnectionFinder (Stufe 3), Reranker (Stufe 4)
+
+---
+
 ## Abhaengigkeiten zwischen Phasen
 
 ```
-Phase 1 (Verschlanken)     -- Keine Abhaengigkeit, wird JETZT umgesetzt
+Phase 1 (Verschlanken)     -- ERLEDIGT (2026-03-29, -7.564 LOC)
      |
      v
-Phase 2 (Stabilisieren)    -- Saubere Basis fuer Connector
+Phase 2 (Stabilisieren)    -- Saubere Basis
+  2a: AgentSidebarView aufteilen
+  2b: main.ts Entkopplung
+  2c: Office-Tool Duplikation
+  2d: learnedRecipesEnabled Guard -- ERLEDIGT (in Phase 1d)
      |
      v
-Phase 3 (Connector)        -- EPIC-014, setzt Phase 1+2 voraus
+Phase 2.5 (Knowledge Layer) -- Kritisch (vectra-Bug blockiert Semantic Search)
+  Stufe 1: SQLite Migration (loest den Bug)
+  Stufe 2: Graph Expansion
+  Stufe 3: Implicit Connections
+  Stufe 4: Reranking
+     |
+     v
+Phase 3 (Connector)        -- EPIC-014, setzt Phase 2+2.5 voraus
      |
      v
 Phase 4 (Kontext-Radius)   -- Setzt Connector voraus
-  4a: DeckPlan-Renderer     -- Setzt PPTX-Vereinfachung (1c) + Connector (3) voraus
-  4b: OneDrive              -- Setzt MCP-Infrastruktur (3) voraus
-  4c: Memory aus MCP        -- Setzt Connector (3) + Memory-Tracking (3f) voraus
+  4a: DeckPlan-Renderer
+  4b: OneDrive
+  4c: Memory aus MCP
 ```
 
-## Naechste Schritte nach Phase 1
+## Naechste Schritte
 
-1. Phase 2 durch V-Model: BA ist erledigt (Code-Review), RE + ADRs erstellen
-2. Phase 3 durch V-Model: EPIC-014 existiert, Feature-Specs schreiben
-3. Phase 4 planen nach Phase 3 Abschluss
+1. **JETZT:** Knowledge Layer (Phase 2.5) durch V-Model Workflow
+   - BA: Problemanalyse erledigt (vectra-Bug + Skalierung + vernetztes Denken)
+   - RE: Features definieren
+   - Architektur: ADR fuer SQLite Migration + Knowledge Layer
+   - Implementierung + Test
+2. Phase 2 (Stabilisieren): V-Model Workflow
+3. Phase 3 (Connector): V-Model Workflow (EPIC-014 existiert)
+4. Phase 4 nach Phase 3
