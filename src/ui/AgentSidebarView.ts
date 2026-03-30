@@ -3153,7 +3153,8 @@ export class AgentSidebarView extends ItemView {
                 });
             }
             if (view?.editor) {
-                view.editor.replaceSelection(responseText);
+                const formatted = this.formatResponseForNote(responseText);
+                view.editor.replaceSelection(formatted);
                 new Notice(t('notice.insertedAtCursor'));
             } else {
                 new Notice(t('notice.noOpenNote'));
