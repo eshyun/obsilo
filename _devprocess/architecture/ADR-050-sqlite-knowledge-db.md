@@ -1,7 +1,7 @@
 # ADR-050: SQLite Knowledge DB (sql.js WASM)
 
-**Status:** Proposed
-**Date:** 2026-03-29
+**Status:** Accepted (modified by review + implementation)
+**Date:** 2026-03-29 (updated 2026-03-30)
 **Deciders:** Sebastian Hanke
 
 ## Context
@@ -90,21 +90,20 @@ sql.js loest alle identifizierten Probleme gleichzeitig: Skalierung (SQLite hand
 
 ### Positive
 - 507MB Bug geloest: BLOBs statt JSON, kein `JSON.stringify()` ueber die gesamte DB
-- Mobile-ready: vault.adapter funktioniert auf iOS/Android
-- Unified Storage: Eine DB fuer Vektoren, Graph, Sessions, Episodes, Recipes
+- Mobile-ready: vault.adapter funktioniert auf iOS/Android (fuer memory.db)
 - Cross-Referenzen moeglich (SQL JOINs)
 - Schema versionierbar via Migrations-Tabelle
 
 ### Negative
-- sql.js laedt gesamte DB in Memory (~100-150MB). Bei sehr grossen Vaults (>10.000 Dateien) koennte das eng werden.
+- sql.js laedt gesamte DB in Memory (~150-200MB fuer knowledge.db). Bei sehr grossen Vaults (>10.000 Dateien) koennte das eng werden.
 - Persistenz erfordert explizites `db.export()` nach Aenderungen (kein Auto-Flush wie native SQLite)
 - vectra-Dependency wird entfernt -- einmalige Neuindexierung noetig
-- Bundle-Groesse +1.5MB
+- Bundle-Groesse +1.5MB (WASM)
 
 ### Risks
-- **Memory-Pressure auf Mobile**: 100MB DB in Memory auf aelteren Geraeten. Mitigation: Lazy-Load nur benoetigte Tabellen, oder DB-Groesse begrenzen.
-- **vault.adapter writeBinary bei >100MB**: Muss getestet werden. Mitigation: Fallback auf fs.promises fuer Desktop.
+- **Memory-Pressure auf Mobile**: knowledge.db ist nur Desktop (global). memory.db ist klein (<5MB). Kein Risiko.
 - **sql.js API-Stabilitaet**: WASM-Build muss bei Obsidian-Updates weiterhin funktionieren. Mitigation: Version pinnen.
+- **WASM-Loading in Obsidian**: `fetch()` funktioniert nicht fuer lokale WASM-Dateien in Obsidians app:// Protokoll. Mitigation: WASM via `fs.readFileSync()` laden und als `wasmBinary` uebergeben.
 
 ## Implementation Notes
 
@@ -207,19 +206,58 @@ CREATE TABLE checkpoint (
 );
 ```
 
-### Persistenz-Strategie
+### Zwei-DB-Strategie (Entscheidung 2026-03-30)
 
-```typescript
-// Laden (Plugin-Start)
-const buffer = await vault.adapter.readBinary('.obsilo-sync/knowledge.db');
-const db = new SQL.Database(new Uint8Array(buffer));
+**Kern-Einsicht:** Vektor-Index ist ein abgeleiteter Cache (kann jederzeit aus Vault-Inhalten
+neu gebaut werden). Memory-Daten (Sessions, Episodes, Recipes) sind Primaerdaten die
+ueber Geraete konsistent sein muessen.
 
-// Speichern (nach Batch-Updates, debounced)
-const data = db.export();
-await vault.adapter.writeBinary('.obsilo-sync/knowledge.db', data.buffer);
-```
+Eine einzige DB fuer beides erzeugt einen Zielkonflikt:
+- Index ist gross (~200MB), binaer, pro Gerät verschieden (Embedding-Modell) -> nicht syncen
+- Memory ist klein (<5MB), muss auf allen Geraeten verfuegbar sein -> syncen
 
-Commit-Strategie: Nach jedem Batch von N Inserts (default 20) UND beim Plugin-Unload. Debounced (2s) fuer Event-getriggerte Updates.
+**Entscheidung: Zwei getrennte Datenbanken.**
+
+| DB | Inhalt | Location | IO | Sync |
+|----|--------|----------|----|------|
+| `knowledge.db` | Vektoren, Graph, Implicit Edges | `~/.obsidian-agent/knowledge.db` (global) | `fs.promises` | Nein (pro Gerät) |
+| `memory.db` | Sessions, Episodes, Recipes, Patterns | `{vault}/.obsidian-agent/memory.db` (local) | `vault.adapter` | Ja (via Vault-Sync) |
+
+**Konsequenzen:**
+- Storage-Location ist NICHT user-konfigurierbar -- architektonisch festgelegt
+- `semanticStorageLocation` Setting entfaellt
+- KnowledgeDB-Klasse unterstuetzt intern weiterhin `global`/`local` (fuer beide DBs)
+- knowledge.db: Jedes Geraet baut eigenen Index (Vault-Dateien sind Source of Truth)
+- memory.db: Synct natuerlich mit dem Vault (iCloud, Syncthing, etc.)
+- FEATURE-1505 muss memory.db als separate Instanz erstellen, nicht in knowledge.db konsolidieren
+
+**Persistenz-Logik:**
+- `global` (knowledge.db): `fs.promises.readFile/writeFile` -- nur Desktop
+- `local` (memory.db): `vault.adapter.readBinary/writeBinary` -- Desktop + Mobile
+
+**WASM-Loading:**
+Obsidians `app://` Protokoll kann keine lokalen WASM-Dateien per `fetch()` laden.
+Loesung: WASM-Binary via `fs.readFileSync()` direkt laden und als `wasmBinary` an sql.js uebergeben.
+
+**Commit-Strategie:** Nach jedem Batch von N Inserts (default 20) UND beim Plugin-Unload. Debounced (2s) fuer Event-getriggerte Updates.
+
+### Checkpoint-Modellierung (modifiziert durch Coding Review)
+
+**Bestehender Checkpoint** speichert mtime + chunk-count pro Datei (bis 10.000 Eintraege).
+Statt diese in eine separate checkpoint-Tabelle zu packen, nutzen wir die vectors-Tabelle:
+
+- **mtime pro Datei**: Bereits als Spalte in `vectors` vorhanden. Query: `SELECT DISTINCT path, mtime FROM vectors`.
+- **Globale Metadaten** (embeddingModel, chunkSize, builtAt, docCount): In `checkpoint` Key-Value-Tabelle.
+- **Chunk-Count pro Datei**: `SELECT path, COUNT(*) FROM vectors GROUP BY path`.
+
+Dadurch entfaellt die separate Files-Map im Checkpoint -- die DB IST der Checkpoint.
+
+### Zusaetzlich zu erhalten (aus Coding Review)
+
+- **keywordSearch()**: TF-IDF basierte Keyword-Suche, unabhaengig von vectra. Eigener In-Memory-Index. Bleibt unveraendert.
+- **HyDE**: `textForEmbedding` Parameter in search(). Wird 1:1 beibehalten.
+- **configure()**: Runtime-Rekonfiguration (excludedFolders, chunkSize). Bleibt.
+- **queueAutoUpdate()**: Event-Queue mit Dedup fuer Vault-Events. Unabhaengig von Storage-Backend.
 
 ### Cosine-Similarity in JS (nicht in SQL)
 
@@ -250,7 +288,7 @@ Begruendung: SQL Custom Functions in sql.js sind langsam (JS->WASM Overhead pro 
 1. Beim ersten Start mit neuem Code: `knowledge.db` existiert nicht
 2. Pruefen ob vectra-Dateien existieren (`~/.obsidian-agent/semantic-index/index.json`)
 3. Wenn ja: Clean Rebuild (vectra-Daten werden nicht migriert, nur neu indexiert)
-4. Sessions/Episodes/Recipes: Alte Dateien lesen, in DB schreiben, alte Dateien archivieren in `.obsilo-sync/migration-backup/`
+4. Sessions/Episodes/Recipes: Bleiben als Dateien bis FEATURE-1505 sie in `memory.db` migriert
 
 ## Related Decisions
 

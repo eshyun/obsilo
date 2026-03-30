@@ -16,8 +16,8 @@
 
 **Knowledge DB:**
 - Database: SQLite via sql.js (WASM) -- ADR-050
-- Persistence: vault.adapter.writeBinary/readBinary (plattformuebergreifend)
-- Location: `.obsilo-sync/knowledge.db`
+- Persistence: Fallback-Kette -- vault.adapter (local/obsidian-sync) oder fs.promises (global)
+- Location: Folgt bestehender Storage-Location-Logik (global/local/obsidian-sync)
 - Vektoren: Float32Array als BLOB (4 Bytes/Float)
 
 **Retrieval:**
