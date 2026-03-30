@@ -89,6 +89,22 @@ export class InterfaceTab {
             );
 
         new Setting(containerEl)
+            .setName(t('settings.interface.noteResponseBlocksFormat'))
+            .setDesc(t('settings.interface.noteResponseBlocksFormatDesc'))
+            .addDropdown((d) => {
+                d.addOption('callout', t('settings.interface.noteResponseBlocksFormatCallout'));
+                d.addOption('headings', t('settings.interface.noteResponseBlocksFormatHeadings'));
+                d.addOption('details', t('settings.interface.noteResponseBlocksFormatDetails'));
+                d.addOption('codefence', t('settings.interface.noteResponseBlocksFormatCodeFence'));
+                d.addOption('footer', t('settings.interface.noteResponseBlocksFormatFooter'));
+                d.setValue(this.plugin.settings.noteResponseBlocksFormat ?? 'callout');
+                d.onChange(async (v) => {
+                    this.plugin.settings.noteResponseBlocksFormat = v as typeof this.plugin.settings.noteResponseBlocksFormat;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
             .setName('Show context progress')
             .setDesc('Display a progress bar showing context window usage. Restart sidebar to apply.')
             .addToggle((toggle) =>

@@ -262,21 +262,27 @@ export class AgentSidebarView extends ItemView {
             void this.autocomplete.handleInput();
         });
 
-        this.textarea.addEventListener('keydown', (e: KeyboardEvent) => {
+        const handleTextareaKeydown = (e: KeyboardEvent) => {
             // Autocomplete navigation takes priority
             if (this.autocomplete.handleKeyDown(e)) return;
 
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' || e.key === 'NumpadEnter') {
                 const sendWithEnter = this.plugin.settings.sendWithEnter ?? true;
                 if (sendWithEnter && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
                     void this.handleSendMessage();
                 } else if (!sendWithEnter && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
+                    e.stopPropagation();
                     void this.handleSendMessage();
                 }
             }
-        });
+        };
+
+        // Capture-phase handler: some macOS/Electron key combos (Cmd+Enter)
+        // can be consumed by parent handlers if we only listen in bubbling.
+        this.textarea.addEventListener('keydown', handleTextareaKeydown, { capture: true });
+        this.textarea.addEventListener('keydown', handleTextareaKeydown);
 
         // Paste handler — capture images pasted from clipboard (e.g. screenshots)
         this.textarea.addEventListener('paste', (e: ClipboardEvent) => {
@@ -2850,6 +2856,84 @@ export class AgentSidebarView extends ItemView {
         return { cleanText, heading, followups };
     }
 
+    private formatResponseForNote(text: string): string {
+        const srcParsed = this.parseSources(text);
+        const fuParsed = this.parseFollowups(srcParsed.cleanText);
+
+        const base = fuParsed.cleanText.trimEnd();
+        const sources = srcParsed.sources;
+        const followups = fuParsed.followups;
+        const followupHeading = fuParsed.heading || 'Follow-ups';
+
+        const format = this.plugin.settings.noteResponseBlocksFormat ?? 'callout';
+        const blocks: string[] = [];
+
+        const renderSourcesList = (): string => {
+            if (sources.length === 0) return '';
+            return sources
+                .map((s) => `${s.num}. ${s.note}${s.context ? ' — ' + s.context : ''}`)
+                .join('\n');
+        };
+
+        const renderFollowupsList = (): string => {
+            if (followups.length === 0) return '';
+            return followups.map((f) => `- [ ] ${f}`).join('\n');
+        };
+
+        const indentBlockquote = (md: string): string => {
+            return md
+                .split('\n')
+                .map((l) => (l.length ? `> ${l}` : '>'))
+                .join('\n');
+        };
+
+        if (format === 'callout') {
+            if (sources.length > 0) {
+                const body = renderSourcesList();
+                blocks.push(indentBlockquote(`[!info] Sources\n\n${body}`));
+            }
+            if (followups.length > 0) {
+                const body = renderFollowupsList();
+                blocks.push(indentBlockquote(`[!tip] ${followupHeading}\n\n${body}`));
+            }
+        } else if (format === 'headings') {
+            if (sources.length > 0) {
+                blocks.push(`## Sources\n\n${renderSourcesList()}`);
+            }
+            if (followups.length > 0) {
+                blocks.push(`## ${followupHeading}\n\n${renderFollowupsList()}`);
+            }
+        } else if (format === 'details') {
+            if (sources.length > 0) {
+                blocks.push(`<details>\n<summary>Sources</summary>\n\n${renderSourcesList()}\n\n</details>`);
+            }
+            if (followups.length > 0) {
+                blocks.push(`<details>\n<summary>${followupHeading}</summary>\n\n${renderFollowupsList()}\n\n</details>`);
+            }
+        } else if (format === 'codefence') {
+            if (sources.length > 0) {
+                blocks.push(`\n\n\`\`\`text\nSources\n${renderSourcesList()}\n\`\`\``);
+            }
+            if (followups.length > 0) {
+                blocks.push(`\n\n\`\`\`text\n${followupHeading}\n${renderFollowupsList()}\n\`\`\``);
+            }
+        } else if (format === 'footer') {
+            const parts: string[] = [];
+            if (sources.length > 0) {
+                parts.push(`Sources:\n${renderSourcesList()}`);
+            }
+            if (followups.length > 0) {
+                parts.push(`${followupHeading}:\n${renderFollowupsList()}`);
+            }
+            if (parts.length > 0) {
+                blocks.push(`---\n\n${parts.join('\n\n')}`);
+            }
+        }
+
+        const out = [base, ...blocks.filter(Boolean)].filter((s) => s && s.trim().length > 0).join('\n\n');
+        return out.trimEnd() + '\n';
+    }
+
     /**
      * Convert inline [N] references in rendered HTML to clickable citation badges.
      * Only converts numbers that match a parsed source.
@@ -3084,7 +3168,8 @@ export class AgentSidebarView extends ItemView {
                 const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
                 const fileName = `Agent response ${ts}.md`;
                 try {
-                    const file = await this.app.vault.create(fileName, responseText);
+                    const formatted = this.formatResponseForNote(responseText);
+                    const file = await this.app.vault.create(fileName, formatted);
                     // getLeaf(true) always creates a new leaf in the main content area
                     const leaf = this.app.workspace.getLeaf(true);
                     await leaf.openFile(file);

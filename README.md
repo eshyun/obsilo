@@ -139,6 +139,24 @@ This plugin makes network requests depending on your configuration:
 | **Interface** | Sidebar position, keyboard shortcuts, context injection |
 | **Logs** | View the operation audit trail |
 
+### Exporting responses to notes
+
+When you click **Create note from response**, the plugin can convert machine-readable blocks at the end of an agent response into regular Markdown so they render correctly in the new note.
+
+- **Response blocks format**: Settings → Advanced → Interface
+  - Callout (default)
+  - Headings
+  - Details
+  - Code fence
+  - Footer
+
+### Keyboard shortcuts
+
+If **Send with enter** is turned **off**, you can send a message with:
+
+- `Ctrl+Enter`
+- `Cmd+Enter` (macOS)
+
 ### Supported Providers
 
 | Provider | Type | Models |

@@ -548,6 +548,8 @@ export interface ObsidianAgentSettings {
     autoAddActiveFileContext: boolean;
     /** Press Enter to send (Shift+Enter for newline). When false, Ctrl/Cmd+Enter sends. */
     sendWithEnter: boolean;
+    /** Format to use when exporting agent responses to a new note (Create note from response). */
+    noteResponseBlocksFormat: 'callout' | 'headings' | 'details' | 'codefence' | 'footer';
     /** Inject current date and time into the system prompt */
     includeCurrentTimeInContext: boolean;
     /** Display context window usage progress bar in sidebar (restart sidebar to apply) */
@@ -803,7 +805,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         titlingModelKey: '',
     },
     chatHistoryFolder: '',
-
+    noteResponseBlocksFormat: 'callout',
     autoAddActiveFileContext: true,
     sendWithEnter: true,
     includeCurrentTimeInContext: true,
