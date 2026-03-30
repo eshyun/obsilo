@@ -15,6 +15,7 @@ export class ToolPickerPopover {
     private popoverEl: HTMLElement | null = null;
     private closeHandler: ((e: MouseEvent) => void) | null = null;
     private resizeHandler: (() => void) | null = null;
+    private delayedCloseBindTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         private plugin: ObsidianAgentPlugin,
@@ -455,10 +456,20 @@ export class ToolPickerPopover {
                 this.close();
             }
         };
-        setTimeout(() => document.addEventListener('mousedown', this.closeHandler!), 50);
+        if (this.delayedCloseBindTimer) clearTimeout(this.delayedCloseBindTimer);
+        this.delayedCloseBindTimer = setTimeout(() => {
+            // Only attach if still open and handler is unchanged.
+            if (!this.popoverEl) return;
+            if (!this.closeHandler) return;
+            document.addEventListener('mousedown', this.closeHandler);
+        }, 50);
     }
 
     close(): void {
+        if (this.delayedCloseBindTimer) {
+            clearTimeout(this.delayedCloseBindTimer);
+            this.delayedCloseBindTimer = null;
+        }
         if (this.closeHandler) {
             document.removeEventListener('mousedown', this.closeHandler);
             this.closeHandler = null;

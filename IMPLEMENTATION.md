@@ -51,3 +51,14 @@ The textarea keydown handler now:
 While a request is in-flight ("Working..." / stop button visible), pressing `Esc` triggers `handleStop()` which aborts the current request and restores the input state.
 
 This makes `Cmd+Enter` more reliable in Electron/Obsidian environments where parent handlers may consume the event.
+
+## UI cleanup: prevent document-level event listener leaks
+
+### Background
+
+Some UI popovers/popups attach document-level event listeners (e.g. click-outside handlers). If the UI element is closed programmatically (e.g. `hide()`/`remove()` called directly) instead of via the listener itself, the listener may not be removed, potentially leaking closures and accumulating handlers.
+
+### Change
+
+- `VaultFilePicker` now stores the outside-click handler and always removes it in `hide()`, regardless of how the picker is closed.
+- `AgentSidebarView` source popups now track their click-outside handler in a `WeakMap` and explicitly detach it whenever popups are removed programmatically or via internal navigation clicks.

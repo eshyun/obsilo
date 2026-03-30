@@ -21,6 +21,7 @@ export class VaultFilePicker {
     private filtered: Array<{ file: TFile; label: string }> = [];
     private activeIdx = 0;
     private resizeHandler: (() => void) | null = null;
+    private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
     constructor(
         private app: App,
@@ -135,13 +136,12 @@ export class VaultFilePicker {
         });
 
         // Close on outside click
-        const closeOnOutside = (e: MouseEvent) => {
+        this.outsideClickHandler = (e: MouseEvent) => {
             if (this.containerEl && !this.containerEl.contains(e.target as Node)) {
                 this.hide();
-                document.removeEventListener('mousedown', closeOnOutside);
             }
         };
-        document.addEventListener('mousedown', closeOnOutside);
+        document.addEventListener('mousedown', this.outsideClickHandler);
 
         this.renderList();
         this.updateCount();
@@ -151,6 +151,10 @@ export class VaultFilePicker {
     }
 
     hide(): void {
+        if (this.outsideClickHandler) {
+            document.removeEventListener('mousedown', this.outsideClickHandler);
+            this.outsideClickHandler = null;
+        }
         if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler);
             this.resizeHandler = null;

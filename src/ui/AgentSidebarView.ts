@@ -89,6 +89,8 @@ export class AgentSidebarView extends ItemView {
     /** Context window visualization */
     private contextDisplay: ContextDisplay | null = null;
 
+    private popupCloseHandlers = new WeakMap<HTMLElement, (e: MouseEvent) => void>();
+
     constructor(leaf: WorkspaceLeaf, plugin: ObsidianAgentPlugin) {
         super(leaf);
         this.plugin = plugin;
@@ -3057,20 +3059,39 @@ export class AgentSidebarView extends ItemView {
      * Attach a click-outside close handler to a popup.
      */
     private attachPopupCloseHandler(popup: HTMLElement, anchor: HTMLElement): void {
+        this.detachPopupCloseHandler(popup);
         const close = (e: MouseEvent) => {
             if (!popup.contains(e.target as Node) && e.target !== anchor) {
+                this.detachPopupCloseHandler(popup);
                 popup.remove();
-                document.removeEventListener('click', close);
             }
         };
-        setTimeout(() => document.addEventListener('click', close), 10);
+        this.popupCloseHandlers.set(popup, close);
+        setTimeout(() => {
+            // Only attach if this popup is still alive and still mapped to this handler.
+            // This prevents a leak if the popup is removed before the timeout fires.
+            if (!popup.isConnected) return;
+            if (this.popupCloseHandlers.get(popup) !== close) return;
+            document.addEventListener('click', close);
+        }, 10);
+    }
+
+    private detachPopupCloseHandler(popup: HTMLElement): void {
+        const handler = this.popupCloseHandlers.get(popup);
+        if (handler) {
+            document.removeEventListener('click', handler);
+            this.popupCloseHandlers.delete(popup);
+        }
     }
 
     /**
      * Show a popup card for a single source (badge click).
      */
     private showSourcePopup(anchor: HTMLElement, source: { num: number; note: string; context: string }): void {
-        document.querySelectorAll('.source-popup').forEach(el => el.remove());
+        document.querySelectorAll('.source-popup').forEach(el => {
+            if (el instanceof HTMLElement) this.detachPopupCloseHandler(el);
+            el.remove();
+        });
 
         const popup = document.createElement('div');
         popup.className = 'source-popup';
@@ -3081,6 +3102,7 @@ export class AgentSidebarView extends ItemView {
         titleEl.textContent = noteName;
         titleEl.addEventListener('click', () => {
             void this.app.workspace.openLinkText(noteName, '', false);
+            this.detachPopupCloseHandler(popup);
             popup.remove();
         });
         popup.appendChild(titleEl);
@@ -3104,7 +3126,10 @@ export class AgentSidebarView extends ItemView {
      * Show a panel listing all sources (sources indicator click).
      */
     private showSourcesPanel(anchor: HTMLElement, sources: { num: number; note: string; context: string }[]): void {
-        document.querySelectorAll('.source-popup').forEach(el => el.remove());
+        document.querySelectorAll('.source-popup').forEach(el => {
+            if (el instanceof HTMLElement) this.detachPopupCloseHandler(el);
+            el.remove();
+        });
 
         const popup = document.createElement('div');
         popup.className = 'source-popup sources-panel';
@@ -3124,6 +3149,7 @@ export class AgentSidebarView extends ItemView {
             titleEl.textContent = noteName;
             titleEl.addEventListener('click', () => {
                 void this.app.workspace.openLinkText(noteName, '', false);
+                this.detachPopupCloseHandler(popup);
                 popup.remove();
             });
             row.appendChild(titleEl);

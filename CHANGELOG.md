@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.10
+
+- Fixed potential document-level event listener leaks when closing UI popovers (vault file picker, tool picker) and source citation popups.
+
 ## 2.2.9
 
 - Fixed response export formatting for machine-readable blocks (`[sources]` / `[followups]`) to be more tolerant of malformed blocks (e.g. missing closing tags) and non-numbered source lines (e.g. plain URLs), especially when using Callout format.

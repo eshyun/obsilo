@@ -274,7 +274,7 @@ export class TemplateCatalogLoader {
                 const req = sh.required ? 'REQUIRED' : 'optional';
                 const specialTag = sh.special_role ? ` [${sh.special_role}]` : '';
                 const groupTag = sh.group_id ? ` {group:${sh.group_id}}` : '';
-                const chars = sh.max_chars ? ` (max ${sh.max_chars} chars)` : '';
+                const chars = sh.max_chars ? ` (max ${sh.max_chars} Zeichen)` : '';
                 const pos = sh.position_hint ? ` -- ${sh.position_hint}` : '';
                 // semantic_hint (vision) takes precedence over raw sample_text
                 const annotation = sh.semantic_hint
@@ -296,6 +296,17 @@ export class TemplateCatalogLoader {
         lines.push('REQUIRED-Shapes MUESSEN immer befuellt werden -- das Tool validiert dies vor der Generierung.');
         lines.push('Optionale Shapes verschwinden automatisch wenn leer (Auto-Remove).');
         lines.push('Zuerst `Familie` + `Verwenden fuer` pruefen, dann den konkreten Slide-Typ auswaehlen.');
+        lines.push('');
+        lines.push('Beispiel-Schema:');
+        lines.push('```');
+        lines.push('source_slide: N');
+        lines.push('{');
+        lines.push('  "source_slide": N,');
+        lines.push('  "content": {');
+        lines.push('    "ShapeName": "..."');
+        lines.push('  }');
+        lines.push('}');
+        lines.push('```');
 
         return lines.join('\n');
     }
