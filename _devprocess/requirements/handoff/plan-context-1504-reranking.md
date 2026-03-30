@@ -1,131 +1,113 @@
-# Plan Context: FEATURE-1504 Local Reranking
+# Plan Context: FEATURE-1504 Local Reranking (transformers.js)
 
 > **Feature**: FEATURE-1504
 > **Epic**: EPIC-015 - Unified Knowledge Layer
-> **ADRs**: ADR-051 (Pipeline Stufe 4), ADR-052 (Reranker Integration)
+> **ADRs**: ADR-051 (Pipeline Stufe 4), ADR-052 (Reranker: transformers.js)
 > **Erstellt**: 2026-03-30
 
 ---
 
 ## 1. Ziel
 
-Nach den 3 bisherigen Retrieval-Stufen (Vector, Graph, Implicit) die ~20 Kandidaten
-durch einen lokalen Cross-Encoder Reranker auf die besten Top-K priorisieren.
-Kein API-Call, kein Netzwerk -- 100% lokal. Auf Mobile: Graceful Fallback.
+Top-20 Retrieval-Kandidaten durch lokalen Cross-Encoder Reranker priorisieren.
+Kein API-Call, kein Native Addon. Reines JS + WASM via @huggingface/transformers.
 
-## 2. Technologie-Entscheidung
+## 2. Technologie-Stack
 
-**Modell:** BGE-Reranker-v2-m3 (BAAI) -- INT8 quantisiert, ~125MB
-**Runtime:** onnxruntime-node (Native, schneller als WASM)
-**Tokenizer:** @xenova/transformers (BERT WordPiece)
-**Modell-Storage:** `~/.obsidian-agent/models/bge-reranker-v2-m3-int8/` (global)
-**Download:** Via requestUrl (Review-Bot konform), mit Fortschrittsanzeige
+- **Package:** `@huggingface/transformers` (npm install)
+- **Modell:** `Xenova/ms-marco-MiniLM-L-6-v2` (INT8 quantisiert, ~23MB)
+- **Runtime:** ONNX Runtime Web (WASM) -- integriert in transformers.js
+- **Backend:** Explizit WASM forcieren (Electron Detection Workaround)
 
 ## 3. Integration in bestehende Pipeline
 
-SemanticSearchTool.ts -- aktueller Flow:
-```
-1. HyDE (optional) -> Query-Embedding
-2. Hybrid Search: Semantic + Keyword via RRF Fusion -> Top-K
-3. Metadata Filters (folder, tags, since)
-4. Graph Expansion (FEATURE-1502)
-5. Implicit Connections (FEATURE-1503)
-6. Output
-```
+**SemanticSearchTool.ts** -- Reranking nach RRF-Fusion + Metadata-Filter, VOR Graph/Implicit:
 
-Reranking wird nach Schritt 3 (Metadata Filters), VOR Schritt 4 (Graph/Implicit) eingefuegt:
 ```
-3. Metadata Filters
-3b. RERANKING: Cross-Encoder auf Top-20 -> reorder -> Top-K  <-- NEU
+1. HyDE (optional)
+2. Hybrid Search: Semantic + Keyword via RRF Fusion
+3. Metadata Filters (folder, tags, since)
+3b. RERANKING (wenn enabled + Modell geladen)   <-- NEU
 4. Graph Expansion
 5. Implicit Connections
 6. Output
 ```
 
-Begruendung: Reranking verbessert die Qualitaet der Top-K Ergebnisse die dann
-fuer Graph/Implicit-Expansion als Startpunkte dienen.
-
-## 4. Neue Dateien
-
-### `src/core/knowledge/RerankerService.ts`
+## 4. Neue Datei: `src/core/knowledge/RerankerService.ts`
 
 ```typescript
 class RerankerService {
     constructor(modelDir: string)
 
-    // Lifecycle
-    async loadModel(): Promise<void>    // Lazy Load beim ersten rerank()
-    async downloadModel(onProgress?): Promise<void>
-    isModelAvailable(): boolean
+    async loadModel(): Promise<void>      // Lazy Load
     isLoaded(): boolean
     unload(): void
 
-    // Core
     async rerank(query: string, candidates: RerankCandidate[], topK?: number): Promise<RerankResult[]>
 }
-
-interface RerankCandidate {
-    path: string;
-    text: string;
-    score: number;    // Original-Score (Cosine/RRF)
-}
-
-interface RerankResult extends RerankCandidate {
-    rerankScore: number;  // Cross-Encoder Score
-}
 ```
+
+**Lazy Load:** Modell wird erst beim ersten `rerank()`-Aufruf geladen (~3s).
+Danach im Speicher bis Plugin-Unload.
 
 **rerank() Ablauf:**
-1. Fuer jeden Kandidaten: Tokenize `[CLS] query [SEP] text [SEP]`
-2. Batch Inference via ONNX Session (alle Kandidaten gleichzeitig)
-3. Softmax/Sigmoid auf Output -> rerankScore
-4. Sort by rerankScore DESC, return Top-K
+1. Fuer jeden Kandidaten: tokenize(query, candidateText)
+2. model(inputs) -> logits
+3. Sort by logits DESC, return Top-K
 
-## 5. Settings
+## 5. Modell-Delivery
 
+**Option A (empfohlen):** Im Plugin-Bundle
+- esbuild kopiert ONNX-Dateien nach Plugin-Verzeichnis (wie sql.js WASM)
+- Kein separater Download noetig
+- ~23MB zusaetzlich zum Bundle
+
+**Option B:** Lazy Download
+- Modell wird beim ersten Aktivieren heruntergeladen
+- Gespeichert in `~/.obsidian-agent/models/`
+- Download via `requestUrl` (Review-Bot-konform)
+
+## 6. Bestehende Dateien aendern
+
+### settings.ts
 ```typescript
 enableReranking: boolean;       // default: false (muss explizit aktiviert werden)
-rerankCandidates: number;       // default: 20 (wie viele Kandidaten reranken)
-rerankModel: string;            // default: 'bge-reranker-v2-m3-int8'
+rerankCandidates: number;       // default: 20
 ```
 
-## 6. UI (EmbeddingsTab)
+### main.ts
+- RerankerService instanziieren (nach ImplicitConnectionService)
+- Lazy: Modell wird nicht beim Start geladen, erst bei erstem rerank()
+- Plugin-Unload: `rerankerService.unload()`
 
-- Reranking Toggle (default: off)
-- Modell-Status: "Not downloaded" / "Downloaded (125MB)" / "Loaded"
-- Download-Button mit Progress
-- Kandidaten-Anzahl Slider (10-30)
+### SemanticSearchTool.ts
+- Nach Metadata-Filter (Zeile ~171), VOR Graph-Expansion:
+- `if (rerankerService?.isLoaded()) results = await rerankerService.rerank(query, results, topK)`
 
-## 7. Dependencies
+### EmbeddingsTab.ts
+- Reranking Toggle
+- Kandidaten-Anzahl Slider
+- Status: "Model loaded" / "Not loaded" / "Loading..."
 
-```
-npm install onnxruntime-node    -- ONNX Runtime
-```
+### esbuild.config.mjs
+- ONNX-Modell-Dateien in Plugin-Verzeichnis kopieren (wie sql.js WASM)
 
-Tokenizer: BGE-Reranker nutzt einen BERT Tokenizer. Optionen:
-- @xenova/transformers (~5MB) -- voll-featured, aber gross
-- Eigener minimaler WordPiece Tokenizer -- leichter, aber Aufwand
-
-## 8. Review-Bot Compliance
-
-- `require('onnxruntime-node')` braucht eslint-disable mit Begruendung (wie electron, sql.js)
-- Modell-Download via `requestUrl` (Obsidian API, nicht `fetch()`)
-- Modell NICHT im Plugin-Bundle (extern, ~/.obsidian-agent/models/)
-
-## 9. Performance-Ziele
+## 7. Performance-Ziele
 
 | Metrik | Target |
 |--------|--------|
-| Reranking 20 Kandidaten | <200ms |
+| Reranking 20 Kandidaten | <200ms (WASM) |
 | Modell-Laden (Lazy) | <3s (einmalig) |
-| Memory waehrend Inference | <300MB |
-| Modell-Download (125MB) | Abhaengig von Verbindung |
+| Memory waehrend Inference | <150MB |
+| Modell-Groesse (INT8) | ~23MB |
 
-## 10. Risiken
+## 8. Implementierungsreihenfolge
 
-| Risiko | Mitigation |
-|--------|-----------|
-| onnxruntime-node nicht Electron-kompatibel | Fallback: onnxruntime-web (WASM, langsamer) |
-| 125MB Download scheitert | Retry + Resume. Reranking bleibt optional. |
-| Memory-Druck auf aelteren Geraeten | Lazy Load, Unload nach Inaktivitaet |
-| Review-Bot lehnt require('onnxruntime-node') ab | eslint-disable + ausfuehrliche Begruendung |
+1. `npm install @huggingface/transformers`
+2. RerankerService.ts (NEU)
+3. Settings: enableReranking, rerankCandidates
+4. main.ts: Wiring
+5. SemanticSearchTool: Reranking-Step
+6. EmbeddingsTab: UI
+7. esbuild: Modell-Dateien kopieren (oder Lazy Download)
+8. Build + Deploy + Test

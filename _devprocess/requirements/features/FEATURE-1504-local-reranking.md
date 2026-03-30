@@ -7,9 +7,11 @@
 
 ## Feature Description
 
-Nach den ersten drei Retrieval-Stufen (Vector Search, Graph Expansion, Implicit Connections) werden die ~20 Kandidaten-Ergebnisse durch einen lokalen Cross-Encoder Reranker auf die besten 5 priorisiert. Der Reranker betrachtet Query und Chunk gemeinsam (nicht separat wie Cosine-Similarity) und erkennt dadurch feine Relevanz-Unterschiede.
+Nach den ersten drei Retrieval-Stufen (Vector Search, Graph Expansion, Implicit Connections) werden die ~20 Kandidaten-Ergebnisse durch einen lokalen Cross-Encoder Reranker auf die besten Top-K priorisiert. Der Reranker betrachtet Query und Chunk gemeinsam (nicht separat wie Cosine-Similarity) und erkennt dadurch feine Relevanz-Unterschiede.
 
-Auf Desktop laeuft ein lokales ML-Modell (ONNX). Auf Mobile faellt das System auf Cosine-Similarity-Ranking zurueck (Stufe 1-3 funktionieren vollstaendig ohne Reranking).
+**Technologie:** @huggingface/transformers (transformers.js) mit dem Cross-Encoder-Modell `ms-marco-MiniLM-L-6-v2`. Laeuft komplett in JavaScript via WASM -- kein Native Addon, kein electron-rebuild, kein externer API-Call. Modell quantisiert (~23MB INT8) kann im Plugin-Bundle mitgeliefert werden.
+
+Auf Mobile faellt das System auf Cosine-Similarity-Ranking zurueck (Stufe 1-3 funktionieren vollstaendig ohne Reranking).
 
 ## Benefits Hypothesis
 
@@ -51,18 +53,17 @@ Auf Desktop laeuft ein lokales ML-Modell (ONNX). Auf Mobile faellt das System au
 ## Technical NFRs (fuer Architekt)
 
 ### Performance
-- **Reranking 20 Kandidaten**: <200ms auf Desktop (M1/Intel)
+- **Reranking 20 Kandidaten**: <200ms auf Desktop (WASM, M1/Intel)
 - **Modell-Laden**: <3s beim ersten Aufruf (lazy load), danach im Speicher
-- **Memory**: <300MB zusaetzlich waehrend Reranking
+- **Memory**: <150MB zusaetzlich waehrend Reranking
 
 ### Platform
-- **Desktop**: ONNX Runtime (Node oder WASM) -- BGE-Reranker-v2-m3 (278M Params, ~500MB Modell)
+- **Desktop**: @huggingface/transformers (WASM Backend) -- ms-marco-MiniLM-L-6-v2
 - **Mobile**: Kein Reranking (Fallback auf Cosine-Similarity)
-- **Modell-Download**: Separater Download, nicht im Plugin-Bundle
+- **Modell-Delivery**: INT8 quantisiert (~23MB) im Plugin-Bundle oder Lazy Download
 
 ### Scalability
 - **Kandidaten**: 10-30 Chunks pro Reranking-Durchlauf (konfigurierbar)
-- **Modell-Alternativen**: TinyBERT-Reranker (~60MB) als leichtere Option
 
 ---
 
@@ -71,36 +72,35 @@ Auf Desktop laeuft ein lokales ML-Modell (ONNX). Auf Mobile faellt das System au
 ### Architecturally Significant Requirements (ASRs)
 
 **CRITICAL ASR #1**: Reranking muss optional und graceful-degradable sein
-- **Warum ASR**: Mobile hat kein ONNX. Modell-Download kann scheitern. User kann es deaktivieren.
+- **Warum ASR**: Mobile hat kein WASM-Performance. Modell-Load kann scheitern. User kann es deaktivieren.
 - **Impact**: Retrieval-Pipeline muss ohne Stufe 4 vollstaendig funktionieren
 - **Quality Attribute**: Availability, Portability
 
-**MODERATE ASR #2**: Modell-Download ausserhalb des Plugin-Bundles
-- **Warum ASR**: 500MB im Plugin-Bundle wuerde Review-Bot und User abschrecken
-- **Impact**: Download-Manager mit Progress, Cache in globalem Storage (~/.obsidian-agent/)
-- **Quality Attribute**: Usability, Bundle Size
+**MODERATE ASR #2**: Kein Native Addon -- reines JS + WASM
+- **Warum ASR**: Native Addons (onnxruntime-node) erfordern electron-rebuild und sind Review-Bot-riskant
+- **Loesung**: @huggingface/transformers nutzt ONNX Runtime Web (WASM), kein Native Addon
+- **Quality Attribute**: Portability, Maintainability
 
-### Constraints
-- **ONNX Runtime**: Muss in Electron (Node.js) laufen. WASM-Variante als Fallback.
-- **Review-Bot**: `require('onnxruntime-node')` braucht eslint-disable mit Begruendung
-- **Speicher**: 500MB Modell + 300MB Runtime = ~800MB peak. Auf aelteren Geraeten problematisch.
+### Entscheidungen (beantwortet)
 
-### Open Questions fuer Architekt
-- ONNX Runtime: onnxruntime-node (Native) oder onnxruntime-web (WASM)? Native ist schneller, WASM portabler.
-- Modell-Storage: ~/.obsidian-agent/models/ (global, einmal pro Rechner)?
-- Soll ein kleineres Default-Modell mitgeliefert werden und das groessere optional?
-- Quantisierung: INT8-quantisiertes Modell (~125MB) statt FP32 (~500MB)?
+| Frage | Antwort |
+|-------|---------|
+| ONNX Runtime: node oder web? | **Web (WASM)** via transformers.js -- kein Native Addon |
+| Modell-Auswahl? | **ms-marco-MiniLM-L-6-v2** (23MB INT8, 74.3 NDCG@10) |
+| Modell-Storage? | Im Plugin-Bundle oder `~/.obsidian-agent/models/` (Lazy Download) |
+| Quantisierung? | **INT8** (~23MB statt ~90MB FP32) |
+| WASM-Loading? | Gleicher Pattern wie sql.js (fs.readFileSync + Buffer) |
 
 ---
 
 ## Definition of Done
 
 ### Functional
-- [ ] Reranking der Top-20 Kandidaten auf Top-5
-- [ ] Lokal auf Desktop (kein Netzwerk-Aufruf)
+- [ ] Reranking der Top-20 Kandidaten auf Top-K
+- [ ] Lokal auf Desktop (kein Netzwerk-Aufruf waehrend Inference)
 - [ ] Graceful Fallback auf Mobile (Cosine-Only)
 - [ ] Deaktivierbar in Settings
-- [ ] Modell-Download mit Fortschrittsanzeige
+- [ ] Lazy Model Load (erstes rerank() laedt Modell)
 
 ### Quality
 - [ ] Performance Test: Reranking 20 Chunks <200ms
@@ -108,22 +108,24 @@ Auf Desktop laeuft ein lokales ML-Modell (ONNX). Auf Mobile faellt das System au
 - [ ] Fallback-Test: Suche funktioniert vollstaendig wenn Reranking deaktiviert
 
 ### Documentation
-- [ ] ADR fuer Reranker-Modell-Auswahl
+- [ ] ADR fuer Reranker-Modell-Auswahl aktualisiert
 - [ ] Feature-Spec aktualisiert
-- [ ] User-Dokumentation: Modell-Download-Anleitung
+- [ ] plan-context.md erstellt
 
 ---
 
 ## Dependencies
 - **FEATURE-1500**: SQLite Knowledge DB (Vektoren laden fuer Kandidaten-Selektion)
 - **FEATURE-1501**: Enhanced Vector Retrieval (liefert die Kandidaten)
+- **@huggingface/transformers**: npm Package (JS + WASM, kein Native Addon)
 
 ## Assumptions
-- BGE-Reranker-v2-m3 laeuft in ONNX Runtime auf Desktop mit akzeptabler Latenz
-- 500MB Modell-Download ist fuer Desktop-User akzeptabel
+- ms-marco-MiniLM-L-6-v2 laeuft in transformers.js WASM mit akzeptabler Latenz
 - INT8-Quantisierung reduziert Groesse ohne signifikanten Qualitaetsverlust
+- WASM-Loading funktioniert in Obsidians Electron (gleicher Pattern wie sql.js)
 
 ## Out of Scope
 - Cloud-basiertes Reranking (Cohere, Jina API)
 - Reranking auf Mobile
 - Fine-Tuning des Reranker-Modells auf Vault-Daten
+- WebGPU Backend (spaetere Optimierung)

@@ -1,169 +1,157 @@
 # ADR-052: Local Reranker Integration
 
-**Status:** Proposed
-**Date:** 2026-03-29
+**Status:** Accepted (revised 2026-03-30: transformers.js statt onnxruntime-node)
+**Date:** 2026-03-29 (revised 2026-03-30)
 **Deciders:** Sebastian Hanke
 
 ## Context
 
 Die Retrieval-Pipeline (ADR-051) liefert nach Stufe 1-3 ca. 20 Kandidaten-Ergebnisse. Diese sind nach Cosine-Similarity sortiert, aber Cosine-Similarity ist ein schwacher Relevanz-Indikator: sie misst Aehnlichkeit des Themas, nicht Relevanz fuer die spezifische Frage. Ein Cross-Encoder Reranker betrachtet Query und Chunk gemeinsam und verbessert die Precision um 33-47%.
 
-Der User will lokale Verarbeitung (Datenschutz, Showcase). Mobile hat keine ML-Runtime.
+Der User will lokale Verarbeitung (Datenschutz). Mobile hat keine ML-Runtime.
+
+**Erste Iteration (2026-03-29):** onnxruntime-node war vorgeschlagen, wurde aber deferred wegen:
+- Native Addon erfordert electron-rebuild
+- 125-500MB Modell-Download
+- Review-Bot-Risiko
+
+**Zweite Iteration (2026-03-30):** transformers.js (@huggingface/transformers) als Alternative identifiziert. Loest alle Blocker.
 
 **Triggering ASR:**
 - ASR-4 (FEATURE-1504): Graceful Degradation -- Reranking muss optional sein
-- Quality Attribute: Performance, Availability, Portability
 
 ## Decision Drivers
 
 - **Lokal**: Keine externen API-Aufrufe, Vault-Daten bleiben auf dem Geraet
 - **Performance**: <200ms fuer 20 Kandidaten auf Desktop
+- **Kein Native Addon**: Kein electron-rebuild, Review-Bot-sicher
+- **Kleine Modell-Groesse**: Moeglichst im Plugin-Bundle oder kleiner Download
 - **Portable**: Desktop ja, Mobile Fallback auf Cosine-Only
-- **Bundle-Groesse**: Modell darf NICHT im Plugin-Bundle sein (~500MB)
-- **Review-Bot**: ONNX Runtime braucht eslint-disable mit Begruendung
 
 ## Considered Options
 
 ### Option 1: BGE-Reranker-v2-m3 via onnxruntime-node (Native)
 
-BAAI's Open-Weight Reranker (278M Params). Bestes Open-Source-Modell fuer EN+DE. Laeuft via onnxruntime-node (Native C++ Bindings in Electron).
+- Pro: Beste Qualitaet, schnellste Inference
+- Con: Native Addon -- erfordert electron-rebuild
+- Con: 125-500MB Modell-Download
+- Con: Review-Bot-Risiko (require mit Native Addon)
+- **Ergebnis: Abgelehnt (zu hohe Komplexitaet, zu riskant)**
 
-- Pro: Beste Qualitaet (matching Cohere Rerank)
-- Pro: Lokal, keine API-Kosten
-- Pro: Multi-lingual (EN, DE, ZH, etc.)
-- Pro: onnxruntime-node in Electron gut unterstuetzt
-- Con: Modell ~500MB (FP32) oder ~125MB (INT8 quantisiert)
-- Con: Separater Download noetig (nicht im Bundle)
-- Con: onnxruntime-node ist Native Addon -- Review-Bot-Risiko
-- Con: Nicht auf Mobile
+### Option 2: ms-marco-MiniLM-L-6-v2 via @huggingface/transformers (WASM)
 
-### Option 2: BGE-Reranker via onnxruntime-web (WASM)
+Cross-Encoder Modell (ms-marco-MiniLM-L-6-v2) via transformers.js. Laeuft komplett in JavaScript + WASM. Kein Native Addon.
 
-Gleicher Reranker, aber als WASM statt Native Addon.
-
-- Pro: WASM = kein Native Addon, Review-Bot-sicherer
-- Pro: Theoretisch auch auf Mobile moeglich
-- Con: 2-5x langsamer als Native (~500ms statt ~200ms fuer 20 Chunks)
-- Con: WASM Memory Limits koennten 278M-Modell nicht laden
-- Con: Mobile hat zu wenig Memory fuer das Modell
+- Pro: **Kein Native Addon** -- reines JS + WASM, kein electron-rebuild
+- Pro: **~23MB INT8 quantisiert** -- kann im Plugin-Bundle oder als kleiner Download
+- Pro: **~160ms fuer 20 Kandidaten** auf WASM (akzeptabel)
+- Pro: Electron-kompatibel (offizielles Beispiel existiert)
+- Pro: WASM-Loading Pattern identisch mit sql.js (bereits geloest)
+- Pro: Review-Bot-sicher (kein require fuer Native Addon)
+- Con: Etwas schlechter als BGE-Reranker (74.3 vs ~80 NDCG@10)
+- Con: Electron Runtime Detection kann WASM-Backend falsch waehlen (konfigurierbar)
+- Con: Nicht auf Mobile (WASM zu langsam)
 
 ### Option 3: Cohere/Jina Rerank API
 
-Cloud-basiertes Reranking. $0.0009 pro Query.
-
-- Pro: Beste Performance (Server-seitig)
-- Pro: Kein lokales Modell, kein Memory-Verbrauch
-- Pro: Funktioniert auf Mobile
+- Pro: Beste Performance, kein lokales Modell
 - Con: Daten verlassen das Geraet -- Datenschutz-Problem
-- Con: Braucht Netzwerk -- Offline nicht moeglich
-- Con: API-Key Management
-- Con: Widerspricht der "lokal"-Anforderung des Users
+- Con: API-Key + Netzwerk noetig
+- **Ergebnis: Abgelehnt (widerspricht lokaler Verarbeitung)**
 
 ### Option 4: LLM-basiertes Reranking
 
-Den ohnehin konfigurierten LLM kurz fragen: "Welche 5 dieser 20 Excerpts sind am relevantesten?"
-
 - Pro: Kein zusaetzliches Modell
-- Pro: Nutzt bestehende API-Konfiguration
-- Pro: Funktioniert auf Mobile (API Call)
-- Con: 200-1000 Token pro Reranking-Aufruf = teuer bei haeufiger Nutzung
-- Con: Latenz ~1-3s (LLM-Roundtrip) -- zu langsam fuer inline Suche
-- Con: Inkonsistente Ergebnisse (LLM-Nondeterminismus)
+- Con: 1-3s Latenz, teuer, nicht-deterministisch
+- **Ergebnis: Abgelehnt (zu langsam, zu teuer)**
 
 ## Decision
 
-**Vorgeschlagene Option:** Option 1 -- BGE-Reranker-v2-m3 via onnxruntime-node (INT8 quantisiert)
+**Option 2: ms-marco-MiniLM-L-6-v2 via @huggingface/transformers (WASM)**
 
 **Begruendung:**
-Der User hat explizit lokale Verarbeitung priorisiert. onnxruntime-node ist in Electron bewahrt und bietet die beste Latenz (~100-200ms). INT8-Quantisierung reduziert das Modell auf ~125MB bei <10% Quality-Loss -- ein guter Kompromiss. Der Review-Bot-Risiko ist handhabbar (eslint-disable mit Begruendung, wie bei bestehenden `require('electron')` und `require('child_process')` Ausnahmen).
-
-Graceful Degradation: Auf Mobile und wenn der Reranker nicht heruntergeladen ist, faellt die Pipeline automatisch auf Cosine-Only zurueck (Stufe 1-3).
-
-**Hinweis:** Dies ist ein VORSCHLAG. Claude Code entscheidet final basierend auf dem realen Zustand der Codebase.
+Loest alle Blocker der ersten Iteration: Kein Native Addon (reines JS + WASM), kleine Modell-Groesse (~23MB INT8), bewaehrter WASM-Loading Pattern aus sql.js wiederverwendbar. Die Qualitaet (74.3 NDCG@10) ist fuer den Anwendungsfall ausreichend -- der Reranker muss nur die besten 5 aus 20 Kandidaten finden, nicht absolute Relevanz-Scores liefern.
 
 ## Consequences
 
 ### Positive
-- Lokales Reranking ohne API-Kosten
-- 33-47% bessere Precision fuer Top-5 Ergebnisse
+- Lokales Reranking ohne API-Kosten, ohne Native Addon
+- ~23MB Modell-Groesse (INT8) -- im Bundle oder kleiner Download
 - Datenschutz: Vault-Daten verlassen nie das Geraet
-- Showcase-Wert: Lokales ML-Modell im Obsidian Plugin
+- WASM-Loading Pattern aus sql.js wiederverwendbar
+- Review-Bot-konform (kein require fuer Native Addon)
 
 ### Negative
-- 125MB Modell-Download (einmalig) -- braucht Download-Manager mit Progress
-- onnxruntime-node ist Native Addon (~10MB) -- erhoht Plugin-Komplexitaet
+- Etwas geringere Qualitaet als BGE-Reranker (74.3 vs ~80 NDCG@10)
+- WASM ist ~2-3x langsamer als Native (~160ms vs ~60ms), aber noch akzeptabel
 - Nur Desktop -- Mobile hat keinen Reranker
-- Memory-Overhead: ~300MB peak waehrend Inference
+- @huggingface/transformers ist eine neue Dependency (~5MB Package)
 
 ### Risks
-- **Review-Bot lehnt onnxruntime-node ab**: Mitigation: eslint-disable wie bei bestehenden require-Ausnahmen. Falls abgelehnt: Fallback auf onnxruntime-web (WASM, langsamer).
-- **Modell zu gross fuer schwache Hardware**: Mitigation: Reranking deaktivierbar in Settings. Kleineres Modell (TinyBERT ~60MB) als Alternative evaluieren.
-- **INT8-Quantisierung verschlechtert DE-Qualitaet**: Mitigation: A/B Test mit 20 Queries auf deutschem Content. Falls >20% Quality-Loss: FP16 (~250MB) statt INT8.
+- **Electron Runtime Detection**: transformers.js kann Electron als Node.js erkennen und suboptimales Backend waehlen. Mitigation: WASM-Backend explizit forcieren via `env` Config.
+- **WASM Memory Limits**: INT8-Modell (~23MB) passt problemlos. FP32 (~90MB) koennte auf aelteren Geraeten eng werden. Mitigation: INT8 als Default.
+- **Package-Updates**: transformers.js wird aktiv entwickelt, API kann sich aendern. Mitigation: Version pinnen.
 
 ## Implementation Notes
 
-### Modell-Download & Storage
+### Dependency
 
-```
-~/.obsidian-agent/models/
-  bge-reranker-v2-m3-int8/
-    model.onnx          (~125MB)
-    tokenizer.json       (~2MB)
-    config.json
+```bash
+npm install @huggingface/transformers
 ```
 
-Download via Obsidians `requestUrl` (Review-Bot-konform, kein `fetch()`).
-Mit Progress-Callback fuer UI-Anzeige.
+### Modell-Storage
+
+```
+Option A: Im Plugin-Bundle (esbuild kopiert ONNX-Dateien)
+  {vault}/.obsidian/plugins/obsilo-agent/models/ms-marco-MiniLM-L-6-v2-int8/
+
+Option B: Lazy Download nach ~/.obsidian-agent/models/
+  Download via requestUrl (Review-Bot-konform)
+```
+
+Empfehlung: **Option A** (Bundle) wegen der kleinen Groesse (~23MB).
 
 ### Inference-Pipeline
 
 ```typescript
-class RerankerService {
-    private session: ort.InferenceSession | null = null;
+import { AutoModelForSequenceClassification, AutoTokenizer, env } from '@huggingface/transformers';
 
-    async initialize(): Promise<void> {
-        if (!this.isModelDownloaded()) return;  // Graceful: kein Modell = kein Reranking
+// Force WASM backend (avoid Electron detection issues)
+env.backends.onnx.wasm.numThreads = 4;
+
+class RerankerService {
+    private model: AutoModelForSequenceClassification | null = null;
+    private tokenizer: AutoTokenizer | null = null;
+
+    async loadModel(): Promise<void> {
         const modelPath = this.getModelPath();
-        this.session = await ort.InferenceSession.create(modelPath);
+        this.tokenizer = await AutoTokenizer.from_pretrained(modelPath);
+        this.model = await AutoModelForSequenceClassification.from_pretrained(modelPath);
     }
 
-    async rerank(query: string, candidates: SearchResult[]): Promise<SearchResult[]> {
-        if (!this.session) return candidates;  // Fallback: unveraenderte Reihenfolge
+    async rerank(query: string, candidates: RerankCandidate[]): Promise<RerankResult[]> {
+        if (!this.model || !this.tokenizer) return candidates;
 
-        // Tokenize query+chunk Paare
-        const pairs = candidates.map(c => [query, c.text]);
-        const inputs = this.tokenize(pairs);
+        const scores: number[] = [];
+        for (const c of candidates) {
+            const inputs = await this.tokenizer(query, { text_pair: c.text, padding: true, truncation: true });
+            const output = await this.model(inputs);
+            scores.push(output.logits.data[0]);
+        }
 
-        // Inference
-        const output = await this.session.run(inputs);
-        const scores = output['logits'].data as Float32Array;
-
-        // Score zuweisen und sortieren
         return candidates
-            .map((c, i) => ({ ...c, score: scores[i] }))
-            .sort((a, b) => b.score - a.score);
+            .map((c, i) => ({ ...c, rerankScore: scores[i] }))
+            .sort((a, b) => b.rerankScore - a.rerankScore);
     }
 }
 ```
 
-### Tokenizer
-
-BGE-Reranker nutzt einen BERT-Tokenizer. Optionen:
-1. `@xenova/transformers` (JS Tokenizer, ~5MB) -- bewahrt, Electron-kompatibel
-2. Custom WordPiece Tokenizer (~500 Zeilen JS) -- leichtgewichtiger
-3. Tokenizer als WASM -- schneller, aber weitere Dependency
-
-Empfehlung: `@xenova/transformers` fuer den Tokenizer, onnxruntime-node fuer Inference. Bewahrt, gut dokumentiert.
-
 ### Settings
 
 ```typescript
-interface RerankerSettings {
-    enabled: boolean;               // default: true
-    modelName: string;              // default: 'bge-reranker-v2-m3-int8'
-    candidates: number;             // default: 20
-    autoDownload: boolean;          // default: false (User muss bestaetigen)
-}
+enableReranking: boolean;       // default: false
+rerankCandidates: number;       // default: 20
 ```
 
 ## Related Decisions
@@ -174,5 +162,6 @@ interface RerankerSettings {
 ## References
 
 - FEATURE-1504: Local Reranking
-- BGE-Reranker-v2-m3: https://huggingface.co/BAAI/bge-reranker-v2-m3
-- onnxruntime-node: https://onnxruntime.ai/docs/get-started/with-javascript/node.html
+- ms-marco-MiniLM-L-6-v2: https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2
+- @huggingface/transformers: https://huggingface.co/docs/transformers.js
+- Electron Example: https://github.com/huggingface/transformers.js-examples/tree/main/electron
