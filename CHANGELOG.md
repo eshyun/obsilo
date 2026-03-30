@@ -1,12 +1,16 @@
 # Changelog
 
-## 2.2.10
+## 2.2.12
 
-- Fixed potential document-level event listener leaks when closing UI popovers (vault file picker, tool picker) and source citation popups.
+- Fixed GitHub Actions release workflow failing on Linux by ensuring platform-specific Rollup binary packages are treated as optional.
 
 ## 2.2.11
 
 - Fixed GitHub Actions release workflow failing on Linux due to a platform-specific dev dependency.
+
+## 2.2.10
+
+- Fixed potential document-level event listener leaks when closing UI popovers (vault file picker, tool picker) and source citation popups.
 
 ## 2.2.9
 
