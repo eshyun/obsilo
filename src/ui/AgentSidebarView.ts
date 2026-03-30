@@ -1297,9 +1297,14 @@ export class AgentSidebarView extends ItemView {
         // Prepare streaming message elements (thinking → tools → response text → footer)
         // `let` so onQuestion can create fresh elements for each onboarding turn.
         let { messageEl, thinkingEl, toolsEl, contentEl, footerEl } = this.createStreamingMessageEl();
-        let accumulatedText = '';       // text accumulated during/after tool phase
+        // Text accumulated during/after tool phase.
+        // Use chunk arrays to avoid quadratic transient allocations from string concatenation
+        // during long streaming responses.
+        let accumulatedTextParts: string[] = [];
+        const getAccumulatedText = (): string => accumulatedTextParts.join('');
         let accumulatedToolContent = '';  // content written by file-writing tools (for task extraction)
-        let accumulatedThinking = '';   // full thinking text for collapse/expand
+        let accumulatedThinkingParts: string[] = [];
+        const getAccumulatedThinking = (): string => accumulatedThinkingParts.join('');
         let hasTools = false;           // have any tools been called in this task?
         let isThinking = false;         // thinking is currently active
         let activityActionCount = 0;    // number of completed tool calls (for activity badge)
@@ -1446,7 +1451,7 @@ export class AgentSidebarView extends ItemView {
                 },
                 onThinking: (chunk) => {
                     removeLoading();
-                    accumulatedThinking += chunk;
+                    accumulatedThinkingParts.push(chunk);
                     if (!isThinking) {
                         // First thinking chunk — build the collapsible section
                         isThinking = true;
@@ -1462,7 +1467,7 @@ export class AgentSidebarView extends ItemView {
                         });
                     }
                     const body = thinkingEl.querySelector<HTMLElement>('.thinking-content');
-                    if (body) body.setText(accumulatedThinking);
+                    if (body) body.setText(getAccumulatedThinking());
                     scheduleScroll();
                 },
                 onText: (chunk) => {
@@ -1481,7 +1486,7 @@ export class AgentSidebarView extends ItemView {
                             if (body) body.classList.toggle('agent-u-hidden');
                         }, { once: true });
                     }
-                    accumulatedText += chunk;
+                    accumulatedTextParts.push(chunk);
                     if (!hasTools) {
                         // Q&A streaming: append raw text directly — O(1), no re-parse.
                         // On first chunk, clear the loading state and create the container.
@@ -1764,6 +1769,7 @@ export class AgentSidebarView extends ItemView {
                     // This is critical for multi-turn flows like onboarding where
                     // onComplete only fires at the very end — the greeting text
                     // would otherwise stay invisible until the entire task finishes.
+                    const accumulatedText = getAccumulatedText();
                     if (accumulatedText.trim()) {
                         // Hide during re-render to avoid flash of raw → markdown transition
                         contentEl.classList.add('agent-u-visibility-hidden');
@@ -1778,6 +1784,7 @@ export class AgentSidebarView extends ItemView {
                     const wrappedResolve = (answer: string) => {
                         // Finalize current assistant message
                         messageEl.removeClass('message-streaming');
+                        const accumulatedText = getAccumulatedText();
                         if (accumulatedText) {
                             this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
                         }
@@ -1787,8 +1794,9 @@ export class AgentSidebarView extends ItemView {
                         // Create fresh assistant message element for the next response
                         ({ messageEl, thinkingEl, toolsEl, contentEl, footerEl } = this.createStreamingMessageEl());
                         // Reset per-turn state
-                        accumulatedText = '';
+                        accumulatedTextParts = [];
                         accumulatedToolContent = '';
+                        accumulatedThinkingParts = [];
                         hasTools = false;
                         streamingPara = null;
                         stepsBlockEl = null;
@@ -1827,7 +1835,7 @@ export class AgentSidebarView extends ItemView {
                             toolSequence: data.toolSequence,
                             toolLedger: data.toolLedger,
                             success: true,
-                            resultSummary: accumulatedText.slice(0, 300),
+                            resultSummary: getAccumulatedText().slice(0, 300),
                         };
                         this.plugin.episodicExtractor.recordEpisode(episode).then((ep) => {
                             if (ep && this.plugin.recipePromotionService) {
@@ -1871,6 +1879,7 @@ export class AgentSidebarView extends ItemView {
                     // Replace the raw streaming text with the properly formatted Markdown.
                     // This fires exactly once — giving us instant streaming + clean final output.
                     streamingPara = null;
+                    const accumulatedText = getAccumulatedText();
                     // Parse [sources] and [followups] blocks before rendering
                     let renderText = accumulatedText;
                     let parsedSources: { num: number; note: string; context: string }[] = [];
