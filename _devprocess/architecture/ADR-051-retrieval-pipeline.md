@@ -214,15 +214,22 @@ Performance: <5ms (DB Lookup)
 Parallel mit Stufe 2 ausfuehrbar
 ```
 
-### Stufe 4: RerankingStage
+### Stufe 4: RerankingStage (Implementiert: FEATURE-1504)
 
 ```
 Input:  Alle bisherigen Ergebnisse (~20 Kandidaten)
-Output: Top-K reranked (Cross-Encoder Score ersetzt/gewichtet bisherigen Score)
+Output: Top-K reranked (Cross-Encoder Score ersetzt bisherigen Score)
 
-Implementierung: ONNX Runtime mit BGE-Reranker
-Performance: <200ms auf Desktop
-Fallback: Nicht ausgefuehrt auf Mobile (Stage.enabled = false)
+Implementierung: @huggingface/transformers (WASM) mit ms-marco-MiniLM-L-6-v2 (INT8)
+  - Kein Native Addon (reines JS + WASM)
+  - Modell ~23MB, automatischer Download + Cache via transformers.js
+  - Lazy Load: Modell wird erst beim ersten rerank() geladen
+
+Key Files:
+  - src/core/knowledge/RerankerService.ts
+
+Performance: <200ms auf Desktop (WASM)
+Fallback: Nicht ausgefuehrt auf Mobile oder wenn deaktiviert
 ```
 
 ### Ergebnis-Fusion (Score-Normalisierung)

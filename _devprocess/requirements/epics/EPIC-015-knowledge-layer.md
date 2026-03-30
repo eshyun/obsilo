@@ -38,7 +38,7 @@ UNSERE LOESUNG kombiniert Vektor-Aehnlichkeit mit dem existierenden Obsidian-Gra
 | FEATURE-1501 | Enhanced Vector Retrieval | P0 | M | Implemented |
 | FEATURE-1502 | Graph Data Extraction & Expansion | P0 | M | Implemented |
 | FEATURE-1503 | Implicit Connection Discovery | P1 | M | Implemented |
-| FEATURE-1504 | Local Reranking | P1 | M | Deferred (ONNX-Ecosystem noch nicht reif genug fuer Obsidian Plugin) |
+| FEATURE-1504 | Local Reranking | P1 | M | Implemented (transformers.js WASM) |
 | FEATURE-1505 | Knowledge Data Consolidation | P1 | M | Implemented |
 | FEATURE-1506 | Implicit Connection UI | P2 | S | Implemented |
 | FEATURE-1507 | Image OCR Indexing | P3 | S | Not Started |
