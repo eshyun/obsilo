@@ -1,6 +1,6 @@
 # ADR-050: SQLite Knowledge DB (sql.js WASM)
 
-**Status:** Accepted (modified by review + implementation)
+**Status:** Accepted (modified by review + implementation, FEATURE-1505: Zwei-DB-Strategie implementiert)
 **Date:** 2026-03-29 (updated 2026-03-30)
 **Deciders:** Sebastian Hanke
 
