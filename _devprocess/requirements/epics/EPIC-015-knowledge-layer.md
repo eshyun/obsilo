@@ -42,6 +42,7 @@ UNSERE LOESUNG kombiniert Vektor-Aehnlichkeit mit dem existierenden Obsidian-Gra
 | FEATURE-1505 | Knowledge Data Consolidation | P1 | M | Implemented |
 | FEATURE-1506 | Implicit Connection UI | P2 | S | Implemented |
 | FEATURE-1507 | Image OCR Indexing | P3 | S | Not Started |
+| FEATURE-1508 | Storage Consolidation | P0 | M | Implemented |
 
 **Priority:** P0-Critical (ohne geht MVP nicht), P1-High (wichtig), P2-Medium (wertsteigernd)
 **Effort:** S (1-2 Sprints), M (3-5 Sprints), L (6+ Sprints)
