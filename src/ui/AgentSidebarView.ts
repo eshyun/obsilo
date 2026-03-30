@@ -262,14 +262,27 @@ export class AgentSidebarView extends ItemView {
             void this.autocomplete.handleInput();
         });
 
-        const handleTextareaKeydown = (e: KeyboardEvent) => {
+        const handleChatKeydown = (e: KeyboardEvent) => {
+            if (!this.textarea) return;
+            if (document.activeElement !== this.textarea) return;
+
             // Autocomplete navigation takes priority
             if (this.autocomplete.handleKeyDown(e)) return;
+
+            if (e.key === 'Escape') {
+                if (this.currentAbortController) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleStop();
+                }
+                return;
+            }
 
             if (e.key === 'Enter' || e.key === 'NumpadEnter') {
                 const sendWithEnter = this.plugin.settings.sendWithEnter ?? true;
                 if (sendWithEnter && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
+                    e.stopPropagation();
                     void this.handleSendMessage();
                 } else if (!sendWithEnter && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
@@ -279,10 +292,10 @@ export class AgentSidebarView extends ItemView {
             }
         };
 
-        // Capture-phase handler: some macOS/Electron key combos (Cmd+Enter)
-        // can be consumed by parent handlers if we only listen in bubbling.
-        this.textarea.addEventListener('keydown', handleTextareaKeydown, { capture: true });
-        this.textarea.addEventListener('keydown', handleTextareaKeydown);
+        // Capture-phase handler at document level: some macOS/Electron key combos (Cmd+Enter)
+        // can be consumed by parent handlers before reaching the textarea.
+        document.addEventListener('keydown', handleChatKeydown, { capture: true });
+        this.register(() => document.removeEventListener('keydown', handleChatKeydown, { capture: true } as AddEventListenerOptions));
 
         // Paste handler — capture images pasted from clipboard (e.g. screenshots)
         this.textarea.addEventListener('paste', (e: ClipboardEvent) => {
@@ -2819,21 +2832,39 @@ export class AgentSidebarView extends ItemView {
      * Returns cleaned text (without the block) and an array of parsed sources.
      */
     private parseSources(text: string): { cleanText: string; sources: { num: number; note: string; context: string }[] } {
-        const match = text.match(/\[sources\]\s*\n?([\s\S]*?)\[\/sources\]/);
+        const blockRe = /\[sources\]\s*\n?([\s\S]*?)(?:\[\/sources\]|$)/;
+        const match = text.match(blockRe);
         if (!match) return { cleanText: text, sources: [] };
 
-        const cleanText = text.replace(/\[sources\]\s*\n?[\s\S]*?\[\/sources\]/, '').trimEnd();
+        const cleanText = text.replace(blockRe, '').trimEnd();
         const sources: { num: number; note: string; context: string }[] = [];
 
-        for (const line of match[1].split('\n')) {
-            const lineMatch = line.trim().match(/^(\d+)\.\s+(.+?)(?:\s+[—-]+\s+(.+))?$/);
-            if (lineMatch) {
+        let autoNum = 1;
+        for (const rawLine of match[1].split('\n')) {
+            const line = rawLine.trim();
+            if (!line) continue;
+
+            // Preferred format: "1. [[Note]] — context" (numbered)
+            const numbered = line.match(/^(\d+)\.\s+(.+?)(?:\s+[—-]+\s+(.+))?$/);
+            if (numbered) {
                 sources.push({
-                    num: parseInt(lineMatch[1]),
-                    note: lineMatch[2].trim(),
-                    context: lineMatch[3]?.trim() ?? '',
+                    num: parseInt(numbered[1]),
+                    note: numbered[2].trim(),
+                    context: numbered[3]?.trim() ?? '',
                 });
+                autoNum = Math.max(autoNum, parseInt(numbered[1]) + 1);
+                continue;
             }
+
+            // Tolerate non-numbered lines (e.g., plain URLs or markdown links)
+            // Split on em dash first, then hyphen as a fallback.
+            const split = line.split(' — ');
+            const notePart = (split[0] ?? '').trim();
+            const ctxPart = split.length > 1 ? split.slice(1).join(' — ').trim() : '';
+
+            const note = notePart.length ? notePart : line;
+            const context = ctxPart;
+            sources.push({ num: autoNum++, note, context });
         }
 
         return { cleanText, sources };
@@ -2844,10 +2875,11 @@ export class AgentSidebarView extends ItemView {
      * Returns cleaned text and an array of follow-up action strings.
      */
     private parseFollowups(text: string): { cleanText: string; heading: string; followups: string[] } {
-        const match = text.match(/\[followups(?:\s+heading="([^"]*)")?\]\s*\n?([\s\S]*?)\[\/followups\]/);
+        const blockRe = /\[followups(?:\s+heading="([^"]*)")?\]\s*\n?([\s\S]*?)(?:\[\/followups\]|$)/;
+        const match = text.match(blockRe);
         if (!match) return { cleanText: text, heading: '', followups: [] };
 
-        const cleanText = text.replace(/\[followups(?:\s+heading="[^"]*")?\]\s*\n?[\s\S]*?\[\/followups\]/, '').trimEnd();
+        const cleanText = text.replace(blockRe, '').trimEnd();
         const heading = match[1] || '';
         const followups = match[2].split('\n')
             .map(line => line.replace(/^[-*]\s*/, '').trim())

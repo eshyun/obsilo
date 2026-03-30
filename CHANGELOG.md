@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.9
+
+- Fixed response export formatting for machine-readable blocks (`[sources]` / `[followups]`) to be more tolerant of malformed blocks (e.g. missing closing tags) and non-numbered source lines (e.g. plain URLs), especially when using Callout format.
+- Improved macOS keyboard shortcut reliability for sending messages when **Send with enter** is off by handling `Cmd+Enter` at a higher-priority capture stage.
+- Added `Esc` as a shortcut to cancel a running agent request while "Working..." is shown.
+
 ## 2.2.8
 
 - Added a configurable export format for machine-readable response blocks (`[sources]` / `[followups]`) when using **Create note from response** and **Insert at cursor** (Settings → Advanced → Interface → Response blocks format).

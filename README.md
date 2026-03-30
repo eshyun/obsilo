@@ -157,6 +157,10 @@ If **Send with enter** is turned **off**, you can send a message with:
 - `Ctrl+Enter`
 - `Cmd+Enter` (macOS)
 
+While a request is running ("Working..."), you can cancel it with:
+
+- `Esc`
+
 ### Supported Providers
 
 | Provider | Type | Models |

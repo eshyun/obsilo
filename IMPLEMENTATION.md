@@ -28,6 +28,9 @@ When using **Create note from response**, the plugin now converts these blocks i
 
 - `AgentSidebarView` continues to parse `[sources]` and `[followups]` for the chat UI.
 - For note export only, `formatResponseForNote()` re-parses the raw response text and renders the configured Markdown blocks.
+- The export parser is intentionally tolerant:
+  - It accepts missing closing tags (`[/sources]`, `[/followups]`) by treating the block as running to end-of-text.
+  - It accepts non-numbered source lines (e.g., plain URLs) and auto-numbers them for rendering.
 
 ## Keyboard shortcut: macOS Cmd+Enter when "Send with enter" is off
 
@@ -40,7 +43,11 @@ When `sendWithEnter` is disabled, messages should be sent with `Ctrl+Enter` on W
 The textarea keydown handler now:
 
 - Recognizes both `Enter` and `NumpadEnter`
-- Handles keydown in capture phase as well as bubbling
+- Handles keydown at document level in the capture phase (only when the textarea is focused)
 - Calls `stopPropagation()` when triggering send in `sendWithEnter = false` mode
+
+### Cancel shortcut
+
+While a request is in-flight ("Working..." / stop button visible), pressing `Esc` triggers `handleStop()` which aborts the current request and restores the input state.
 
 This makes `Cmd+Enter` more reliable in Electron/Obsidian environments where parent handlers may consume the event.
