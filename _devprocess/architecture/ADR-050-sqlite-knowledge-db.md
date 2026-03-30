@@ -107,12 +107,12 @@ sql.js loest alle identifizierten Probleme gleichzeitig: Skalierung (SQLite hand
 
 ## Implementation Notes
 
-### DB Schema (Initial)
+### DB Schema (aktuell: v4)
 
 ```sql
 -- Schema Version
 CREATE TABLE schema_meta (version INTEGER NOT NULL);
-INSERT INTO schema_meta VALUES (1);
+INSERT INTO schema_meta VALUES (4);
 
 -- Vektoren (ersetzt vectra)
 CREATE TABLE vectors (
@@ -122,6 +122,7 @@ CREATE TABLE vectors (
     text TEXT NOT NULL,
     vector BLOB NOT NULL,           -- Float32Array als BLOB
     mtime INTEGER NOT NULL,
+    enriched INTEGER NOT NULL DEFAULT 0,  -- v2: Two-Pass Contextual Enrichment (FEATURE-1501)
     UNIQUE(path, chunk_index)
 );
 CREATE INDEX idx_vectors_path ON vectors(path);

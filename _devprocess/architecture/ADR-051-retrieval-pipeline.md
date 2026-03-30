@@ -1,7 +1,7 @@
 # ADR-051: 4-Stufen Retrieval-Pipeline
 
-**Status:** Proposed
-**Date:** 2026-03-29
+**Status:** Accepted (updated 2026-03-30: Two-Pass Background Enrichment)
+**Date:** 2026-03-29 (updated 2026-03-30)
 **Deciders:** Sebastian Hanke
 
 ## Context
@@ -123,34 +123,89 @@ class RetrievalPipeline {
 }
 ```
 
+### Stufe 0: Contextual Enrichment (Two-Pass Background)
+
+```
+Implementierung: Two-Pass-System (Entscheidung 2026-03-30)
+
+Problem:  Single-Pass (Haiku-Call pro Chunk im buildIndex-Loop) machte den
+          Full Build von ~5 Min auf ~12h langsam -- unakzeptabel.
+
+Loesung:  Enrichment als separater Background-Pass.
+
+Pass 1 (buildIndex -- schnell, ~5 Min):
+  Chunk-Text -> Embedding (Qwen) -> DB (enriched=0)
+  Index ist sofort nutzbar fuer Suche.
+
+Pass 2 (runBackgroundEnrichment -- automatisch im Hintergrund):
+  getUnenrichedChunks(WHERE enriched=0) -> Haiku-Prefix -> Re-Embedding -> DB (enriched=1)
+  Suche funktioniert durchgehend, Qualitaet verbessert sich ueber Zeit.
+
+Steuerung:
+  - Startet automatisch nach buildIndex() wenn Contextual Retrieval aktiviert
+  - Startet automatisch nach Plugin-Reload wenn unenriched Chunks existieren
+  - Contextual Retrieval Toggle steuert Start/Stop
+  - Resumable: Crash/Cancel verliert max 1 Chunk (Query: WHERE enriched=0)
+  - Model-Wechsel: Reset enriched=0 + Neustart
+
+Schema: vectors.enriched INTEGER NOT NULL DEFAULT 0 (Schema v2)
+
+Technik: Anthropic Contextual Retrieval
+  1. Pro Chunk: LLM-Call generiert 2-3 Saetze Kontext-Prefix
+  2. Prefix + Original-Text werden zusammen embeddet
+  3. Enriched Text wird als 'text' in vectors-Tabelle gespeichert
+
+Beispiel:
+  Original: "Q3 revenue grew 20% year-over-year."
+  Prefix:   "From Acme Corp 2025 Annual Report, Financial Highlights section."
+  Enriched: "From Acme Corp 2025 Annual Report, Financial Highlights section.\n\nQ3 revenue grew 20% year-over-year."
+  -> Embedding enthaelt semantisch "Acme Corp" + "Annual Report" + "Q3 Revenue"
+
+Kosten: ~$0.15-1.50 einmalig fuer 800 Notes (2.400 Chunks mit Haiku)
+        ~$0.001 pro inkrementelles File-Update
+LLM:    Konfigurierbares Modell (default: guenstigstes verfuegbares)
+```
+
 ### Stufe 1: VectorSearchStage
 
 ```
 Input:  queryVector
 Output: Top-N Chunks sortiert nach Cosine-Similarity
-        + Adjacent Chunks (chunk-1, chunk+1) pro Treffer
+        + Score-Gated Adjacent Chunks (nur wenn similarity > threshold)
         + Multi-Chunk pro Datei (bis zu 3)
+
+Adjacent Chunks: Nachbar-Chunks werden nur mitgeliefert wenn ihre
+  Cosine-Similarity zum Query-Vektor ueber einem Threshold liegt (default 0.3).
+  Verhindert irrelevanten Kontext bei Thema-Wechseln innerhalb einer Datei.
 
 Implementierung: Bulk-Load Vektoren aus SQLite, JS Cosine-Similarity
 Performance: <50ms fuer 6K Vektoren
 ```
 
-### Stufe 2: GraphExpansionStage
+### Stufe 2: GraphExpansionStage (Implementiert: FEATURE-1502)
 
 ```
 Input:  Stufe-1 Ergebnisse (Pfade der Treffer)
-Output: Stufe-1 + erweiterte Notes (1-2 Hops ueber Wikilinks/MOC)
-        Jeder erweiterte Treffer hat context: "via [[Link]]"
+Output: Stufe-1 + erweiterte Notes (1-3 Hops ueber Wikilinks/MOC)
+        Jeder erweiterte Treffer hat context: "via [[Link]] (PropertyName)"
 
-Implementierung: SQL Query auf edges-Tabelle, BFS mit max 2 Hops
+Implementierung: GraphStore.getNeighbors() -- BFS auf edges-Tabelle, bidirektional
+  - Body-Wikilinks: link_type='body'
+  - MOC-Properties: link_type='frontmatter', property_name='Themen'/'Konzepte'/etc.
+  - Konfigurierbar: 1-3 Hops, MOC-Property-Namen in Settings
+
+Key Files:
+  - src/core/knowledge/GraphStore.ts (BFS + CRUD)
+  - src/core/knowledge/GraphExtractor.ts (metadataCache -> edges/tags)
+
 Performance: <10ms (DB Lookup)
 Parallel mit Stufe 3 ausfuehrbar
 ```
 
-### Stufe 3: ImplicitConnectionStage
+### Stufe 3: ImplicitConnectionStage (Implementiert: FEATURE-1503)
 
 ```
-Input:  Stufe-1 Ergebnisse (Pfade der Treffer)
+Input:  Stufe-1+2 Ergebnisse (Pfade der Treffer)
 Output: Stufe-1+2 + implizit verwandte Notes (hohe Similarity, kein Link)
         Jeder Treffer hat source: 'implicit', score aus implicit_edges
 
@@ -188,9 +243,14 @@ const WEIGHTS = {
 
 ```typescript
 interface KnowledgeLayerSettings {
+    // Stufe 0 (Index-Zeit)
+    enableContextualRetrieval: boolean; // default: true
+    contextualModel: string;            // default: guenstigstes Embedding-Provider-Modell
+
     // Stufe 1
     enableSemanticIndex: boolean;       // existiert bereits
     adjacentChunks: number;             // default: 1 (chunk-1 + chunk+1)
+    adjacentThreshold: number;          // default: 0.3 (min similarity fuer Adjacent)
     maxChunksPerFile: number;           // default: 3
 
     // Stufe 2

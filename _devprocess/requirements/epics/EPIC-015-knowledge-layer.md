@@ -34,13 +34,14 @@ UNSERE LOESUNG kombiniert Vektor-Aehnlichkeit mit dem existierenden Obsidian-Gra
 
 | Feature ID | Name | Priority | Effort | Status |
 |------------|------|----------|--------|--------|
-| FEATURE-1500 | SQLite Knowledge DB | P0 | L | Not Started |
-| FEATURE-1501 | Enhanced Vector Retrieval | P0 | M | Not Started |
-| FEATURE-1502 | Graph Data Extraction & Expansion | P0 | M | Not Started |
-| FEATURE-1503 | Implicit Connection Discovery | P1 | M | Not Started |
+| FEATURE-1500 | SQLite Knowledge DB | P0 | L | Implemented |
+| FEATURE-1501 | Enhanced Vector Retrieval | P0 | M | Implemented |
+| FEATURE-1502 | Graph Data Extraction & Expansion | P0 | M | Implemented |
+| FEATURE-1503 | Implicit Connection Discovery | P1 | M | Implemented |
 | FEATURE-1504 | Local Reranking | P1 | M | Not Started |
 | FEATURE-1505 | Knowledge Data Consolidation | P1 | M | Not Started |
 | FEATURE-1506 | Implicit Connection UI | P2 | S | Not Started |
+| FEATURE-1507 | Image OCR Indexing | P3 | S | Not Started |
 
 **Priority:** P0-Critical (ohne geht MVP nicht), P1-High (wichtig), P2-Medium (wertsteigernd)
 **Effort:** S (1-2 Sprints), M (3-5 Sprints), L (6+ Sprints)
