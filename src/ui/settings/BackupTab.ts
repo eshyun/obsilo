@@ -3,6 +3,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 import type { GlobalFileService } from '../../core/storage/GlobalFileService';
 import { t } from '../../i18n';
+import JSZip from 'jszip';
 
 // ── Backup category definitions ──────────────────────────────────────────────
 
@@ -255,10 +256,13 @@ export class BackupTab {
         btn.setText(t('settings.backup.exporting'));
 
         try {
+            const exportedAt = new Date().toISOString();
+
+            const zip = new JSZip();
             const manifest: BackupManifest = {
                 format: 'obsilo-backup',
                 version: BACKUP_VERSION,
-                exportedAt: new Date().toISOString(),
+                exportedAt,
                 categories: {},
             };
 
@@ -295,20 +299,37 @@ export class BackupTab {
                 }
 
                 manifest.categories[cat.id] = { files };
-                totalFiles += Object.keys(files).length;
+
+                for (const [path, entry] of Object.entries(files)) {
+                    zip.file(`categories/${cat.id}/${path}`, entry.content);
+                    totalFiles++;
+                }
             }
 
-            const json = JSON.stringify(manifest, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
+            zip.file('manifest.json', JSON.stringify({
+                format: manifest.format,
+                version: manifest.version,
+                exportedAt: manifest.exportedAt,
+                categories: Object.fromEntries(
+                    Object.entries(manifest.categories).map(([catId, data]) => [catId, { files: Object.keys(data.files) }])
+                ),
+            }, null, 2));
+
+            const blob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 },
+            });
+
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().split('T')[0];
-            a.download = `obsilo-backup-${date}.json`;
+            a.download = `obsilo-backup-${date}.zip`;
             a.click();
             URL.revokeObjectURL(url);
 
-            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(json.length) }));
+            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(blob.size) }));
         } catch (e) {
             new Notice(t('settings.backup.exportFailed', { error: (e as Error).message }));
         } finally {
@@ -335,11 +356,66 @@ export class BackupTab {
     private pickImportFile(): void {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json,application/json';
+        input.accept = '.json,.zip,application/json,application/zip';
         input.addEventListener('change', () => { void (async () => {
             const file = input.files?.[0];
             if (!file) return;
             try {
+                const isZip = file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip';
+                if (isZip) {
+                    const buf = await file.arrayBuffer();
+                    const zip = await JSZip.loadAsync(buf);
+                    const manifestFile = zip.file('manifest.json');
+                    if (!manifestFile) {
+                        new Notice(t('settings.backup.invalidFile'));
+                        return;
+                    }
+
+                    const manifestText = await manifestFile.async('string');
+                    const parsedManifest: unknown = JSON.parse(manifestText);
+                    if (typeof parsedManifest !== 'object' || parsedManifest === null || Array.isArray(parsedManifest)) {
+                        new Notice(t('settings.backup.invalidFile'));
+                        return;
+                    }
+                    const manObj = parsedManifest as Record<string, unknown>;
+                    if (manObj.format !== 'obsilo-backup' || typeof manObj.version !== 'number') {
+                        new Notice(t('settings.backup.invalidFile'));
+                        return;
+                    }
+
+                    const pending: BackupManifest = {
+                        format: 'obsilo-backup',
+                        version: manObj.version as number,
+                        exportedAt: typeof manObj.exportedAt === 'string' ? (manObj.exportedAt as string) : '',
+                        categories: {},
+                    };
+
+                    const jobs: Promise<void>[] = [];
+                    zip.forEach((relPath, entry) => {
+                        if (entry.dir) return;
+                        if (!relPath.startsWith('categories/')) return;
+                        const rest = relPath.slice('categories/'.length);
+                        const slash = rest.indexOf('/');
+                        if (slash <= 0) return;
+                        const catId = rest.slice(0, slash);
+                        const filePath = rest.slice(slash + 1);
+                        if (!catId || !filePath) return;
+                        if (!pending.categories[catId]) pending.categories[catId] = { files: {} };
+                        jobs.push(entry.async('string').then((content) => {
+                            pending.categories[catId].files[filePath] = { content };
+                        }));
+                    });
+                    await Promise.all(jobs);
+
+                    _pendingImport = pending;
+                    _importToggles = {};
+                    for (const catId of Object.keys(_pendingImport.categories)) {
+                        _importToggles[catId] = true;
+                    }
+                    this.rerender();
+                    return;
+                }
+
                 const text = await file.text();
                 const parsed: unknown = JSON.parse(text);
 

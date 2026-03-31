@@ -113,7 +113,7 @@ export class AgentSidebarView extends ItemView {
     }
 
     getIcon(): string {
-        return 'obsilo-agent';
+        return 'bot';
     }
 
     async onOpen(): Promise<void> {

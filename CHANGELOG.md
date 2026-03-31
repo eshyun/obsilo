@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.15
+
+- Unified agent command naming to "Obsilo agent" for consistency in the command palette.
+- Fixed the agent sidebar tab icon not rendering by switching to a built-in icon key.
+- Fixed Advanced → Backup → Export backup failing with "Invalid string length" by exporting backups as a ZIP (and allowing ZIP import).
+
 ## 2.2.14
 
 - Fixed an issue where the agent sidebar could open multiple tabs due to repeated activation calls creating multiple leaves; activation is now serialized and extra sidebar leaves are detached.

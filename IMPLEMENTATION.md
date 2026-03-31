@@ -10,6 +10,31 @@ The agent sidebar view (`VIEW_TYPE_AGENT_SIDEBAR`) can be activated from multipl
 
 `ObsidianAgentPlugin.activateView()` is now serialized with an in-flight promise guard and ensures a single primary leaf is kept (preferring an existing right-split leaf). Any extra leaves of the same view type are detached.
 
+## UI: agent sidebar tab icon
+
+### Background
+
+Obsidian view tabs render icons by icon key. If the view returns an unregistered/custom icon key, the tab icon may not render.
+
+### Change
+
+`AgentSidebarView.getIcon()` uses a built-in icon key (`bot`) to ensure the sidebar tab icon is always visible.
+
+## Backup: export/import format
+
+### Background
+
+The backup UI originally exported a single JSON file containing the full contents of selected categories. Large vaults (especially semantic index data) can produce very large JSON strings which may throw `Invalid string length` during `JSON.stringify()`.
+
+### Change
+
+Backups are exported as a ZIP archive:
+
+- `manifest.json` (metadata + file list per category)
+- `categories/<categoryId>/<relativePath>` (one file per exported file)
+
+Import supports both legacy `.json` backups and the new `.zip` backup format.
+
 ## Response export: `[sources]` / `[followups]` formatting
 
 ### Background

@@ -139,6 +139,13 @@ This plugin makes network requests depending on your configuration:
 | **Interface** | Sidebar position, keyboard shortcuts, context injection |
 | **Logs** | View the operation audit trail |
 
+### Backup export
+
+You can export and import plugin backups in Settings → Obsilo Agent → Advanced → Backup.
+
+- **Export** downloads a `.zip` backup (recommended for large vaults).
+- **Import** supports both `.zip` backups and legacy `.json` backups.
+
 ### Exporting responses to notes
 
 When you click **Create note from response**, the plugin can convert machine-readable blocks at the end of an agent response into regular Markdown so they render correctly in the new note.

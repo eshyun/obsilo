@@ -536,13 +536,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 4. Register commands
         this.addCommand({
             id: 'open-agent-sidebar',
-            name: 'Open agent sidebar',
+            name: 'Obsilo agent',
             callback: () => this.activateView()
         });
 
         this.addCommand({
             id: 'open-agent-sidebar-focus',
-            name: 'Open agent sidebar and focus message input',
+            name: 'Obsilo agent: Focus message input',
             hotkeys: [
                 {
                     modifiers: ['Mod'],
