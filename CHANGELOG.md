@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+## 2.2.13
+
+- Added a default hotkey (`Cmd+L` / `Ctrl+L`) to open the agent sidebar and focus the message input; if already focused, it starts a new session.
+- Added an optional desktop-only global hotkey (Electron `globalShortcut`) for opening/focusing the agent sidebar when Obsidian hotkeys conflict.
+- When triggering the sidebar from a note with selected text, the selection is queued and injected into the next user message as hidden `<context>`.
+
 ## 2.2.12
 
 - Fixed GitHub Actions release workflow failing on Linux by ensuring platform-specific Rollup binary packages are treated as optional.

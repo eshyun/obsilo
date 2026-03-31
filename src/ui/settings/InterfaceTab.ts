@@ -79,6 +79,29 @@ export class InterfaceTab {
             );
 
         new Setting(containerEl)
+            .setName('Global hotkey (desktop)')
+            .setDesc('Register a system-wide hotkey to open the agent sidebar (requires Obsidian Desktop restart on some systems).')
+            .addToggle((tog) =>
+                tog.setValue(this.plugin.settings.globalHotkeyEnabled ?? false).onChange(async (v) => {
+                    this.plugin.settings.globalHotkeyEnabled = v;
+                    await this.plugin.saveSettings();
+                    new Notice('Global hotkey updated. If it does not work immediately, restart Obsidian Desktop.');
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Global hotkey accelerator')
+            .setDesc('Electron accelerator string, e.g. CommandOrControl+L')
+            .addText((txt) =>
+                txt.setPlaceholder('CommandOrControl+L')
+                    .setValue(this.plugin.settings.globalHotkeyAccelerator ?? 'CommandOrControl+L')
+                    .onChange(async (v) => {
+                        this.plugin.settings.globalHotkeyAccelerator = v.trim();
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        new Setting(containerEl)
             .setName(t('settings.interface.includeTime'))
             .setDesc(t('settings.interface.includeTimeDesc'))
             .addToggle((tog) =>

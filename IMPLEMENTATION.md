@@ -52,6 +52,25 @@ While a request is in-flight ("Working..." / stop button visible), pressing `Esc
 
 This makes `Cmd+Enter` more reliable in Electron/Obsidian environments where parent handlers may consume the event.
 
+## Keyboard shortcut: open agent sidebar and focus input (Cmd+L)
+
+### Behavior
+
+The plugin registers a command with a default hotkey (`Mod+L`):
+
+- Opens/reveals the agent sidebar view
+- Focuses the message input textarea
+- If the sidebar is already open and the textarea is already focused, it starts a new session (clears the current conversation)
+
+### Selected text context
+
+If the hotkey is triggered while a Markdown editor has selected text, the selection is queued and injected into the **next** user message sent to the LLM as a `<context>` block.
+
+This selection context is **one-shot**:
+
+- It is consumed on the next send
+- It is not rendered as a user message bubble (it only affects the message payload)
+
 ## UI cleanup: prevent document-level event listener leaks
 
 ### Background

@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl, MarkdownView } from 'obsidian';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -108,6 +108,8 @@ export default class ObsidianAgentPlugin extends Plugin {
     pluginBuilder: PluginBuilder | null = null;
     pluginReloader: PluginReloader | null = null;
 
+    private globalHotkeyRegisteredAccelerator: string | null = null;
+
     // ── Chat-Linking: deferred frontmatter stamping (ADR-022) ────────────
     /** Paths written by the agent, grouped by conversationId. Flushed on conversation end. */
     pendingChatLinks = new Map<string, Set<string>>();
@@ -158,6 +160,28 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
     }
 
+    private async openAgentSidebarAndFocus(): Promise<void> {
+        const activeMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const selection = activeMarkdownView?.editor?.getSelection?.() ?? '';
+
+        await this.activateView();
+
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+        if (leaves.length === 0) return;
+
+        const view = leaves[0].view as AgentSidebarView;
+
+        if (selection.trim()) {
+            view.queueSelectionContext(selection);
+        }
+
+        if (view.isMessageInputFocused()) {
+            view.startNewSession();
+        }
+
+        view.focusMessageInput();
+    }
+
     /** Remove pending chat-link paths for a conversation (called on conversation clear/switch). */
     clearPendingChatLinks(conversationId: string): void {
         this.pendingChatLinks.delete(conversationId);
@@ -196,6 +220,9 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // 1. Load settings (merges global + vault-local)
         await this.loadSettings();
+
+        // Optional: register a system-wide hotkey (Electron desktop only)
+        this.registerGlobalHotkeyFromSettings();
 
         // 1b. Initialize i18n with user's language preference
         await initI18n(this.settings.language);
@@ -512,6 +539,18 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => this.activateView()
         });
 
+        this.addCommand({
+            id: 'open-agent-sidebar-focus',
+            name: 'Open agent sidebar and focus message input',
+            hotkeys: [
+                {
+                    modifiers: ['Mod'],
+                    key: 'L',
+                },
+            ],
+            callback: () => void this.openAgentSidebarAndFocus(),
+        });
+
         // Development: Test tool execution
         this.addCommand({
             id: 'test-tool-execution',
@@ -543,6 +582,22 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     onunload(): void {
         console.debug('Unloading Obsilo Agent plugin');
+
+        // Unregister any global hotkey
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron only available in Obsidian desktop renderer
+            const electron = require('electron');
+            const gs = electron?.globalShortcut ?? electron?.remote?.globalShortcut;
+            if (gs && this.globalHotkeyRegisteredAccelerator) {
+                if (gs.isRegistered?.(this.globalHotkeyRegisteredAccelerator)) {
+                    gs.unregister(this.globalHotkeyRegisteredAccelerator);
+                }
+                this.globalHotkeyRegisteredAccelerator = null;
+            }
+        } catch {
+            // ignore
+        }
+
         // Fire-and-forget async cleanup (Plugin API expects synchronous return)
         void (async () => {
             // Flush any pending chat-links before shutdown
@@ -770,6 +825,53 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
             await this.saveData(this.encryptSettingsForSave(this.settings));
         }
+
+        // Ensure required defaults exist for newly added settings
+        this.settings.globalHotkeyEnabled = this.settings.globalHotkeyEnabled ?? DEFAULT_SETTINGS.globalHotkeyEnabled;
+        this.settings.globalHotkeyAccelerator = this.settings.globalHotkeyAccelerator ?? DEFAULT_SETTINGS.globalHotkeyAccelerator;
+    }
+
+    private registerGlobalHotkeyFromSettings(): void {
+        let electron: any;
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron only available in Obsidian desktop renderer
+            electron = require('electron');
+        } catch {
+            electron = null;
+        }
+
+        const gs = electron?.globalShortcut ?? electron?.remote?.globalShortcut;
+        if (!gs) return;
+
+        // Unregister previous accelerator if needed
+        if (this.globalHotkeyRegisteredAccelerator) {
+            try {
+                if (gs.isRegistered?.(this.globalHotkeyRegisteredAccelerator)) {
+                    gs.unregister(this.globalHotkeyRegisteredAccelerator);
+                }
+            } catch {
+                // ignore
+            }
+            this.globalHotkeyRegisteredAccelerator = null;
+        }
+
+        if (!this.settings.globalHotkeyEnabled) return;
+
+        const accel = (this.settings.globalHotkeyAccelerator || '').trim();
+        if (!accel) return;
+
+        try {
+            const ok = gs.register(accel, () => {
+                void this.openAgentSidebarAndFocus();
+            });
+            if (ok) {
+                this.globalHotkeyRegisteredAccelerator = accel;
+            } else {
+                console.warn('[GlobalHotkey] Failed to register accelerator:', accel);
+            }
+        } catch (e) {
+            console.warn('[GlobalHotkey] Error registering accelerator:', accel, e);
+        }
     }
 
     /**
@@ -935,6 +1037,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.syncBridge?.pushToVault().catch((e) =>
             console.warn('[Plugin] SyncBridge push failed (non-fatal):', e)
         );
+        this.registerGlobalHotkeyFromSettings();
         this.initApiHandler();
     }
 

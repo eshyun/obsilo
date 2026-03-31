@@ -152,6 +152,16 @@ When you click **Create note from response**, the plugin can convert machine-rea
 
 ### Keyboard shortcuts
 
+You can open the agent sidebar and focus the message input with:
+
+- `Cmd+L` (macOS) / `Ctrl+L` (Windows/Linux) — configurable in Obsidian Settings → Hotkeys
+
+If the shortcut conflicts with Obsidian or other plugins, you can enable a system-wide global hotkey in:
+
+- Settings → Obsilo Agent → Interface → **Global hotkey (desktop)**
+
+If the agent sidebar is already open and the message input is already focused, this shortcut starts a new session.
+
 If **Send with enter** is turned **off**, you can send a message with:
 
 - `Ctrl+Enter`

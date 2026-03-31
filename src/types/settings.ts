@@ -548,6 +548,10 @@ export interface ObsidianAgentSettings {
     autoAddActiveFileContext: boolean;
     /** Press Enter to send (Shift+Enter for newline). When false, Ctrl/Cmd+Enter sends. */
     sendWithEnter: boolean;
+    /** Enable Electron globalShortcut for opening the agent sidebar (desktop only). */
+    globalHotkeyEnabled: boolean;
+    /** Electron accelerator string for the global hotkey (e.g. CommandOrControl+L). */
+    globalHotkeyAccelerator: string;
     /** Format to use when exporting agent responses to a new note (Create note from response). */
     noteResponseBlocksFormat: 'callout' | 'headings' | 'details' | 'codefence' | 'footer';
     /** Inject current date and time into the system prompt */
@@ -808,6 +812,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     noteResponseBlocksFormat: 'callout',
     autoAddActiveFileContext: true,
     sendWithEnter: true,
+    globalHotkeyEnabled: false,
+    globalHotkeyAccelerator: 'CommandOrControl+L',
     includeCurrentTimeInContext: true,
     showContextProgress: false,
     rulesToggles: {},

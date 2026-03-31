@@ -68,6 +68,8 @@ export class AgentSidebarView extends ItemView {
     private lastMarkdownView: MarkdownView | null = null;
     // Hidden message flag — when true, skip user bubble rendering but still send to LLM
     private nextMessageHidden = false;
+    // One-shot context injected into the NEXT user message (set by hotkey command)
+    private pendingSelectionContext: string | null = null;
     // Onboarding key-setup state machine (chat-based flow, no LLM needed)
     private onboardingKeyState: 'awaiting_choice' | 'awaiting_key_free' | 'awaiting_provider' | 'awaiting_key_own' | 'testing' | null = null;
     private onboardingSelectedProvider: { label: string; provider: ProviderType; model: string } | null = null;
@@ -175,6 +177,23 @@ export class AgentSidebarView extends ItemView {
         this.enqueueMemoryExtraction();
         this.attachments.clear();
         return Promise.resolve();
+    }
+
+    focusMessageInput(): void {
+        this.textarea?.focus();
+    }
+
+    isMessageInputFocused(): boolean {
+        return !!this.textarea && document.activeElement === this.textarea;
+    }
+
+    startNewSession(): void {
+        this.clearConversation();
+    }
+
+    queueSelectionContext(text: string): void {
+        const trimmed = text.trim();
+        this.pendingSelectionContext = trimmed ? trimmed : null;
     }
 
     private buildHeader(container: HTMLElement): void {
@@ -1214,8 +1233,11 @@ export class AgentSidebarView extends ItemView {
             ? this.app.workspace.getActiveFile()
             : null;
         const vaultCtx = this.buildVaultContext();
+        const selectionCtx = this.pendingSelectionContext;
+        this.pendingSelectionContext = null;
         const textWithContext = text
             + (activeFile ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>` : '')
+            + (selectionCtx ? `\n\n<context>\nSelected text in editor:\n${selectionCtx}\n</context>` : '')
             + (vaultCtx ? `\n\n${vaultCtx}` : '');
 
         // Build ContentBlock[] when there are attachments, plain string otherwise

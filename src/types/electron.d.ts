@@ -15,5 +15,14 @@ declare module 'electron' {
     const safeStorage: SafeStorage | undefined;
     const remote: { safeStorage?: SafeStorage } | undefined;
 
-    export default { safeStorage, remote };
+    interface GlobalShortcut {
+        register(accelerator: string, callback: () => void): boolean;
+        unregister(accelerator: string): void;
+        unregisterAll(): void;
+        isRegistered(accelerator: string): boolean;
+    }
+
+    const globalShortcut: GlobalShortcut | undefined;
+
+    export default { safeStorage, remote, globalShortcut };
 }
