@@ -1,5 +1,15 @@
 # Implementation Notes
 
+## UI: prevent duplicate agent sidebar tabs
+
+### Background
+
+The agent sidebar view (`VIEW_TYPE_AGENT_SIDEBAR`) can be activated from multiple entry points (startup `onLayoutReady`, ribbon icon, commands, deep-links, settings actions). If these activation calls overlap, `workspace.getLeavesOfType()` can transiently return 0 or return multiple leaves, causing multiple sidebar tabs (leaves) to accumulate.
+
+### Change
+
+`ObsidianAgentPlugin.activateView()` is now serialized with an in-flight promise guard and ensures a single primary leaf is kept (preferring an existing right-split leaf). Any extra leaves of the same view type are detached.
+
 ## Response export: `[sources]` / `[followups]` formatting
 
 ### Background

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2.2.14
+
+- Fixed an issue where the agent sidebar could open multiple tabs due to repeated activation calls creating multiple leaves; activation is now serialized and extra sidebar leaves are detached.
+
 ## 2.2.13
 
 - Added a default hotkey (`Cmd+L` / `Ctrl+L`) to open the agent sidebar and focus the message input; if already focused, it starts a new session.

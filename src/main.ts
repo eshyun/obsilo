@@ -79,6 +79,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     semanticIndex: SemanticIndexService | null = null;
     private autoIndexDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private warmupFired = false;
+    private activateViewInFlight: Promise<void> | null = null;
     /** Session flags for cross-tool coordination (e.g. plan_presentation → create_pptx gate). */
     sessionFlags = new Set<string>();
     private cloudProviderWarningShown = false;
@@ -1106,21 +1107,37 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Activate the agent sidebar view
      */
     async activateView() {
-        const { workspace } = this.app;
+        if (this.activateViewInFlight) return this.activateViewInFlight;
 
-        let leaf: WorkspaceLeaf | null = null;
-        const leaves = workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+        this.activateViewInFlight = (async () => {
+            const { workspace } = this.app;
 
-        if (leaves.length > 0) {
-            const existing = leaves[0];
-            // If the leaf ended up in the wrong sidebar (e.g. left), migrate it to the right
+            let leaf: WorkspaceLeaf | null = null;
+            const leaves = workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
             const rightSplit = workspace.rightSplit;
-            const isInRight = rightSplit && existing.getRoot() === rightSplit;
-            if (isInRight) {
-                leaf = existing;
+
+            const rightLeaf = rightSplit ? leaves.find((l) => l.getRoot() === rightSplit) : undefined;
+            const primary = rightLeaf ?? leaves[0];
+
+            if (primary) {
+                for (const l of leaves) {
+                    if (l !== primary) l.detach();
+                }
+
+                const isInRight = rightSplit && primary.getRoot() === rightSplit;
+                if (isInRight) {
+                    leaf = primary;
+                } else {
+                    primary.detach();
+                    leaf = workspace.getRightLeaf(false);
+                    if (leaf) {
+                        await leaf.setViewState({
+                            type: VIEW_TYPE_AGENT_SIDEBAR,
+                            active: true,
+                        });
+                    }
+                }
             } else {
-                // Detach from wrong location and recreate in right sidebar
-                existing.detach();
                 leaf = workspace.getRightLeaf(false);
                 if (leaf) {
                     await leaf.setViewState({
@@ -1129,27 +1146,21 @@ export default class ObsidianAgentPlugin extends Plugin {
                     });
                 }
             }
-        } else {
-            // Create new leaf in right sidebar
-            leaf = workspace.getRightLeaf(false);
+
             if (leaf) {
-                await leaf.setViewState({
-                    type: VIEW_TYPE_AGENT_SIDEBAR,
-                    active: true,
-                });
-            }
-        }
+                void workspace.revealLeaf(leaf);
 
-        // Reveal the view and set sidebar width to 30% of window
-        if (leaf) {
-            void workspace.revealLeaf(leaf);
-
-            const rightSplit = workspace.rightSplit;
-            if (rightSplit && typeof rightSplit.setSize === 'function') {
-                const targetWidth = Math.round(window.innerWidth * 0.30);
-                rightSplit.setSize(targetWidth);
+                const rs = workspace.rightSplit;
+                if (rs && typeof rs.setSize === 'function') {
+                    const targetWidth = Math.round(window.innerWidth * 0.30);
+                    rs.setSize(targetWidth);
+                }
             }
-        }
+        })().finally(() => {
+            this.activateViewInFlight = null;
+        });
+
+        return this.activateViewInFlight;
     }
 
     /**
