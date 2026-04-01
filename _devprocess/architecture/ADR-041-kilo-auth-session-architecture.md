@@ -1,6 +1,6 @@
 # ADR-041: Kilo Auth and Session Architecture
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-18
 **Deciders:** Sebastian Hanke
 

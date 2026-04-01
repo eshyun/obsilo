@@ -3,6 +3,7 @@
 > **Epic ID**: EPIC-014
 > **Business Alignment**: _devprocess/analysis/BA-MCP-CONNECTOR.md
 > **Scope**: MVP
+> **Status**: Teilweise implementiert (1400-1402 implementiert, 1403 in Arbeit, 1404-1411 geplant)
 
 ## Epic Hypothesis Statement
 
@@ -40,10 +41,10 @@ UNSERE LOESUNG bietet Agent-Intelligence (semantische Suche, Memory, Plugin Skil
 | FEATURE-1405 | MCP Resources | P1 | S | Not Started |
 | FEATURE-1406 | MCP Prompts | P1 | M | Not Started |
 | FEATURE-1407 | Plugin Skill Discovery | P2 | M | Not Started |
-| FEATURE-1408 | Remote Approval Pipeline | P2 | M | Not Started |
+| FEATURE-1408 | Remote Approval Pipeline | P2 | S | Deferred (approval in Claude) |
 | FEATURE-1409 | Connectors Directory Submission | P2 | S | Not Started |
 | FEATURE-1410 | Sandbox Exposure via MCP | P1 | M | Not Started |
-| FEATURE-1411 | Memory Transparency (Agent vs. Human) | P1 | S | Not Started |
+| FEATURE-1411 | Memory Transparency (Agent vs. Human) | P1 | S | Implemented |
 
 **Priority:** P0-Critical (ohne geht MVP nicht), P1-High (wichtig), P2-Medium (wertsteigernd)
 **Effort:** S (1-2 Sprints), M (3-5 Sprints), L (6+ Sprints)

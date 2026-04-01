@@ -4,6 +4,7 @@
 > **Epic**: EPIC-015 - Unified Knowledge Layer
 > **Priority**: P2-Medium
 > **Effort Estimate**: S
+> **Status**: Implemented
 
 ## Feature Description
 

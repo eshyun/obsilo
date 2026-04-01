@@ -4,6 +4,7 @@
 > **Business Alignment**: _devprocess/analysis/BA-006-office-document-quality.md, _devprocess/analysis/TEMPLATE-DESIGN-INTELLIGENCE-ANALYSIS.md
 > **Scope**: MVP
 > **Vorgaenger**: EPIC-010 (Office Document Creation -- Basis-Implementierung)
+> **Status**: Teilweise implementiert (1115-1118 implementiert, 1101/1114 geplant)
 
 ## Epic Hypothesis Statement
 

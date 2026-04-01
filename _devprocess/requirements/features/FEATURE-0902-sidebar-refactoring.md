@@ -1,9 +1,10 @@
 # Feature: AgentSidebarView Refactoring
 
-> **Feature ID**: FEATURE-0901
+> **Feature ID**: FEATURE-0902
 > **Epic**: Technische Schulden (Phase 3 aus CODEBASE-004)
 > **Priority**: P1-High
 > **Effort Estimate**: M
+> **Status**: Implemented (Phase 1: SuggestionBanner + OnboardingFlow extrahiert)
 
 ## Feature Description
 
