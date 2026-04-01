@@ -1,6 +1,6 @@
 # ADR-039: Copilot Content Normalization Strategy
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-18
 **Deciders:** Sebastian Hanke
 

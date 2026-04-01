@@ -1,6 +1,6 @@
 # ADR-054: MCP Tool-Mapping & System-Prompt-Uebertragung
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-31
 **Deciders:** Sebastian Hanke
 

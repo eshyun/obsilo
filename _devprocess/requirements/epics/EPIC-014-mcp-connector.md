@@ -3,6 +3,7 @@
 > **Epic ID**: EPIC-014
 > **Business Alignment**: _devprocess/analysis/BA-MCP-CONNECTOR.md
 > **Scope**: MVP
+> **Status**: Teilweise implementiert (1400-1402 implementiert, 1403 in Arbeit, 1404-1411 geplant)
 
 ## Epic Hypothesis Statement
 

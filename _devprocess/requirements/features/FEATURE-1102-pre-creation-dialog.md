@@ -4,6 +4,7 @@
 > **Epic**: EPIC-011 - Office Document Quality
 > **Priority**: P0-Critical
 > **Effort Estimate**: S
+> **Status**: Geplant
 
 ## Feature Description
 

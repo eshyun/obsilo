@@ -1,6 +1,6 @@
 # ADR-042: Kilo Metadata Discovery Strategy
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-18
 **Deciders:** Sebastian Hanke
 

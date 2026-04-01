@@ -4,6 +4,7 @@
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P1-High
 > **Effort Estimate**: L
+> **Status**: In Arbeit
 
 ## Feature Description
 
@@ -18,34 +19,37 @@ Funktioniert mit ALLEN MCP-Clients: claude.ai, ChatGPT, Cursor, Windsurf, etc.
 ```
 claude.ai  ──┐
 ChatGPT    ──┼──→ HTTPS → Cloudflare Worker → Durable Object ←── WebSocket ←── Obsilo Plugin
-Cursor     ──┘             (Relay, User-deployed)                                (lokal)
+Cursor     ──┘             (Relay, auf User's Cloudflare)                        (lokal)
                            Auth: Shared Secret
 ```
 
 ### Wie es funktioniert
 
-1. **User deployed Relay** einmalig auf Cloudflare ("Deploy to Cloudflare" Button)
-2. **Relay generiert** eine Relay-ID + Shared Secret Token
-3. **User traegt Token** in Obsilo Settings ein
+1. **User erstellt Cloudflare API Token** (kostenlos, im Browser, vorbefuellter Link)
+2. **User gibt Token in Obsilo ein** (ein Feld)
+3. **User klickt "Deploy relay"** -- Obsilo deployed den Worker per Cloudflare REST API
 4. **Plugin verbindet** sich per WebSocket zum Relay (ausgehend, keine Firewall-Probleme)
 5. **MCP-Clients** senden Requests an die Relay-URL (HTTPS)
 6. **Relay forwarded** Request ueber WebSocket an Plugin, wartet auf Response, gibt sie zurueck
 7. **Durable Object Hibernation:** Relay schlaeft wenn keine Requests kommen (keine Kosten im Idle)
 
+**Kein Terminal, kein CLI, kein wrangler.** Alles passiert ueber die Cloudflare REST API
+direkt aus Obsilo heraus (via `requestUrl`, Review-Bot-konform).
+
 ### Zwei Komponenten
 
-**A) Relay-Server (separates Repo, Cloudflare Worker)**
-- Cloudflare Worker als Router
-- Durable Object pro Relay-ID (Hibernation API)
-- WebSocket-Endpoint fuer Plugin-Verbindung
-- HTTPS-Endpoint fuer MCP-Client-Requests
-- Auth: Shared Secret Token (Bearer Header)
+**A) Relay-Deployment (in Obsilo, per Cloudflare API)**
+- Worker-Code als String im Plugin eingebettet
+- Deployment per REST API: PUT /workers/scripts/{name}
+- Durable Object Bindings + Migration in den Metadata
+- Secret per API setzen: PUT /workers/scripts/{name}/secrets
+- Account ID wird automatisch per API ermittelt
 
 **B) Plugin-Erweiterung (in Obsilo)**
 - WebSocket-Client der sich zum Relay verbindet
 - Reconnect-Logik (exponentieller Backoff)
 - Keepalive Pings
-- Settings: Relay-URL + Token
+- Settings: Cloudflare API Token, Relay-URL (automatisch), Auth-Secret (automatisch)
 
 ## Benefits Hypothesis
 
@@ -121,29 +125,30 @@ Cursor     ──┘             (Relay, User-deployed)                         
 
 ### ASRs
 
-**CRITICAL ASR #1**: Kein Binary auf dem User-Rechner
-- Plugin verbindet sich per WebSocket (ausgehend) -- keine Firewall-Probleme
-- Kein cloudflared, kein ngrok
+**CRITICAL ASR #1**: Kein Terminal, kein CLI
+- Deployment per Cloudflare REST API direkt aus Obsilo
+- User gibt nur API Token ein und klickt "Deploy"
 
 **CRITICAL ASR #2**: Multi-Plattform-kompatibel
 - Ein Relay-Endpoint fuer alle MCP-Clients
 - MCP JSON-RPC ueber HTTPS (Streamable HTTP kompatibel)
 
-**MODERATE ASR #3**: Self-Deploy fuer BYOK-Zielgruppe
-- "Deploy to Cloudflare" Button im Repo
-- User deployed auf eigene Cloudflare-Instanz
-- Spaeter: Managed Service Option
+**CRITICAL ASR #3**: User hostet auf eigenem Account (Privacy)
+- Worker laeuft auf dem Cloudflare-Account des Users
+- Keine Daten fliessen ueber Dritte
+- API Token mit minimalen Permissions
 
 ---
 
 ## Definition of Done
 
 ### Functional
-- [ ] Relay-Server Code (Cloudflare Worker + Durable Object)
-- [ ] "Deploy to Cloudflare" Anleitung/Button
+- [ ] Relay-Code als eingebetteter String im Plugin
+- [ ] "Deploy relay" Button deployt per Cloudflare REST API (kein CLI)
+- [ ] Account ID automatisch ermittelt per API
+- [ ] Auth-Secret automatisch generiert und per API gesetzt
 - [ ] Plugin: WebSocket-Client mit Reconnect
-- [ ] Plugin: Settings (Relay-URL + Token)
-- [ ] Auth: Shared Secret Token Validierung
+- [ ] Plugin: Settings (API Token, Relay-URL automatisch, Auth-Secret automatisch)
 - [ ] claude.ai: E2E funktioniert
 - [ ] ChatGPT: E2E funktioniert
 - [ ] Standalone-Modus: 0 Regressionen
@@ -161,7 +166,7 @@ Cursor     ──┘             (Relay, User-deployed)                         
 
 ## Dependencies
 - **FEATURE-1400**: MCP Server Core (lokaler HTTP-Server)
-- **Cloudflare Account**: $5/Monat Workers Paid Plan
+- **Cloudflare Account**: Kostenlos (Durable Objects seit April 2025 im Free Tier)
 
 ## Out of Scope
 - OAuth 2.1 (FEATURE-1404 -- spaeter, Shared Secret reicht fuer BYOK)

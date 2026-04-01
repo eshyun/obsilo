@@ -4,6 +4,7 @@
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P0-Critical
 > **Effort Estimate**: S
+> **Status**: Implemented
 
 ## Feature Description
 

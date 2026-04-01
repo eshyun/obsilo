@@ -4,6 +4,7 @@
 > **Epic**: EPIC-013 - Kilo Gateway LLM Provider Integration
 > **Priority**: P0-Critical
 > **Effort Estimate**: M
+> **Status**: Implemented
 
 ## Feature Description
 

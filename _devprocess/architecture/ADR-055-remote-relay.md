@@ -51,7 +51,31 @@ Das Plugin verbindet sich per ausgehender WebSocket -- kein Binary, kein Port-Oe
 
 ## Decision
 
-**Option 3: Cloudflare Workers + Durable Objects**
+**Option 3: Cloudflare Workers + Durable Objects, deployed per REST API aus dem Plugin**
+
+Die entscheidende Ergaenzung: Der Relay wird NICHT per CLI (wrangler) deployed, sondern
+per Cloudflare REST API direkt aus dem Obsidian Plugin heraus. Der User gibt einen
+Cloudflare API Token ein und klickt "Deploy" -- kein Terminal, kein CLI.
+
+### Deployment per REST API
+
+```
+User-Aktion: API Token eingeben + "Deploy" klicken
+
+Obsilo intern:
+  1. GET /accounts → Account ID ermitteln
+  2. PUT /accounts/{id}/workers/scripts/obsilo-relay
+     → Worker-Code hochladen (als String im Plugin eingebettet)
+     → Metadata: Durable Object Bindings + Migrations
+  3. PUT /accounts/{id}/workers/scripts/obsilo-relay/secrets
+     → Auth-Secret setzen (automatisch generiert)
+  4. Workers.dev URL: https://obsilo-relay.{subdomain}.workers.dev
+```
+
+Alle API-Calls nutzen Obsidians `requestUrl` (Review-Bot-konform, kein `fetch()`).
+
+Durable Objects sind seit April 2025 im Free Tier -- der User braucht keinen
+Workers Paid Plan ($5/Monat ist nicht mehr noetig).
 
 ### Relay-Architektur
 
@@ -141,21 +165,25 @@ class RelayClient {
 ## Consequences
 
 ### Positive
-- Kein Binary auf User-Rechner
+- Kein Terminal, kein CLI -- Deployment per REST API aus dem Plugin
+- Kein Binary auf User-Rechner (WebSocket ausgehend)
 - Persistente URL (ueberlebt alles)
 - Multi-Client (Claude, ChatGPT, Cursor, etc.)
 - Hibernation: keine Idle-Kosten
-- Self-Deploy: User kontrolliert seine Daten
+- Cloudflare Free Tier reicht (seit April 2025)
+- User kontrolliert seine Daten (eigener Account)
 
 ### Negative
-- User braucht Cloudflare-Account ($5/Monat)
-- Relay-Code muss als separates Repo gepflegt werden
+- User braucht Cloudflare-Account (kostenlos, aber trotzdem ein Account)
+- User muss API Token erstellen (Browser, 2 Minuten)
+- Relay-Code als String im Plugin eingebettet (Updates nur ueber Plugin-Updates)
 - WebSocket-Reconnect-Logik noetig
 
 ### Risks
-- Cloudflare Durable Objects Pricing aendert sich: Mitigation: Fly.io als Alternative dokumentiert
+- Cloudflare API aendert sich: Mitigation: Version pinnen, SDK nutzen
 - WebSocket Idle-Timeout: Mitigation: Keepalive Pings alle 30s
 - Relay-Ausfall: Mitigation: Lokaler Connector (Claude Desktop) funktioniert weiterhin
+- API Token zu breite Permissions: Mitigation: Vorbefuellter Link mit minimalen Permissions
 
 ## Related
 - ADR-053: MCP Server Prozess-Architektur

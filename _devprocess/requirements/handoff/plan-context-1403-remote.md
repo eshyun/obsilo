@@ -1,169 +1,111 @@
-# Plan Context: FEATURE-1403 Remote Transport
+# Plan Context: FEATURE-1403 Remote Transport (Revised)
 
 > **Feature**: FEATURE-1403
-> **ADR**: ADR-055 (Cloudflare Worker + Durable Object Relay)
-> **Erstellt**: 2026-03-31
+> **ADR**: ADR-055 (Cloudflare Worker + Durable Object, REST API Deploy)
+> **Erstellt**: 2026-03-31 (revised 2026-04-01)
 
 ---
 
-## 1. Ueberblick
+## 1. Kern-Aenderung gegenueber dem ersten Plan
 
-Zwei Deliverables:
-- **A) Relay-Server** (separates Repo): Cloudflare Worker + Durable Object
-- **B) Plugin-Erweiterung**: WebSocket-Client + Settings UI
+**Vorher:** User deployed per CLI (`wrangler deploy`), braucht Terminal
+**Nachher:** Obsilo deployed per Cloudflare REST API, kein Terminal noetig
 
-## 2. Deliverable A: Relay-Server (neues Repo)
+User-Flow:
+1. Klickt Link → erstellt API Token bei Cloudflare (Browser, 2 Min)
+2. Gibt Token in Obsilo Settings ein
+3. Klickt "Deploy relay" → Obsilo deployt alles per API
+4. Fertig -- URL wird automatisch angezeigt
 
-### Repo-Struktur: `obsilo-relay/`
+## 2. Neue Datei: `src/mcp/CloudflareDeployer.ts`
 
-```
-obsilo-relay/
-+-- src/
-|   +-- index.ts          # Worker: Router + Auth
-|   +-- relay.ts           # Durable Object: WebSocket + HTTP Proxy
-+-- wrangler.toml          # Cloudflare Config
-+-- package.json
-+-- README.md              # Setup-Guide + "Deploy to Cloudflare" Anleitung
-```
-
-### Worker (index.ts)
+Deployt den Relay-Worker per Cloudflare REST API.
 
 ```typescript
-export default {
-    async fetch(request: Request, env: Env) {
-        // Auth check
-        const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-        if (token !== env.RELAY_TOKEN) return new Response('Unauthorized', { status: 401 });
+class CloudflareDeployer {
+    constructor(private apiToken: string) {}
 
-        // Route to Durable Object
-        const url = new URL(request.url);
-        const relayId = env.RELAY_ID ?? 'default';
-        const id = env.RELAY_DO.idFromName(relayId);
-        const relay = env.RELAY_DO.get(id);
-        return relay.fetch(request);
+    async deploy(relaySecret: string): Promise<{ url: string; accountId: string }> {
+        // 1. Account ID ermitteln
+        const accountId = await this.getAccountId();
+
+        // 2. Workers Subdomain ermitteln (fuer die URL)
+        const subdomain = await this.getSubdomain(accountId);
+
+        // 3. Worker-Code hochladen mit DO Bindings
+        await this.uploadWorker(accountId, relaySecret);
+
+        // 4. URL zusammenbauen
+        return { url: `https://obsilo-relay.${subdomain}.workers.dev`, accountId };
     }
-};
-```
 
-### Durable Object (relay.ts)
+    private async getAccountId(): Promise<string>
+    // GET https://api.cloudflare.com/client/v4/accounts
+    // Header: Authorization: Bearer {apiToken}
+    // Returns: accounts[0].id
 
-- `fetch()`: WebSocket-Upgrade fuer Plugin ODER HTTP-Request forwarding
-- `webSocketMessage()`: Response vom Plugin empfangen, wartenden Request resolven
-- Hibernation API: `ctx.acceptWebSocket()` + `webSocketMessage/webSocketClose` Handler
-- Pending-Requests Map: `correlationId -> { resolve, reject, timeout }`
-- Keepalive: Ignoriert Ping-Frames (WebSocket-Protokoll)
+    private async getSubdomain(accountId: string): Promise<string>
+    // GET https://api.cloudflare.com/client/v4/accounts/{id}/workers/subdomain
+    // Returns: subdomain (z.B. "username")
 
-### wrangler.toml
+    private async uploadWorker(accountId: string, secret: string): Promise<void>
+    // PUT https://api.cloudflare.com/client/v4/accounts/{id}/workers/scripts/obsilo-relay
+    // Body: Multipart (metadata JSON + worker.js)
+    // Metadata: { main_module: "worker.js", bindings: [DO + secret], migrations: [...] }
 
-```toml
-name = "obsilo-relay"
-main = "src/index.ts"
-compatibility_date = "2026-03-31"
-
-[durable_objects]
-bindings = [{ name = "RELAY_DO", class_name = "RelayDO" }]
-
-[[migrations]]
-tag = "v1"
-new_classes = ["RelayDO"]
-
-[vars]
-RELAY_ID = "default"
-# RELAY_TOKEN set via: wrangler secret put RELAY_TOKEN
-```
-
-### Deploy-Anleitung (README.md)
-
-```
-1. Fork dieses Repo
-2. npm install
-3. npx wrangler login
-4. npx wrangler secret put RELAY_TOKEN  (generiere ein sicheres Token)
-5. npx wrangler deploy
-6. Deine Relay-URL: https://obsilo-relay.{account}.workers.dev
-```
-
-## 3. Deliverable B: Plugin-Erweiterung
-
-### Neue Datei: `src/mcp/RelayClient.ts`
-
-```typescript
-class RelayClient {
-    private ws: WebSocket | null = null;
-    private reconnectDelay = 1000;
-    private maxReconnectDelay = 30000;
-
-    constructor(private plugin: ObsidianAgentPlugin) {}
-
-    async connect(relayUrl: string, token: string): Promise<void>
-    disconnect(): void
-    private reconnect(): void   // exponentieller Backoff
-    private handleMessage(msg): void  // -> handleToolCall -> send response
-    private sendKeepalive(): void  // alle 30s
+    // Dann: Secret setzen
+    // PUT https://api.cloudflare.com/client/v4/accounts/{id}/workers/scripts/obsilo-relay/secrets
+    // Body: { name: "RELAY_TOKEN", text: secret, type: "secret_text" }
 }
 ```
 
-Verbindet sich zu `wss://{relay-url}/ws` mit Bearer Token Header.
-Bei eingehender Nachricht: `handleToolCall()` aufrufen (gleicher Dispatcher wie lokaler HTTP-Server).
+Alle API-Calls via `requestUrl` (Obsidian API, Review-Bot-konform).
 
-### Settings-Erweiterung: McpTab.ts
+## 3. Worker-Code als eingebetteter String
 
-Im Connector-Card:
+Der Relay-Worker-Code (`relay/src/index.ts`) wird als kompilierter JS-String
+im Plugin eingebettet. Bei "Deploy" wird dieser String an die Cloudflare API gesendet.
+
+Der Build-Prozess:
+1. `relay/src/index.ts` wird per esbuild zu einem einzelnen JS-File kompiliert
+2. Dieses File wird als String-Konstante in `CloudflareDeployer.ts` eingebettet
+3. Alternativ: zur Laufzeit aus einer mitgelieferten Datei gelesen
+
+## 4. Settings UI Aenderung
+
+Kein Wizard mit Terminal-Schritten mehr. Stattdessen:
+
 ```
-Remote access                           [Off]
-  Relay URL:  [https://obsilo-relay.xxx.workers.dev]
-  Token:      [sk-xxxxxxxxxxxxx]           [Show/Hide]
-  Status:     Connected / Disconnected / Reconnecting
+Remote access (claude.ai, ChatGPT, Cursor)
+  Enable remote access                              [Toggle]
 
-  Use this URL as Custom Connector in:
-  - claude.ai (Settings → Connectors → Add)
-  - ChatGPT (Apps → Developer Mode → Connector)
-  - Any MCP-compatible AI assistant
+  Cloudflare API token
+  [Create token →] (Link mit vorbefuellten Permissions)
+  [cfp_xxxxxxxxxxxxxxxxx]
+
+  [Deploy relay]
+
+  Status: Deployed ✓
+  Relay URL: https://obsilo-relay.xxx.workers.dev    [Copy]
+
+  Add this URL as connector in:
+  - claude.ai: Settings > Connectors > Add
+  - ChatGPT: Apps > Developer Mode > Connector
 ```
 
-### settings.ts
+## 5. Settings-Felder
 
 ```typescript
-enableRemoteRelay: boolean;     // default: false
-relayUrl: string;               // Cloudflare Worker URL
-relayToken: string;             // Shared secret (SafeStorage encrypted)
+enableRemoteRelay: boolean;          // default: false
+cloudflareApiToken: string;          // SafeStorage encrypted
+relayUrl: string;                    // auto-filled after deploy
+relayToken: string;                  // auto-generated, SafeStorage encrypted
+cloudflareAccountId: string;         // auto-detected
 ```
 
-### McpBridge.ts Erweiterung
+## 6. Implementierungsreihenfolge
 
-McpBridge startet den RelayClient zusaetzlich zum lokalen HTTP-Server:
-
-```typescript
-async start() {
-    // Lokaler HTTP-Server (wie bisher)
-    await this.startHttpServer();
-
-    // Remote Relay (wenn konfiguriert)
-    if (this.plugin.settings.enableRemoteRelay && this.plugin.settings.relayUrl) {
-        this.relayClient = new RelayClient(this.plugin);
-        await this.relayClient.connect(
-            this.plugin.settings.relayUrl,
-            this.plugin.settings.relayToken,
-        );
-    }
-}
-```
-
-## 4. Implementierungsreihenfolge
-
-1. **Relay-Server Repo** erstellen (Worker + DO, ~200 LOC)
-2. **RelayClient.ts** im Plugin (WebSocket + Reconnect, ~150 LOC)
-3. **Settings**: relayUrl + relayToken + UI
-4. **McpBridge**: RelayClient starten wenn konfiguriert
-5. **Deploy Relay** auf Cloudflare (eigener Account)
-6. **Test**: claude.ai + ChatGPT E2E
-
-## 5. Verifikation
-
-1. Relay deployed auf Cloudflare
-2. Plugin verbindet per WebSocket zum Relay
-3. claude.ai: Custom Connector mit Relay-URL -> search_vault funktioniert
-4. ChatGPT: Developer Mode -> Connector -> search_vault funktioniert
-5. Obsidian Neustart: Reconnect automatisch
-6. Falsches Token: 401 Unauthorized
-7. Lokaler Connector (Claude Desktop): funktioniert weiterhin unabhaengig
+1. Relay-Code kompilieren (esbuild → JS-String)
+2. `CloudflareDeployer.ts` (REST API Calls)
+3. Settings UI umbauen (kein Terminal-Wizard)
+4. Testen: Deploy + WebSocket-Verbindung + E2E

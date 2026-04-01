@@ -1,7 +1,7 @@
 # Feature: PAS-1 – Local Skills
 
 ## Status
-`DRAFT` · Zielversion: 0.1.0
+`IMPLEMENTED` · Implementiert in Phase B
 
 ## Einordnung
 
@@ -9,9 +9,9 @@ Dies ist Schritt 1 von 3 des Plugin-as-Skill-Features (PAS):
 
 | Schritt | Feature | Status |
 |---|---|---|
-| **PAS-1** | **Local Skills** (dieses Dokument) | In Arbeit |
-| PAS-2 | MCP Registry Server (GitHub + Cloudflare) | Folgt |
-| PAS-3 | Connected Mode | Folgt |
+| **PAS-1** | **Local Skills** (dieses Dokument) | Implementiert |
+| PAS-2 | MCP Registry Server (GitHub + Cloudflare) | Geplant |
+| PAS-3 | Connected Mode | Geplant |
 
 PAS-1 ist vollständig standalone lauffähig und hat keine externen Abhängigkeiten.
 PAS-2 und PAS-3 bauen auf PAS-1 auf, ändern aber nichts an dessen Verhalten.

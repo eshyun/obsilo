@@ -4,6 +4,7 @@
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P2-Medium
 > **Effort Estimate**: S
+> **Status**: Geplant
 
 ## Feature Description
 

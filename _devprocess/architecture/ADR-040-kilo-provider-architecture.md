@@ -1,6 +1,6 @@
 # ADR-040: Kilo Gateway Provider Architecture
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-18
 **Deciders:** Sebastian Hanke
 

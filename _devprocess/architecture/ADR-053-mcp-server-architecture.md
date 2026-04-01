@@ -1,6 +1,6 @@
 # ADR-053: MCP Server Prozess-Architektur
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-31
 **Deciders:** Sebastian Hanke
 
