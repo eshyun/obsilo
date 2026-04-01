@@ -3,8 +3,8 @@
 > **Feature ID**: FEATURE-1408
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P2-Medium
-> **Effort Estimate**: S (light-Implementierung)
-> **Status**: Implementiert (light)
+> **Effort Estimate**: M
+> **Status**: Zurueckgestellt (Approval erfolgt in Claude, nicht in Obsidian)
 
 ## Feature Description
 

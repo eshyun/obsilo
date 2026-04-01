@@ -279,10 +279,10 @@ Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Stat
 | MCP Resources | FEATURE-1405-mcp-resources.md | P1-High | Geplant |
 | MCP Prompts | FEATURE-1406-mcp-prompts.md | P1-High | Geplant |
 | Plugin Skill Discovery | FEATURE-1407-plugin-skill-discovery.md | P2-Medium | Geplant |
-| Remote Approval Pipeline | FEATURE-1408-remote-approval.md | P2-Medium | Geplant |
+| Remote Approval Pipeline | FEATURE-1408-remote-approval.md | P2-Medium | Zurueckgestellt (Approval in Claude) |
 | Connectors Directory | FEATURE-1409-connectors-directory.md | P2-Medium | Geplant |
 | Sandbox Exposure via MCP | FEATURE-1410-sandbox-exposure.md | P1-High | Geplant |
-| Memory Transparency | FEATURE-1411-memory-transparency.md | P1-High | Geplant |
+| Memory Transparency | FEATURE-1411-memory-transparency.md | P1-High | Implementiert |
 
 **Sonstige geplante Features**
 

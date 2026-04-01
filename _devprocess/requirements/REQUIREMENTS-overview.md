@@ -176,10 +176,10 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-1405 | MCP Resources | P1 | `FEATURE-1405-mcp-resources.md` | Geplant |
 | FEATURE-1406 | MCP Prompts | P1 | `FEATURE-1406-mcp-prompts.md` | Geplant |
 | FEATURE-1407 | Plugin Skill Discovery | P2 | `FEATURE-1407-plugin-skill-discovery.md` | Geplant |
-| FEATURE-1408 | Remote Approval Pipeline | P2 | `FEATURE-1408-remote-approval.md` | Geplant |
+| FEATURE-1408 | Remote Approval Pipeline | P2 | `FEATURE-1408-remote-approval.md` | Zurueckgestellt |
 | FEATURE-1409 | Connectors Directory | P2 | `FEATURE-1409-connectors-directory.md` | Geplant |
 | FEATURE-1410 | Sandbox Exposure via MCP | P1 | `FEATURE-1410-sandbox-exposure.md` | Geplant |
-| FEATURE-1411 | Memory Transparency | P1 | `FEATURE-1411-memory-transparency.md` | Geplant |
+| FEATURE-1411 | Memory Transparency | P1 | `FEATURE-1411-memory-transparency.md` | Implementiert |
 
 ### EPIC-015: Unified Knowledge Layer — Vollstaendig implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
