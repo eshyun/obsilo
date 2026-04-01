@@ -3,8 +3,8 @@
 > **Feature ID**: FEATURE-1408
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P2-Medium
-> **Effort Estimate**: M
-> **Status**: Geplant
+> **Effort Estimate**: S (light-Implementierung)
+> **Status**: Implementiert (light)
 
 ## Feature Description
 
@@ -31,13 +31,23 @@ Write-Operationen im Remote-Modus erfordern eine Bestaetigung durch den User. Da
 
 ## Definition of Done
 
-- [ ] Approval-Mechanismus fuer Remote-Writes (Design: Push-Notification, Whitelist, oder Auto-Approve-Regeln)
-- [ ] Timeout-Handling (60s Auto-Reject)
-- [ ] Approval-Whitelist fuer vertrauenswuerdige Operationen (optional)
-- [ ] Status-Rueckmeldung an Client bei Reject
+- [x] Approval-Mechanismus fuer Remote-Writes: Obsidian-Notice mit Approve/Reject Buttons
+- [x] Timeout-Handling (60s Auto-Reject)
+- [ ] Approval-Whitelist fuer vertrauenswuerdige Operationen (optional, spaeter)
+- [x] Status-Rueckmeldung an Client bei Reject ("Operation rejected by user")
+- [x] Settings-Toggle: "Approve remote writes" (default: true)
+
+## How It Works
+
+- Setting `remoteWriteApproval` (default: `true`) in settings.ts
+- Write-Tools (`write_vault`, `update_memory`, `execute_vault_op`) zeigen eine Obsidian-Notice
+- Notice hat "Approve" und "Reject" Buttons
+- 60s Timeout -> Auto-Reject
+- Bei Reject: MCP Error-Response an AI-Client ("Operation rejected by user")
+- Toggle in Settings unter Remote Access
+- Key Files: `src/mcp/tools/index.ts`, `src/ui/settings/McpTab.ts`
 
 ---
 
 ## Dependencies
 - **FEATURE-1403**: Remote Transport
-- **FEATURE-1404**: Remote Authentication
