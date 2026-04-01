@@ -85,7 +85,7 @@ docs/
   dev/
     index.md                        -- Architecture Overview (Mermaid-Diagramm)
     agent-loop.md
-    tool-pipeline.md
+    tool-system.md
     system-prompt.md
     knowledge-layer.md              -- NEU
     memory-system.md
@@ -125,7 +125,7 @@ docs/
 | /dev/index.html | /dev/ | Redirect |
 | /dev/*.html | /dev/* | Pfade bleiben |
 
-Redirect-Strategie: VitePress rewrites Config + meta-refresh Fallback in alten Pfaden.
+Redirect-Strategie: Fuer jeden alten Pfad eine minimale HTML-Datei mit `<meta http-equiv="refresh">` im VitePress `public/`-Verzeichnis platzieren. VitePress rewrites funktionieren nur im Dev-Server, nicht im Static Build auf GitHub Pages.
 
 ## Doku-Skill-Architektur (FEATURE-1702)
 
@@ -144,7 +144,7 @@ skills/obsilo-guide/
 
 Der SkillsManager matched Keywords im User-Query und laedt nur die passende Sektion (~2000-4000 Tokens) in den System-Prompt. Keine Aenderung am Skill-System noetig.
 
-**Build-Step:** npm-Script das Guide-Markdown zu kompakten Skill-Sektionen konvertiert (Frontmatter entfernen, Website-spezifische Elemente strippen, Token-Budget einhalten).
+**Build-Step:** Phase 1 ohne automatischen Build-Step. Der Bundled Skill referenziert handgeschriebene kompakte Markdown-Sektionen (wie alle anderen Bundled Skills). Automatisierung erst wenn sich der Content haeufig aendert.
 
 ## Performance & Wartbarkeit
 

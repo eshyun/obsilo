@@ -1,6 +1,6 @@
 # ADR-056: Static Site Generator fuer Website-Dokumentation
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-01
 **Deciders:** Sebastian Hanke
 
