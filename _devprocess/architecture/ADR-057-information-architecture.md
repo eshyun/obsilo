@@ -1,6 +1,6 @@
 # ADR-057: Informationsarchitektur & Seitenstruktur
 
-**Status:** Proposed
+**Status:** Accepted (modified by review: Redirect-Strategie korrigiert, tool-pipeline -> tool-system)
 **Date:** 2026-04-01
 **Deciders:** Sebastian Hanke
 
@@ -176,6 +176,10 @@ Mermaid fuer Dev Docs. VitePress rendert Mermaid nativ via Plugin zu SVG beim Bu
 - Themen-Zuschnitt koennte sich als falsch erweisen. Mitigation: VitePress erlaubt Umstrukturierung durch Dateien verschieben.
 
 ## Implementation Notes
+
+### URL-Redirect-Strategie
+
+Fuer jeden alten Pfad wird eine minimale HTML-Datei mit `<meta http-equiv="refresh">` im VitePress `public/`-Verzeichnis platziert. VitePress rewrites funktionieren nur im Dev-Server, nicht im Static Build auf GitHub Pages.
 
 ### URL-Redirect-Mapping (Alt -> Neu)
 
