@@ -56,7 +56,7 @@ Vollstaendige Liste aller ADRs. Details in `_devprocess/architecture/ADR-NNN-*.m
 | ADR-046 | Direct Template Mode (groupByLayoutName + physische Shape-Namen) | Akzeptiert, implementiert |
 | ADR-047 | Schema-Constrained Slide Generation | Akzeptiert, implementiert |
 | ADR-048 | plan_presentation Pipeline (interner LLM-Call) | Akzeptiert, implementiert |
-| ADR-049 | Raw XML Clear-Generate | Akzeptiert, implementiert |
+| ADR-049 | Raw XML Clear-Generate | Vorgeschlagen, in Evaluation |
 
 ## GitHub Copilot Provider
 
@@ -75,3 +75,19 @@ Vollstaendige Liste aller ADRs. Details in `_devprocess/architecture/ADR-NNN-*.m
 | ADR-041 | Kilo Auth & Session Architecture | Akzeptiert, implementiert |
 | ADR-042 | Kilo Metadata Discovery | Akzeptiert, implementiert |
 | ADR-043 | Kilo Embedding Gating Strategy | Akzeptiert, implementiert |
+
+## Unified Knowledge Layer
+
+| ADR | Titel | Status |
+|-----|-------|--------|
+| ADR-050 | SQLite Knowledge DB (sql.js WASM) | Akzeptiert, implementiert |
+| ADR-051 | Retrieval Pipeline (Two-Pass Background Enrichment) | Akzeptiert, implementiert |
+| ADR-052 | Local Reranker (@huggingface/transformers Cross-Encoder) | Akzeptiert, implementiert |
+
+## MCP Connector
+
+| ADR | Titel | Status |
+|-----|-------|--------|
+| ADR-053 | MCP Server Architecture (stdio Bridge) | Akzeptiert, implementiert |
+| ADR-054 | MCP Tool Mapping (3-Tier) | Akzeptiert, implementiert |
+| ADR-055 | Remote Relay (Cloudflare Workers) | Vorgeschlagen, in Arbeit |

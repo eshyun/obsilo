@@ -1,6 +1,6 @@
 # ADR-038: Copilot Token Storage in Settings
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-18
 **Deciders:** Sebastian Hanke
 

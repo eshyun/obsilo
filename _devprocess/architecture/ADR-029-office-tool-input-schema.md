@@ -1,6 +1,6 @@
 # ADR-029: Input-Schema-Design fuer Office-Creation-Tools
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-03-06
 **Deciders:** Sebastian Hanke
 

@@ -4,6 +4,7 @@
 > **Phase**: F
 > **Business Alignment**: _devprocess/analysis/BA-002-files-to-chat.md
 > **Scope**: MVP
+> **Status**: Teilweise implementiert (FEATURE-0601/0602 implementiert, 0603-0605 geplant)
 
 ## Epic Hypothesis Statement
 

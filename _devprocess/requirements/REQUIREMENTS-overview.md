@@ -1,6 +1,6 @@
 # Requirements Overview — Obsidian Agent
-Scope: Production (alle Phasen A-F komplett)
-Date: 2026-03-24 (aktualisiert)
+Scope: Production (Phasen A-F komplett + EPIC-012 bis EPIC-015)
+Date: 2026-04-01 (aktualisiert)
 
 ## Goal
 Local-only, agentic operating layer fuer Obsidian: safe, governed vault operations, multi-provider support, MCP extensibility, semantic search, persistent memory, multi-agent orchestration, and plugin auto-discovery.
@@ -8,7 +8,7 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 ## In/Out of Scope
 **Implementiert:**
 - Sidebar Chat & Mode System (Ask, Agent + Custom Modes)
-- Multi-Provider (Anthropic, OpenAI, Ollama, Azure, OpenRouter, LM Studio, Gemini, Custom)
+- Multi-Provider (Anthropic, OpenAI, GitHub Copilot, Kilo Gateway, Ollama, Azure, OpenRouter, LM Studio, Gemini, Custom)
 - MCP Client (stdio, SSE, streamable-HTTP)
 - Approval-by-default fuer alle Write/Side-Effect Actions
 - Local Checkpoints (isomorphic-git) mit Diff & Restore
@@ -41,6 +41,10 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 - Task Extraction & Management (TaskExtractor, TaskNoteCreator, TaskSelectionModal)
 - Office Document Creation (create_docx, create_pptx, create_xlsx)
 - PPTX Template Pipeline (ingest_template, plan_presentation, render_presentation)
+- GitHub Copilot Provider (OAuth Device Flow, Chat + Embedding, Dynamic Models)
+- Kilo Gateway Provider (Device Auth, Chat + Embedding, Org-Context, Manual Token)
+- MCP Server/Connector (McpBridge, 3-Tier Tool Exposure, Claude Desktop Integration)
+- Unified Knowledge Layer (SQLite, Vector Store, Graph Extraction, Implicit Connections, Local Reranking)
 
 **Out of Scope:**
 - Direct manipulation of Obsidian internal Memory Graph
@@ -120,12 +124,12 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 |---|---|---|---|---|
 | FEATURE-0801 | Task Extraction & Management | P1 | `FEATURE-0801-task-extraction.md` | Implementiert |
 
-### EPIC-009: Office Document Creation — Implementiert
+### EPIC-010: Office Document Creation — Implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
 |---|---|---|---|---|
-| FEATURE-0901 | create_docx Tool | P0 | -- | Implementiert |
-| FEATURE-0902 | create_pptx Tool | P0 | -- | Implementiert |
-| FEATURE-0903 | create_xlsx Tool | P0 | -- | Implementiert |
+| FEATURE-400 | create_pptx Tool | P0 | `FEATURE-400-create-pptx.md` | Implementiert |
+| FEATURE-401 | create_docx Tool | P0 | `FEATURE-401-create-docx.md` | Implementiert |
+| FEATURE-402 | create_xlsx Tool | P0 | `FEATURE-402-create-xlsx.md` | Implementiert |
 
 ### EPIC-011: PPTX Template Pipeline — Teilweise implementiert
 | Feature Ref | Feature Name | Priority | Spec | Status |
@@ -134,12 +138,60 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-1117 | plan_presentation Tool | P0 | ADR-048 | Implementiert |
 | FEATURE-1118 | Catalog-Enrichment (ingest_template) | P0 | ADR-046 | Implementiert |
 | FEATURE-1115 | render_presentation (Visual QA) | P0 | -- | Implementiert |
-| FEATURE-1105 | Basis-Praesentationsregeln | P0 | `FEATURE-1105-presentation-base-rules.md` | Implementiert |
+| FEATURE-1105 | Universelle Design-Prinzipien | P0 | `FEATURE-1105-universal-design-principles.md` | Implementiert |
 | FEATURE-1101 | Default PPTX Templates | P1 | `FEATURE-1101-default-templates.md` | Geplant |
 | FEATURE-1103 | Theme-Extraktion (vereinfacht) | P1 | `FEATURE-1103-theme-extraction-simplified.md` | Geplant |
 | FEATURE-1104 | Storyline-Framework-Skills | P1 | Spec ausstehend | Geplant |
 | FEATURE-1106 | Design-Memory-Integration | P2 | Spec ausstehend | Geplant |
 | FEATURE-1107 | Follow-up Questions | P2 | Spec ausstehend | Geplant |
+
+### EPIC-012: GitHub Copilot LLM Provider — Vollstaendig implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-1201 | Auth & Token Management | P0 | `FEATURE-1201-copilot-auth-token-management.md` | Implementiert |
+| FEATURE-1202 | Chat Completions Provider | P0 | `FEATURE-1202-copilot-chat-completions.md` | Implementiert |
+| FEATURE-1203 | Settings UI Integration | P0 | `FEATURE-1203-copilot-settings-ui.md` | Implementiert |
+| FEATURE-1204 | Embedding Support | P1 | `FEATURE-1204-copilot-embedding-support.md` | Implementiert |
+| FEATURE-1205 | Dynamic Model Listing | P1 | `FEATURE-1205-copilot-dynamic-model-listing.md` | Implementiert |
+
+### EPIC-013: Kilo Gateway LLM Provider — Vollstaendig implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-1301 | Auth & Session Management | P0 | `FEATURE-1301-kilo-auth-session-management.md` | Implementiert |
+| FEATURE-1302 | Gateway Chat Provider | P0 | `FEATURE-1302-kilo-gateway-chat-provider.md` | Implementiert |
+| FEATURE-1303 | Settings UI Integration | P0 | `FEATURE-1303-kilo-settings-ui.md` | Implementiert |
+| FEATURE-1304 | Dynamic Model Listing | P1 | `FEATURE-1304-kilo-dynamic-model-listing.md` | Implementiert |
+| FEATURE-1305 | Organization Context | P1 | `FEATURE-1305-kilo-organization-context.md` | Implementiert |
+| FEATURE-1306 | Embedding Support | P1 | `FEATURE-1306-kilo-embedding-support.md` | Implementiert |
+| FEATURE-1307 | Manual Token Mode | P1 | `FEATURE-1307-kilo-manual-token-mode.md` | Implementiert |
+
+### EPIC-014: MCP Connector — Teilweise implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-1400 | MCP Server Core (stdio) | P0 | `FEATURE-1400-mcp-server-core.md` | Implementiert |
+| FEATURE-1401 | Tool-Tier-Mapping | P0 | `FEATURE-1401-tool-tier-mapping.md` | Implementiert |
+| FEATURE-1402 | MCP Settings UI | P0 | `FEATURE-1402-mcp-settings-ui.md` | Implementiert |
+| FEATURE-1403 | Remote Transport (Cloudflare) | P1 | `FEATURE-1403-remote-transport.md` | In Arbeit |
+| FEATURE-1404 | Remote Authentication | P1 | `FEATURE-1404-remote-auth.md` | Geplant |
+| FEATURE-1405 | MCP Resources | P1 | `FEATURE-1405-mcp-resources.md` | Geplant |
+| FEATURE-1406 | MCP Prompts | P1 | `FEATURE-1406-mcp-prompts.md` | Geplant |
+| FEATURE-1407 | Plugin Skill Discovery | P2 | `FEATURE-1407-plugin-skill-discovery.md` | Geplant |
+| FEATURE-1408 | Remote Approval Pipeline | P2 | `FEATURE-1408-remote-approval.md` | Zurueckgestellt |
+| FEATURE-1409 | Connectors Directory | P2 | `FEATURE-1409-connectors-directory.md` | Geplant |
+| FEATURE-1410 | Sandbox Exposure via MCP | P1 | `FEATURE-1410-sandbox-exposure.md` | Geplant |
+| FEATURE-1411 | Memory Transparency | P1 | `FEATURE-1411-memory-transparency.md` | Implementiert |
+
+### EPIC-015: Unified Knowledge Layer — Vollstaendig implementiert
+| Feature Ref | Feature Name | Priority | Spec | Status |
+|---|---|---|---|---|
+| FEATURE-1500 | SQLite Knowledge DB | P0 | `FEATURE-1500-sqlite-knowledge-db.md` | Implementiert |
+| FEATURE-1501 | Enhanced Vector Retrieval | P0 | `FEATURE-1501-enhanced-vector-retrieval.md` | Implementiert |
+| FEATURE-1502 | Graph Data Extraction | P0 | `FEATURE-1502-graph-extraction-expansion.md` | Implementiert |
+| FEATURE-1503 | Implicit Connection Discovery | P1 | `FEATURE-1503-implicit-connections.md` | Implementiert |
+| FEATURE-1504 | Local Reranking | P1 | `FEATURE-1504-local-reranking.md` | Implementiert |
+| FEATURE-1505 | Knowledge Data Consolidation | P1 | `FEATURE-1505-knowledge-data-consolidation.md` | Implementiert |
+| FEATURE-1506 | Implicit Connection UI | P2 | `FEATURE-1506-implicit-connection-ui.md` | Implementiert |
+| FEATURE-1508 | Storage Consolidation | P0 | `FEATURE-1508-storage-consolidation.md` | Implementiert |
 
 ## ASR Summary
 - ASR-01: isomorphic-git Checkpoints (ADR-002) — Implemented
@@ -162,3 +214,7 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 9. PPTX content planning: plan_presentation interner LLM-Call — ADR-048
 10. Copilot provider: Streaming Strategy + Token Storage — ADR-036/ADR-038
 11. Kilo Gateway: Provider Architecture + Metadata Discovery — ADR-040/ADR-042
+12. Knowledge DB: SQLite mit sql.js WASM — ADR-050
+13. Retrieval Pipeline: Two-Pass Background Enrichment — ADR-051
+14. Local Reranker: @huggingface/transformers Cross-Encoder — ADR-052
+15. MCP Server: stdio Bridge mit 3-Tier Tool Mapping — ADR-053/ADR-054

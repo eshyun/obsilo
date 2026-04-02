@@ -1,7 +1,7 @@
 # Obsilo Agent -- Vollstaendiges Backlog
 
-Stand: 2026-03-24
-Branch: `dev`
+Stand: 2026-04-01
+Branch: `dev` / `feature/mcp-connector`
 
 ---
 
@@ -80,6 +80,42 @@ Branch: `dev`
 - Office Document Creation (create_docx, create_pptx, create_xlsx)
 - PPTX Template Pipeline (ingest_template, plan_presentation, render_presentation -- ADR-046/047/048/049)
 
+### EPIC-012: GitHub Copilot LLM Provider
+
+- Auth & Token Management (OAuth Device Code Flow, 3-stufige Token-Kette, Auto-Refresh)
+- Chat Completions Provider (Streaming, Tool Calling, Copilot-spezifische Headers)
+- Settings UI Integration (Connect/Disconnect, Status-Anzeige, Custom Client ID)
+- Embedding Support (Copilot als Embedding-Provider fuer SemanticIndexService)
+- Dynamic Model Listing (Live-Abfrage verfuegbarer Modelle via /models Endpoint)
+
+### EPIC-013: Kilo Gateway LLM Provider
+
+- Auth & Session Management (Device Authorization Flow, Token-Speicherung, Logout)
+- Gateway Chat Provider (OpenAI-kompatible API, Streaming, Tool Calling)
+- Settings UI Integration (Login-Flow, Status, Org-Kontext, Token-Modus)
+- Dynamic Model Listing (Modelle abhaengig von Org-Policy und Abo)
+- Organization Context (Org-Auswahl und -Wechsel)
+- Embedding Support (Kilo als Embedding-Provider)
+- Manual Token Mode (Direkteingabe statt Device Auth)
+
+### EPIC-014: MCP Connector -- Phase 1
+
+- MCP Server Core (stdio via McpBridge, mcp-server-worker, 6 Tools)
+- Tool-Tier-Mapping (3-Tier-System: read/search/write mit Approval-Gates)
+- MCP Settings UI (McpTab: Server-Status, Claude Desktop Auto-Config)
+- Sidebar Refactoring (SuggestionBanner + OnboardingFlow aus AgentSidebarView extrahiert)
+
+### EPIC-015: Unified Knowledge Layer
+
+- SQLite Knowledge DB (KnowledgeDB.ts, sql.js WASM, Chunk/Graph-Tabellen)
+- Enhanced Vector Retrieval (VectorStore.ts, Background-Enrichment, Two-Pass)
+- Graph Data Extraction (GraphExtractor.ts, GraphStore.ts, Wikilinks/Tags/Properties)
+- Implicit Connection Discovery (ImplicitConnectionService.ts, semantische Nah-aber-nicht-verlinkt Erkennung)
+- Local Reranking (RerankerService.ts, @huggingface/transformers Cross-Encoder)
+- Knowledge Data Consolidation (MemoryDB.ts, Sessions/Episodes/Patterns/Recipes in SQLite)
+- Implicit Connection UI (Vorschlags-Anzeige fuer unverlinkte Verbindungen)
+- Storage Consolidation (Zwei-DB-Strategie: KnowledgeDB + MemoryDB, Legacy-Cleanup)
+
 ---
 
 ## Aktueller Feature-Status
@@ -147,9 +183,82 @@ Branch: `dev`
 | plan_presentation Tool | -- (ADR-048) | `src/core/tools/vault/PlanPresentationTool.ts` |
 | ingest_template Tool | -- (ADR-046) | `src/core/tools/vault/IngestTemplateTool.ts` |
 | render_presentation Tool | FEATURE-1115 | `src/core/tools/vault/RenderPresentationTool.ts` |
-| Basis-Praesentationsregeln | FEATURE-1105-presentation-base-rules.md | Presentation-Design Skill (ADR-047) |
+| Basis-Praesentationsregeln | FEATURE-1105-universal-design-principles.md | Presentation-Design Skill (ADR-047) |
+| Copilot Auth & Token Management | FEATURE-1201-copilot-auth-token-management.md | `src/core/security/GitHubCopilotAuthService.ts` |
+| Copilot Chat Completions | FEATURE-1202-copilot-chat-completions.md | `src/api/providers/github-copilot.ts` |
+| Copilot Settings UI | FEATURE-1203-copilot-settings-ui.md | `src/ui/settings/ModelsTab.ts` |
+| Copilot Embedding Support | FEATURE-1204-copilot-embedding-support.md | `src/api/providers/github-copilot.ts` |
+| Copilot Dynamic Model Listing | FEATURE-1205-copilot-dynamic-model-listing.md | `src/api/providers/github-copilot.ts` |
+| Kilo Auth & Session | FEATURE-1301-kilo-auth-session-management.md | `src/core/security/KiloAuthService.ts` |
+| Kilo Gateway Chat Provider | FEATURE-1302-kilo-gateway-chat-provider.md | `src/api/providers/kilo-gateway.ts` |
+| Kilo Settings UI | FEATURE-1303-kilo-settings-ui.md | `src/ui/settings/ModelsTab.ts` |
+| Kilo Dynamic Model Listing | FEATURE-1304-kilo-dynamic-model-listing.md | `src/core/providers/KiloMetadataService.ts` |
+| Kilo Organization Context | FEATURE-1305-kilo-organization-context.md | `src/core/security/KiloAuthService.ts` |
+| Kilo Embedding Support | FEATURE-1306-kilo-embedding-support.md | `src/api/providers/kilo-gateway.ts` |
+| Kilo Manual Token Mode | FEATURE-1307-kilo-manual-token-mode.md | `src/core/security/KiloAuthService.ts` |
+| MCP Server Core | FEATURE-1400-mcp-server-core.md | `src/mcp/McpBridge.ts` |
+| Tool-Tier-Mapping | FEATURE-1401-tool-tier-mapping.md | `src/mcp/tools/index.ts` |
+| MCP Settings UI | FEATURE-1402-mcp-settings-ui.md | `src/ui/settings/McpTab.ts` |
+| Sidebar Refactoring (Phase 1) | FEATURE-0902-sidebar-refactoring.md | `src/ui/sidebar/SuggestionBanner.ts`, `OnboardingFlow.ts` |
+| SQLite Knowledge DB | FEATURE-1500-sqlite-knowledge-db.md | `src/core/knowledge/KnowledgeDB.ts` |
+| Enhanced Vector Retrieval | FEATURE-1501-enhanced-vector-retrieval.md | `src/core/knowledge/VectorStore.ts` |
+| Graph Data Extraction | FEATURE-1502-graph-extraction-expansion.md | `src/core/knowledge/GraphExtractor.ts`, `GraphStore.ts` |
+| Implicit Connection Discovery | FEATURE-1503-implicit-connections.md | `src/core/knowledge/ImplicitConnectionService.ts` |
+| Local Reranking | FEATURE-1504-local-reranking.md | `src/core/knowledge/RerankerService.ts` |
+| Knowledge Data Consolidation | FEATURE-1505-knowledge-data-consolidation.md | `src/core/knowledge/MemoryDB.ts` |
+| Implicit Connection UI | FEATURE-1506-implicit-connection-ui.md | `src/core/knowledge/ImplicitConnectionService.ts` |
+| Storage Consolidation | FEATURE-1508-storage-consolidation.md | `src/core/knowledge/` |
 
 ### Geplant (nicht implementiert)
+
+**EPIC-016: Claude Code Pattern Adoption**
+
+Quelle: Analyse des geleakten Claude Code Quellcodes (DonutShinobu/claude-code-fork, ~1900 TS-Dateien, 512k LoC).
+Ziel: Patterns uebernehmen die fuer Wissensarbeit in Obsilo Mehrwert bringen.
+
+| Feature | Spec | Prioritaet | Aufwand | Status |
+|---------|------|------------|---------|--------|
+| Deferred Tool Loading | FEATURE-1600-deferred-tool-loading.md | P1-High | Mittel | Geplant |
+| Memory Side-Query | FEATURE-1601-memory-side-query.md | P1-High | Mittel | Geplant |
+| Conditional Skills | FEATURE-1602-conditional-skills.md | P2-Medium | Mittel | Geplant |
+| Parallel SubTasks (Fan-Out) | FEATURE-1603-parallel-subtasks.md | P2-Medium | Mittel | Geplant |
+| Task-Typisierung | FEATURE-1604-task-typing.md | P3-Low | Niedrig | Geplant |
+
+Verworfene Kandidaten:
+- **Spezialisierte Agents** -- Analyse ergab: Skills decken das ab, Agent-Spezialisierung loest Coding-Probleme (phasengetrennte Toolsets, objektives Verify via Tests) die bei Wissensarbeit nicht existieren. Automatischer Wechsel waere einziger Mehrwert, rechtfertigt Aufwand nicht.
+- **Full Coordinator Mode** -- Reduziert auf FEATURE-1603 (Parallel SubTasks). Vollstaendiger Coordinator (900-Zeilen System-Prompt, SendMessage/TaskStop Tools, Coordinator als reiner Denker ohne eigene Tools) widerspricht der Natur von Wissensarbeit wo Lesen+Schreiben im selben Fluss passiert. Stattdessen: leichtgewichtiger Fan-Out als Erweiterung des bestehenden new_task-Systems.
+
+Feature-Details:
+
+**FEATURE-1600: Deferred Tool Loading** (groesster ROI)
+Claude Code Pattern: ToolSearchTool -- nur Tool-Namen im System-Prompt, Schema wird bei Bedarf geladen.
+Obsilo-Adaption: Kern-Tools (read_file, edit_file, search, semantic_search) immer laden, spezialisierte Tools (create_pptx, create_docx, generate_canvas, ingest_template, plan_presentation, create_base, evaluate_expression) deferred. Neues Meta-Tool `find_tool` fuer On-Demand-Schema-Injection.
+Geschaetzter Token-Gewinn: ~30-40% weniger System-Prompt pro API-Call.
+
+**FEATURE-1601: Memory Side-Query**
+Claude Code Pattern: findRelevantMemories.ts -- scannt Memory-Frontmatter, Sonnet waehlt bis zu 5 relevante Memories per Side-Query.
+Obsilo-Adaption: Frontmatter-Schema fuer Memory-Dateien (name, description, type), Side-Query ueber guenstiges Model (Haiku/gpt-4o-mini) bei jedem Turn. Nur relevante Memories laden statt alles. Ergaenzt bestehendes 3-Tier-Memory.
+Voraussetzung: Memory-Dateien brauchen strukturiertes Frontmatter (Migration bestehender Dateien).
+
+**FEATURE-1602: Conditional Skills**
+Claude Code Pattern: loadSkillsDir.ts -- Skills mit `paths` Frontmatter werden erst aktiviert wenn passende Files beruehrt werden.
+Obsilo-Adaption: Skills mit `triggers`-Frontmatter (z.B. `triggers: ["*.pptx", "*.docx"]`) werden erst in den System-Prompt geladen wenn der Agent passende Dateien liest/schreibt. Reduziert Prompt-Rauschen. Kombiniert gut mit FEATURE-1600.
+
+**FEATURE-1603: Parallel SubTasks (Fan-Out)**
+Inkrementelle Erweiterung des bestehenden `new_task`-Systems (NewTaskTool.ts, AgentTask.ts:239-295).
+Aktueller Zustand: new_task ist synchron/blockierend (await childTask.run()), read-Tools laufen bereits parallel via Promise.all (PARALLEL_SAFE Set in AgentTask.ts). Dieses Feature hebt Parallelitaet auf SubTask-Ebene.
+
+Phase 1: new_task um `parallel: true` Parameter erweitern. Wenn der Agent mehrere new_task-Calls mit `parallel: true` im selben Turn macht, sammelt AgentTask diese und fuehrt sie via Promise.all gleichzeitig aus statt sequenziell. Nur read-only SubTasks (mode: "ask") duerfen parallel laufen, write-SubTasks (mode: "agent") bleiben sequenziell. Kein neuer Coordinator-Prompt, keine async Notifications -- reine Execution-Optimierung.
+
+Phase 2 (nur wenn Phase 1 sich bewaehrt): Async SubTasks mit Callback-Notification. SubTask laeuft im Hintergrund, Haupt-Agent arbeitet weiter, Ergebnis wird als injizierte System-Nachricht zurueckgemeldet. Erfordert Aenderung am AgentTask-Loop (aktuell wartet der Loop auf jedes tool_result bevor er weitergeht).
+
+Nicht portiert: Coordinator als reiner Denker ohne eigene Tools (widerspricht Wissensarbeit), SendMessage/TaskStop als separate Tools (zu viel Komplexitaet), 900-Zeilen coding-spezifischer Coordinator-Prompt.
+
+Use Case: Fan-Out-Recherche ("Vergleiche Vault-Notizen, Meeting-Notes und Web-Quellen zu Thema X" -- 3 parallele read-SubTasks, danach Synthese + Dokument-Erstellung durch Haupt-Agent).
+
+**FEATURE-1604: Task-Typisierung**
+Claude Code Pattern: Task.ts -- 7 Task-Typen mit Prefix-IDs und Terminal-Status-Guards.
+Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Status-Lifecycle. Verhindert Nachrichten an beendete Tasks, ermoeglicht bessere UI-Darstellung. Housekeeping das andere Features (1603) einfacher macht.
 
 **EPIC-011: Office Document Quality -- verbleibende Features**
 
@@ -160,6 +269,20 @@ Branch: `dev`
 | Storyline-Framework-Skills | FEATURE-1104 (Spec ausstehend) | P1-High |
 | Design-Memory-Integration | FEATURE-1106 (Spec ausstehend) | P2-Medium |
 | Follow-up Questions | FEATURE-1107 (Spec ausstehend) | P2-Medium |
+
+**EPIC-014: MCP Connector -- verbleibende Features**
+
+| Feature | Spec | Prioritaet | Status |
+|---------|------|------------|--------|
+| Remote Transport (Cloudflare Relay) | FEATURE-1403-remote-transport.md | P1-High | In Arbeit |
+| Remote Authentication | FEATURE-1404-remote-auth.md | P1-High | Geplant |
+| MCP Resources | FEATURE-1405-mcp-resources.md | P1-High | Geplant |
+| MCP Prompts | FEATURE-1406-mcp-prompts.md | P1-High | Geplant |
+| Plugin Skill Discovery | FEATURE-1407-plugin-skill-discovery.md | P2-Medium | Geplant |
+| Remote Approval Pipeline | FEATURE-1408-remote-approval.md | P2-Medium | Zurueckgestellt (Approval in Claude) |
+| Connectors Directory | FEATURE-1409-connectors-directory.md | P2-Medium | Geplant |
+| Sandbox Exposure via MCP | FEATURE-1410-sandbox-exposure.md | P1-High | Geplant |
+| Memory Transparency | FEATURE-1411-memory-transparency.md | P1-High | Implementiert |
 
 **Sonstige geplante Features**
 
@@ -216,32 +339,46 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 
 | Bereich | Beschreibung | Aufwand | Status |
 |---------|-------------|---------|--------|
-| UI Modularisierung | `AgentSidebarView.ts` monolithisch (~3500 LOC) -- Split in ChatRenderer, etc. | 4-6h | Offen |
+| UI Modularisierung | `AgentSidebarView.ts` -- Phase 1 erledigt (SuggestionBanner, OnboardingFlow extrahiert), weitere Splits ausstehend | 4-6h | Teilweise (FEATURE-0902) |
 | Virtual Scrolling | Lange Chat-Historien verursachen UI-Lag | 4h | Offen |
 | Token-Estimation | Grobe ~4 chars/token Schaetzung -- genauer mit js-tiktoken | 2h | Niedrige Prio (funktioniert konsistent) |
 | ~~Semantic Index Trigger~~ | ~~Kein Auto-Index bei Vault-Aenderungen~~ | -- | Resolved -- `main.ts:348-363` (vault events + debounce) |
 | ~~Error-Format~~ | ~~`<tool_error>` Tags nicht standardisiert~~ | -- | Resolved -- Tools nutzen einheitlich `is_error` Flag |
+| ~~i18n Knowledge Layer~~ | ~~Hardcoded EN-Strings in EmbeddingsTab.ts~~ | -- | Resolved -- alle Strings durch t() ersetzt, DE-Übersetzungen hinzugefuegt |
+| ~~PDF-Toggle UX~~ | ~~Toggle-Text missverstaendlich~~ | -- | Resolved -- positiv umformuliert ("Only image-only PDFs without extractable text are skipped") |
 
 ---
 
 ## Naechste Prioritaeten
 
-### Kurzfristig
+### Kurzfristig (aktiv)
 
-1. **Default PPTX Templates (FEATURE-1101)** -- professionelle Vorlagen als Plugin-Assets
-2. **Theme-Extraktion vereinfacht (FEATURE-1103)** -- Farben/Fonts aus ingested Templates
-3. **Token Budget Management (FEATURE-0603)** -- limitiert Kontext-Ueberladung
-4. **On-Demand Image Extraction (FEATURE-0604)** -- komplettiert Document Parsing
+1. **MCP Connector Remote Transport (FEATURE-1403)** -- Cloudflare Relay fuer Remote-Zugriff
+2. **MCP Remote Auth (FEATURE-1404)** -- Authentifizierung fuer Remote-Clients
+
+### Kurzfristig (danach)
+
+1. **Deferred Tool Loading (FEATURE-1600)** -- groesster ROI, spart ~30-40% Token pro API-Call
+2. **Memory Side-Query (FEATURE-1601)** -- macht Memory skalierbar, relevante Memories per Side-Query
+3. **Default PPTX Templates (FEATURE-1101)** -- professionelle Vorlagen als Plugin-Assets
+4. **Token Budget Management (FEATURE-0603)** -- limitiert Kontext-Ueberladung
+5. **On-Demand Image Extraction (FEATURE-0604)** -- komplettiert Document Parsing
+6. **MCP Resources/Prompts (FEATURE-1405/1406)** -- erweiterte MCP-Funktionalitaet
 
 ### Mittelfristig (4-8 Wochen)
 
-1. Storyline-Framework-Skills (FEATURE-1104) -- SCQA, Pyramid etc.
-2. Design-Memory-Integration (FEATURE-1106) -- Template-Praeferenz persistent
-3. UI Refactoring (SidebarView Split, ~3500 LOC -> Unterkomponenten)
-4. Virtual Scrolling fuer lange Chats
-5. npm-Package Integrity (Known-Good-Hashes fuer Sandbox-CDN-Pakete)
+1. **Conditional Skills (FEATURE-1602)** -- kombiniert mit Deferred Loading fuer minimalen Prompt
+2. **Parallel SubTasks Phase 1 (FEATURE-1603)** -- read-only Fan-Out via Promise.all
+3. MCP Connector verbleibende Features (1407-1411)
+4. Storyline-Framework-Skills (FEATURE-1104) -- SCQA, Pyramid etc.
+5. Design-Memory-Integration (FEATURE-1106) -- Template-Praeferenz persistent
+6. UI Refactoring Phase 2 (SidebarView weitere Splits)
+7. Virtual Scrolling fuer lange Chats
+8. npm-Package Integrity (Known-Good-Hashes fuer Sandbox-CDN-Pakete)
+9. **Task-Typisierung (FEATURE-1604)** -- Housekeeping fuer bessere SubTask-Infra
 
 ### Langfristig
 
-1. Obsilo Gateway MVP (Monetarisierung)
-2. Token-Estimation mit js-tiktoken
+1. **Parallel SubTasks Phase 2 (FEATURE-1603)** -- Async SubTasks mit Notification (nur wenn Phase 1 sich bewaehrt)
+2. Obsilo Gateway MVP (Monetarisierung)
+3. Token-Estimation mit js-tiktoken

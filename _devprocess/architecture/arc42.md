@@ -1,8 +1,8 @@
 # arc42 — Obsidian Agent Architecture
 
-**Version:** 3.7
-**Stand:** 2026-03-24
-**Status:** Aktuell — alle Features implementiert, alle bekannten Bugs resolved, AUDIT-003 abgeglichen, EPIC-011 PPTX-Pipeline teilweise implementiert
+**Version:** 4.0
+**Stand:** 2026-03-30
+**Status:** Aktuell — EPIC-015 Knowledge Layer implementiert (4-Stufen Retrieval Pipeline), Copilot + Kilo Provider konsolidiert
 
 ---
 
@@ -73,8 +73,9 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 | Obsidian Vault | Obsidian Vault API | ↔ (read/write) |
 | Obsidian MetadataCache | In-Memory | → (links, tags, frontmatter) |
 | isomorphic-git Shadow-Repo | Filesystem | ↔ (checkpoint commits) |
-| vectra LocalIndex | Filesystem | ↔ (vector read/write) |
-| Xenova Transformers | In-Process (ONNX) | ← (embeddings) |
+| KnowledgeDB (sql.js WASM) | `~/.obsidian-agent/knowledge.db` | ↔ (vectors, graph, implicit edges) |
+| MemoryDB (sql.js WASM) | `{vault}/.obsidian-agent/memory.db` | ↔ (sessions, episodes, recipes, patterns) |
+| @huggingface/transformers | In-Process (WASM) | ← (reranking via ms-marco-MiniLM) |
 | Sandbox (Desktop) | Node.js IPC via child_process.fork (OS-level process isolation) | ↔ (code execution) |
 | Sandbox (Mobile) | postMessage via iframe (V8 origin isolation) | ↔ (code execution) |
 | CDN (esm.sh, jsdelivr) | HTTPS (via requestUrl) | ← (npm packages) |
@@ -94,17 +95,17 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 
 4. **Mode-Based Tool Filtering** — Jeder Mode definiert seine Tool-Gruppen. Der Agent sieht nur die für seinen Mode relevanten Tools. Keine globalem Tool-Whitelist nötig.
 
-5. **Local-Only Semantic Index** — vectra (Pure-TypeScript HNSW) + Xenova Transformers (ONNX). Keine Cloud-Abhängigkeit. Index liegt im Obsidian-Sync-Ordner.
+5. **4-Stufen Retrieval Pipeline (EPIC-015)** — SQLite Knowledge DB (sql.js WASM) + 4-Stufen Suche: Vector Search (Cosine-Similarity) → Graph Expansion (Wikilinks + MOC-Properties) → Implicit Connections (vorberechnete semantische Paare) → Local Reranking (Cross-Encoder via @huggingface/transformers WASM). Keine Cloud-Abhängigkeit. Zwei DBs: knowledge.db (global, Vektoren) + memory.db (vault-lokal, Sessions). [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md)
 
 6. **Sliding Window Repetition Detection** — Erkennt Tool-Loops (gleiche Tool+Input-Kombination >= 3x in letzten 10 Calls) und bricht den Loop ab.
 
-7. **Multi-Provider API (Adapter Pattern)** — Einheitliches `ApiHandler`-Interface fuer Anthropic (nativ) und alle OpenAI-kompatiblen Provider (OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom). Internes Message-Format ist Anthropic-nativ. [ADR-011](ADR-011-multi-provider-api.md)
+7. **Multi-Provider API (Adapter Pattern)** — Einheitliches `ApiHandler`-Interface fuer Anthropic (nativ) und alle OpenAI-kompatiblen Provider (OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom, GitHub Copilot, Kilo Gateway). Internes Message-Format ist Anthropic-nativ. GitHub Copilot via OAuth Device Code Flow ([ADR-036](ADR-036-copilot-streaming-strategy.md)-[ADR-039](ADR-039-copilot-content-normalization.md)), Kilo Gateway via Device Auth + OpenAI-kompatible API ([ADR-040](ADR-040-kilo-provider-architecture.md)-[ADR-043](ADR-043-kilo-embedding-gating-strategy.md)). [ADR-011](ADR-011-multi-provider-api.md)
 
 8. **3-Tier Memory Architecture** — Chat History (kurzfristig) -> Session Summaries (mittelfristig, LLM-extrahiert) -> Long-Term Memory (langfristig, Fakten-Promotion). Asynchrone Verarbeitung via persistenter ExtractionQueue. [ADR-013](ADR-013-memory-architecture.md)
 
 9. **VaultDNA Plugin Discovery** — Automatischer Runtime-Scan aller installierten Plugins. Generiert Skill-Files mit Commands und API-Methoden. Agent kann Plugins aktivieren und deren APIs nutzen. [ADR-014](ADR-014-vault-dna-plugin-discovery.md)
 
-10. **Hybrid Search (Semantic + BM25 + RRF)** — Kombiniert Vektor-Aehnlichkeit mit TF-IDF/BM25-Keyword-Scoring (inkl. Stemming). Ergebnis-Fusion via Reciprocal Rank Fusion (k=60). Graph Augmentation via 1-Hop-Wikilinks. [ADR-015](ADR-015-hybrid-search-rrf.md)
+10. **Hybrid Search (Semantic + TF-IDF + RRF + Graph + Implicit + Reranking)** — Kombiniert Vektor-Aehnlichkeit (SQLite Cosine) mit TF-IDF-Keyword-Scoring (Stemming + Stop-Word-Filter + Title-Boost). Ergebnis-Fusion via Reciprocal Rank Fusion (k=60). Dann: Local Reranking (Cross-Encoder), Graph Expansion (1-3 Hops via edges-Tabelle), Implicit Connection Discovery (semantisch aehnliche Notes ohne Link). [ADR-015](ADR-015-hybrid-search-rrf.md), [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md)
 
 11. **Agent Skill Mastery (3-Ebenen)** — A) Rich Tool Descriptions mit Examples/When-to-use in ToolMeta [ADR-016](ADR-016-rich-tool-descriptions.md). B) Procedural Recipes: Schritt-fuer-Schritt Rezepte fuer bekannte Tasks, keyword-first Matching, 2000 chars Budget [ADR-017](ADR-017-procedural-recipes.md). C) Episodic Task Memory: Aufzeichnung erfolgreicher Ausfuehrungen ohne extra API-Call, Auto-Promotion zu Rezepten bei 3+ Erfolgen [ADR-018](ADR-018-episodic-task-memory.md).
 
@@ -314,22 +315,65 @@ ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-li
 
 Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
 
-### 5.5 Ebene 2: Semantic Search Pipeline
+### 5.5 Ebene 2: Unified Knowledge Layer (EPIC-015)
 
 ```
-SemanticSearchTool.execute()
-  │
-  ├── [optional] HyDE: LLM generiert hypothetisches Dokument
-  ├── Embedding: Xenova/all-MiniLM-L6-v2 (384 dim)
-  ├── vectra.queryItems(vector, top_k × 3)  ← semantisch
-  ├── BM25 keyword scan (live, alle vault files)
-  ├── RRF Fusion (k=60): merge + rank
-  ├── Metadata Filter (folder, tags, since)
-  ├── Graph Augmentation (1-hop wikilinks)
-  └── Excerpt truncation (500 chars)
+Zwei-DB-Strategie (ADR-050):
+
+  knowledge.db (global, ~/.obsidian-agent/)        memory.db (vault-lokal)
+  ├── vectors (Chunk-Embeddings, Float32 BLOBs)    ├── sessions
+  ├── edges (Wikilinks + MOC-Properties)            ├── episodes
+  ├── tags (Inline + Frontmatter)                   ├── recipes
+  ├── implicit_edges (vorberechnete Paare)          └── patterns
+  ├── dismissed_pairs (UI Feedback)
+  └── checkpoint (Metadaten)
+
+4-Stufen Retrieval Pipeline (ADR-051):
+
+  SemanticSearchTool.execute()
+    │
+    ├── [optional] HyDE: LLM generiert hypothetisches Dokument
+    │
+    ├── Parallel:
+    │     ├── Semantic: VectorStore.searchWithContext (Cosine, Adjacent Chunks)
+    │     └── Keyword: TF-IDF mit Stemming + Stop-Words + Title-Boost
+    │
+    ├── RRF Fusion (k=60): score(doc) = SUM(1/(60+rank_i))
+    ├── Metadata Filter (folder, tags, since)
+    │
+    ├── Stufe 4: Local Reranking (Cross-Encoder via transformers.js WASM)
+    │             ms-marco-MiniLM-L-6-v2, ~160ms fuer 20 Kandidaten
+    │
+    ├── results.slice(0, topK)
+    │
+    ├── Stufe 2: Graph Expansion (GraphStore.getNeighbors, 1-3 Hops BFS)
+    │             Wikilinks (body) + MOC-Properties (frontmatter)
+    │
+    ├── Stufe 3: Implicit Connections (ImplicitConnectionService)
+    │             Semantisch aehnliche Notes ohne expliziten Link
+    │
+    └── Output mit Excerpts + Verbindungskontext
+
+  Background Processes:
+    ├── Contextual Enrichment (Two-Pass): Haiku-Prefixes im Hintergrund
+    ├── Graph Extraction: metadataCache → edges/tags bei Vault-Events
+    └── Implicit Computation: Paarweiser Cosine auf Note-Level-Vektoren
+
+Key Files:
+  ├── src/core/knowledge/KnowledgeDB.ts        (SQLite Wrapper, Schema v5)
+  ├── src/core/knowledge/MemoryDB.ts           (Zweite DB fuer Memory-Daten)
+  ├── src/core/knowledge/VectorStore.ts        (Vector CRUD + Cosine Search)
+  ├── src/core/knowledge/GraphStore.ts         (Edge/Tag CRUD + BFS)
+  ├── src/core/knowledge/GraphExtractor.ts     (metadataCache → DB)
+  ├── src/core/knowledge/ImplicitConnectionService.ts
+  ├── src/core/knowledge/RerankerService.ts    (transformers.js Cross-Encoder)
+  ├── src/core/semantic/SemanticIndexService.ts (Orchestrierung + Embedding)
+  └── src/core/tools/vault/SemanticSearchTool.ts (Search-UI)
 ```
 
-### 5.5 Ebene 2: Memory Architecture (3-Tier)
+ADR: [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md).
+
+### 5.9 Ebene 2: Memory Architecture (3-Tier, FEATURE-1505)
 
 ```
 Tier 1: Chat History (ConversationStore)
@@ -338,18 +382,24 @@ Tier 1: Chat History (ConversationStore)
 
 Tier 2: Session Summaries (SessionExtractor)
   └── LLM-generierte Zusammenfassung nach Gespraechsende
-      Mittelfristig, eine pro Konversation
+      Gespeichert in memory.db (sessions Tabelle)
       Semantisch durchsuchbar (MemoryRetriever)
 
 Tier 3: Long-Term Memory (LongTermExtractor)
   └── Fakten aus Sessions in persistente Dateien promoviert
-      user-profile.md, projects.md, patterns.md, soul.md
+      user-profile.md, projects.md, patterns.md, soul.md, errors.md
       Langfristig, kumulativ
+      (learnings.md entfernt -- Learnings sind Episodes + Recipes)
+
+Agent Skill Mastery (in memory.db):
+  ├── episodes Tabelle (TaskEpisode, max 500 FIFO)
+  ├── recipes Tabelle (statisch + gelernt)
+  └── patterns Tabelle (vor Promotion zu Recipes)
 
 Asynchrone Verarbeitung:
   ExtractionQueue (persistent FIFO, ueberlebt Neustarts)
-    ├── SessionExtractor -> LLM call -> sessions/{id}.md
-    └── LongTermExtractor -> LLM call -> update memory files
+    ├── SessionExtractor -> LLM call -> memory.db sessions
+    └── LongTermExtractor -> LLM call -> update memory .md files
 ```
 
 ADR: [ADR-013](ADR-013-memory-architecture.md). Feature-Spec: `FEATURE-0304-memory-personalization.md`.
@@ -479,7 +529,7 @@ Emergency Condensing (Catch-Block, Auto-Retry):
 
 ADR: [ADR-012](ADR-012-context-condensing.md). Context Condensing ist standardmaessig AKTIVIERT (`condensingEnabled: true`).
 
-### 6.6 Semantic Search Pipeline
+### 6.6 Semantic Search Pipeline (EPIC-015)
 
 ```
 semantic_search(query, top_k, folder?, tags?, since?)
@@ -487,16 +537,19 @@ semantic_search(query, top_k, folder?, tags?, since?)
   ├── [optional] HyDE: LLM generiert hypothetisches Dokument
   │
   ├── Parallel:
-  │     ├── Semantic: Vectra HNSW (top_k * 3 Ergebnisse)
-  │     └── Keyword: BM25/TF-IDF mit Stemming (alle Vault-Dateien)
+  │     ├── Semantic: VectorStore.searchWithContext (Adjacent Chunks, Multi-per-File)
+  │     └── Keyword: TF-IDF + Stemming + Stop-Word-Filter + Title-Boost
   │
   ├── RRF Fusion (k=60): score(doc) = SUM(1/(60+rank_i))
   ├── Metadata Filter (folder, tags, since)
-  ├── Graph Augmentation (1-hop Wikilinks, max 5)
-  └── Excerpt Truncation (500 chars)
+  ├── Local Reranking: Cross-Encoder (transformers.js WASM, ms-marco-MiniLM)
+  ├── Top-K Slice
+  ├── Graph Expansion: GraphStore.getNeighbors (1-3 Hops, Wikilinks + MOC)
+  ├── Implicit Connections: ImplicitConnectionService.getImplicitNeighbors
+  └── Suggestion Banner: Sidebar-UI fuer Implicit Connection Vorschlaege
 ```
 
-ADR: [ADR-015](ADR-015-hybrid-search-rrf.md).
+ADR: [ADR-015](ADR-015-hybrid-search-rrf.md), [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md).
 
 ---
 
@@ -511,15 +564,17 @@ Obsidian Agent läuft vollständig lokal im Obsidian Electron-Renderer-Prozess. 
 Nutzer-Gerät:
   Obsidian (Electron)
   └── Plugin-Prozess (Renderer)
-        ├── vectra Index       → .obsidian/plugins/obsidian-agent/semantic-index/
+        ├── knowledge.db       → ~/.obsidian-agent/knowledge.db (global, Vektoren + Graph)
+        ├── memory.db          → {vault}/.obsidian-agent/memory.db (vault-lokal, Sessions + Recipes)
+        ├── sql.js WASM        → Plugin-Verzeichnis (sql-wasm-browser.wasm, ~1.5MB)
+        ├── transformers.js    → In-Process WASM (Reranker: ms-marco-MiniLM, ~23MB cached)
         ├── isomorphic-git     → .obsidian/plugins/obsidian-agent/checkpoints/
-        ├── ONNX Runtime       → In-Memory (Xenova Transformers)
-        ├── Audit Logs         → .obsidian/plugins/obsidian-agent/logs/
-        ├── Chat History       → .obsidian/plugins/obsidian-agent/history/
-        ├── Memory Files       → .obsidian/plugins/obsidian-agent/memory/
-        ├── Extraction Queue   → .obsidian/plugins/obsidian-agent/pending-extractions.json
-        ├── Sandbox (Desktop)  → child_process.fork OS-level isolation (evaluate_expression, dynamic tools)
-        ├── Sandbox (Mobile)   → iframe V8 origin isolation (evaluate_expression, dynamic tools)
+        ├── Audit Logs         → ~/.obsidian-agent/logs/
+        ├── Chat History       → ~/.obsidian-agent/history/
+        ├── Memory Files (.md) → ~/.obsidian-agent/memory/ (user-profile, patterns, soul, errors)
+        ├── Extraction Queue   → ~/.obsidian-agent/pending-extractions.json
+        ├── Sandbox (Desktop)  → child_process.fork OS-level isolation
+        ├── Sandbox (Mobile)   → iframe V8 origin isolation
         ├── esbuild-wasm       → In-Process TypeScript Compilation (~11MB, on-demand)
         ├── Package Cache      → In-Memory (CDN-Downloads: esm.sh ?bundle, jsdelivr fallback)
         └── MCP subprocesses   → stdio (lokal)
@@ -560,19 +615,24 @@ Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memor
 #### Storage Layout
 
 ```
-.obsidian/plugins/obsidian-agent/
-├── history/                     # Chat History
-│   ├── index.json               # ConversationMeta[] (id, title, created, updated, messageCount, tokens)
-│   └── {id}.json                # ConversationData (meta + messages + uiMessages)
-├── memory/                      # Long-Term Memory
-│   ├── user-profile.md          # Identity, communication, agent behavior
-│   ├── projects.md              # Active projects, goals
-│   ├── patterns.md              # Behavioral patterns, refinements
-│   ├── knowledge.md             # Domain knowledge (on-demand)
-│   └── sessions/                # Session summaries (one per conversation)
-│       └── {id}.md              # YAML frontmatter + summary
-├── pending-extractions.json     # Persistent extraction queue
-└── semantic-index/              # (existing) Vectra index (+ session source filter)
+~/.obsidian-agent/                       # Global Storage (nicht gesynct)
+├── knowledge.db                         # SQLite: Vektoren, Graph, Implicit Edges (EPIC-015)
+├── history/                             # Chat History
+│   ├── index.json
+│   └── {id}.json
+├── memory/                              # Long-Term Memory (.md Dateien)
+│   ├── user-profile.md
+│   ├── projects.md
+│   ├── patterns.md
+│   ├── soul.md
+│   ├── errors.md
+│   ├── knowledge.md
+│   └── custom-tools.md
+├── pending-extractions.json
+└── logs/
+
+{vault}/.obsidian-agent/                 # Vault-lokal (gesynct via Vault Sync)
+└── memory.db                            # SQLite: Sessions, Episodes, Recipes, Patterns (FEATURE-1505)
 ```
 
 #### ConversationStore (`src/core/history/ConversationStore.ts`)
@@ -703,7 +763,7 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 |-----|-------------|
 | [ADR-001](ADR-001-central-tool-execution-pipeline.md) | Zentrale ToolExecutionPipeline für alle Tool-Aufrufe |
 | [ADR-002](ADR-002-isomorphic-git-checkpoints.md) | isomorphic-git statt System-Git für Checkpoints |
-| [ADR-003](ADR-003-vectra-semantic-index.md) | vectra + Xenova für lokalen Semantic Index |
+| ~~[ADR-003](ADR-003-vectra-semantic-index.md)~~ | ~~vectra + Xenova fuer Semantic Index~~ — **Superseded** by ADR-050 |
 | [ADR-004](ADR-004-mode-based-tool-filtering.md) | Mode-basierte Tool-Filterung statt globaler Whitelist |
 | [ADR-005](ADR-005-fail-closed-approval.md) | Fail-Closed Approval (kein Callback = ablehnen) |
 | [ADR-006](ADR-006-sliding-window-repetition.md) | Sliding Window für Tool-Repetition-Erkennung |
@@ -750,6 +810,9 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-041](ADR-041-kilo-auth-session-architecture.md) | Kilo Auth & Session Architecture (JWT + Refresh Token) |
 | [ADR-042](ADR-042-kilo-metadata-discovery.md) | Kilo Metadata Discovery (Model-Catalog vom Gateway) |
 | [ADR-043](ADR-043-kilo-embedding-gating-strategy.md) | Kilo Embedding Gating Strategy (Feature-Flags pro Modell) |
+| [ADR-050](ADR-050-sqlite-knowledge-db.md) | SQLite Knowledge DB: sql.js WASM, Zwei-DB-Strategie, Schema v5 |
+| [ADR-051](ADR-051-retrieval-pipeline.md) | 4-Stufen Retrieval Pipeline: Vector → Graph → Implicit → Reranking |
+| [ADR-052](ADR-052-local-reranker.md) | Local Reranker: transformers.js WASM, ms-marco-MiniLM-L-6-v2 |
 
 ---
 
@@ -773,10 +836,10 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 
 | Risiko | Auswirkung | Mitigation |
 |--------|-----------|-----------|
-| vectra lädt gesamten Index in RAM | Hohe RAM-Nutzung bei >10k Notizen | Chunked loading (future) |
+| ~~vectra RAM~~ | ~~Resolved: Ersetzt durch SQLite (ADR-050)~~ | ~~EPIC-015~~ |
 | `query_base` nutzt Regex-YAML-Parser | Komplexe Filterausdrücke können falsch geparst werden | Echter YAML-Parser (future) |
 | `update_base` erkennt View-Blöcke via Regex | Fragil bei unerwarteter YAML-Formatierung | Vollständiger YAML-Parser (future) |
-| Keyword-Suche (BM25) ist ein Live-Scan | Linear mit Vault-Groesse | Vorkompilierter BM25-Index (future) |
+| Keyword-Suche (TF-IDF) ist ein Live-Scan | Linear mit Vault-Groesse | Vorkompilierter Index (future), aktuell <50ms |
 | HyDE verursacht extra LLM-Call | +2-5s Latenz pro Suche | Default: disabled, opt-in |
 | Memory-Extraktion basiert auf LLM-Qualitaet | Ungenaue Fakten bei schwachen Modellen | Separate memoryModelKey-Einstellung |
 | VaultDNA Reflection kann bei Plugins fehlschlagen | Unvollstaendige Skill-Files | Nutzer kann Skill-Files manuell anpassen |
