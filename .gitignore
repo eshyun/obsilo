@@ -77,3 +77,5 @@ forked-kilocode/
 codeql-db/
 *.sarif
 codeql-results.*
+
+browser-data/
