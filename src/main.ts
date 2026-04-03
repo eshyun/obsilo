@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl, MarkdownView } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl } from 'obsidian';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -10,12 +10,19 @@ import { OperationLogger } from './core/governance/OperationLogger';
 import { GlobalFileService } from './core/storage/GlobalFileService';
 import { GlobalSettingsService } from './core/storage/GlobalSettingsService';
 import { GlobalMigrationService } from './core/storage/GlobalMigrationService';
-import { SyncBridge } from './core/storage/SyncBridge';
+// SyncBridge removed (FEATURE-1508: storage consolidated to vault-parent)
 import { RulesLoader } from './core/context/RulesLoader';
 import { WorkflowLoader } from './core/context/WorkflowLoader';
 import { SkillsManager } from './core/context/SkillsManager';
 import { GitCheckpointService } from './core/checkpoints/GitCheckpointService';
 import { SemanticIndexService } from './core/semantic/SemanticIndexService';
+import { KnowledgeDB } from './core/knowledge/KnowledgeDB';
+import { VectorStore } from './core/knowledge/VectorStore';
+import { GraphStore } from './core/knowledge/GraphStore';
+import { GraphExtractor } from './core/knowledge/GraphExtractor';
+import { ImplicitConnectionService } from './core/knowledge/ImplicitConnectionService';
+import { MemoryDB } from './core/knowledge/MemoryDB';
+import { RerankerService } from './core/knowledge/RerankerService';
 import { ChatHistoryService } from './core/ChatHistoryService';
 import { ConversationStore } from './core/history/ConversationStore';
 import { MemoryService } from './core/memory/MemoryService';
@@ -77,9 +84,16 @@ export default class ObsidianAgentPlugin extends Plugin {
     workflowLoader: WorkflowLoader;
     skillsManager: SkillsManager;
     semanticIndex: SemanticIndexService | null = null;
+    knowledgeDB: KnowledgeDB | null = null;
+    vectorStore: VectorStore | null = null;
+    graphStore: GraphStore | null = null;
+    graphExtractor: GraphExtractor | null = null;
+    implicitConnectionService: ImplicitConnectionService | null = null;
+    memoryDB: MemoryDB | null = null;
+    rerankerService: RerankerService | null = null;
+    mcpBridge: { start(): Promise<void>; stop(): void; running: boolean; tunnelUrl: string | null; remoteConnected: boolean; remoteConnecting: boolean; startTunnel(onUrl?: (url: string | null) => void): void; stopTunnel(): void; connectRelay(): void; disconnectRelay(): void; getToolsWithContext(): unknown[]; buildResourceList(): unknown[] } | null = null;
     private autoIndexDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private warmupFired = false;
-    private activateViewInFlight: Promise<void> | null = null;
     /** Session flags for cross-tool coordination (e.g. plan_presentation → create_pptx gate). */
     sessionFlags = new Set<string>();
     private cloudProviderWarningShown = false;
@@ -99,7 +113,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     safeStorage: SafeStorageService;
     globalFs: GlobalFileService;
     globalSettingsService: GlobalSettingsService | null = null;
-    syncBridge: SyncBridge | null = null;
+    // syncBridge removed (FEATURE-1508)
     ringBuffer: ConsoleRingBuffer;
     selfAuthoredSkillLoader: SelfAuthoredSkillLoader | null = null;
     sandboxExecutor: ISandboxExecutor | null = null;
@@ -108,8 +122,6 @@ export default class ObsidianAgentPlugin extends Plugin {
     embeddedSourceManager: EmbeddedSourceManager | null = null;
     pluginBuilder: PluginBuilder | null = null;
     pluginReloader: PluginReloader | null = null;
-
-    private globalHotkeyRegisteredAccelerator: string | null = null;
 
     // ── Chat-Linking: deferred frontmatter stamping (ADR-022) ────────────
     /** Paths written by the agent, grouped by conversationId. Flushed on conversation end. */
@@ -161,28 +173,6 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
     }
 
-    private async openAgentSidebarAndFocus(): Promise<void> {
-        const activeMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        const selection = activeMarkdownView?.editor?.getSelection?.() ?? '';
-
-        await this.activateView();
-
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
-        if (leaves.length === 0) return;
-
-        const view = leaves[0].view as AgentSidebarView;
-
-        if (selection.trim()) {
-            view.queueSelectionContext(selection);
-        }
-
-        if (view.isMessageInputFocused()) {
-            view.startNewSession();
-        }
-
-        view.focusMessageInput();
-    }
-
     /** Remove pending chat-link paths for a conversation (called on conversation clear/switch). */
     clearPendingChatLinks(conversationId: string): void {
         this.pendingChatLinks.delete(conversationId);
@@ -200,6 +190,14 @@ export default class ObsidianAgentPlugin extends Plugin {
      * 6. Start semantic indexing
      */
     onload(): void {
+        // Register view SYNCHRONOUSLY so Obsidian can restore saved layout
+        // immediately — before any async initialization runs.
+        // ModeService uses lazy toolRegistry access, so the view is safe
+        // to construct even before doLoad() finishes.
+        this.registerView(
+            VIEW_TYPE_AGENT_SIDEBAR,
+            (leaf) => new AgentSidebarView(leaf, this)
+        );
         void this.doLoad();
     }
 
@@ -213,8 +211,9 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();
 
-        // 0b. Global file service — shared storage at ~/.obsidian-agent/ (ADR-020)
-        this.globalFs = new GlobalFileService();
+        // 0b. Global file service — shared storage at {vault-parent}/.obsidian-agent/ (FEATURE-1508)
+        const vaultBasePath = (this.app.vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
+        this.globalFs = new GlobalFileService(vaultBasePath);
         this.globalSettingsService = new GlobalSettingsService(this.globalFs, this.safeStorage);
         // Share the GlobalFileService with GlobalModeStore (consolidates all global I/O)
         setGlobalModeStoreFs(this.globalFs);
@@ -222,45 +221,20 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 1. Load settings (merges global + vault-local)
         await this.loadSettings();
 
-        // Optional: register a system-wide hotkey (Electron desktop only)
-        this.registerGlobalHotkeyFromSettings();
-
         // 1b. Initialize i18n with user's language preference
         await initI18n(this.settings.language);
 
         // 2. Initialize core services
         const pluginDir = `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
-        const syncDir = '.obsilo-sync';
-        this.syncBridge = new SyncBridge(this.globalFs, this.app.vault, syncDir);
 
-        // One-time migration: pull sync data from old plugin-dir location to global storage,
-        // then push to new .obsilo-sync/ location BEFORE pullFromVault() runs.
-        // Critical: pushToVault() must populate .obsilo-sync/ first, otherwise
-        // pullFromVault() sees an empty .obsilo-sync/ and deletes all global data as orphans.
-        if (!this.settings._syncDirMigrated) {
-            await this.syncBridge.pullFromLegacyPluginDir(pluginDir).catch((e) =>
-                console.warn('[Plugin] SyncBridge plugin-dir migration failed (non-fatal):', e)
+        // FEATURE-1508: One-time migration from ~/.obsidian-agent/ to {vault-parent}/.obsidian-agent/
+        if (!this.settings._parentDirMigrated) {
+            await this.migrateToParentDir(vaultBasePath).catch((e) =>
+                console.warn('[Plugin] Storage migration failed (non-fatal):', e)
             );
-            // Push global data to .obsilo-sync/ so pullFromVault() won't treat it as orphans
-            await this.syncBridge.pushToVault().catch((e) =>
-                console.warn('[Plugin] SyncBridge initial push to .obsilo-sync/ failed (non-fatal):', e)
-            );
-            // Clean up old sync data from plugin directory (frees ~600 MB)
-            await this.cleanupLegacyPluginDirData(pluginDir).catch((e) =>
-                console.warn('[Plugin] Legacy plugin-dir cleanup failed (non-fatal):', e)
-            );
-            this.settings._syncDirMigrated = true;
-            await this.saveData({ ...this.settings, _syncDirMigrated: true });
+            this.settings._parentDirMigrated = true;
+            await this.saveData({ ...this.settings, _parentDirMigrated: true });
         }
-
-        // Pull latest data from vault sync dir (arriving via Obsidian Sync)
-        await this.syncBridge.pullFromVault().catch((e) =>
-            console.warn('[Plugin] SyncBridge pull failed (non-fatal):', e)
-        );
-        // Also pull from legacy vault-root location (.obsidian-agent/)
-        await this.syncBridge.pullFromLegacyVaultRoot().catch((e) =>
-            console.warn('[Plugin] SyncBridge legacy pull failed (non-fatal):', e)
-        );
 
         // Governance: ignore/protected path rules
         this.ignoreService = new IgnoreService(this.app.vault);
@@ -372,26 +346,96 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
         }
 
-        // Semantic index (Phase C2) — lazy build, only when enabled
+        // Semantic index (Phase C2) — SQLite-backed via KnowledgeDB (ADR-050)
         if (this.settings.enableSemanticIndex) {
-            this.semanticIndex = new SemanticIndexService(this.app.vault, pluginDir, {
+            this.knowledgeDB = new KnowledgeDB(
+                this.app.vault,
+                pluginDir,
+                'local', // FEATURE-1508: knowledge.db is vault-local (syncs with vault)
+            );
+            await this.knowledgeDB.open().catch((e) =>
+                console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e)
+            );
+            this.vectorStore = new VectorStore(this.knowledgeDB);
+            this.graphStore = new GraphStore(this.knowledgeDB);
+            this.semanticIndex = new SemanticIndexService(this.app.vault, this.knowledgeDB, this.vectorStore, {
                 batchSize: this.settings.semanticBatchSize,
                 embeddingBatchSize: 16,  // texts per API call — batch for performance
                 excludedFolders: this.settings.semanticExcludedFolders,
-                storageLocation: this.settings.semanticStorageLocation,
                 indexPdfs: this.settings.semanticIndexPdfs,
                 chunkSize: this.settings.semanticChunkSize ?? 2000,
+                enableContextualRetrieval: this.settings.enableContextualRetrieval,
             });
             const embeddingModel = this.getActiveEmbeddingModel();
             if (embeddingModel) this.semanticIndex.setEmbeddingModel(embeddingModel);
+            // Contextual Retrieval: set API handler for prefix generation (FEATURE-1501)
+            if (this.settings.enableContextualRetrieval && this.settings.contextualModelKey) {
+                const ctxModel = this.settings.activeModels.find(
+                    (m) => getModelKey(m) === this.settings.contextualModelKey && m.enabled,
+                );
+                if (ctxModel) {
+                    const { buildApiHandlerForModel } = await import('./api/index');
+                    this.semanticIndex.setContextualApiHandler(buildApiHandlerForModel(ctxModel));
+                }
+            }
             await this.semanticIndex.initialize().catch((e) =>
                 console.warn('[Plugin] Semantic index init failed (non-fatal):', e)
             );
             // Auto-index on startup if configured
             if (this.settings.semanticAutoIndex === 'startup') {
+                // buildIndex() auto-triggers enrichment after completion
                 this.semanticIndex.buildIndex().catch((e) =>
                     console.warn('[Plugin] Auto-index on startup failed:', e)
                 );
+            } else if (
+                this.semanticIndex.isIndexed &&
+                this.settings.enableContextualRetrieval &&
+                this.settings.contextualModelKey &&
+                this.vectorStore
+            ) {
+                // No build needed, but check for unenriched chunks from a previous session
+                const unenriched = this.vectorStore.getUnenrichedCount();
+                if (unenriched > 0) {
+                    console.debug(`[Plugin] ${unenriched} unenriched chunks found — starting background enrichment`);
+                    void this.semanticIndex.runBackgroundEnrichment();
+                }
+            }
+
+            // Graph Extraction (FEATURE-1502): extract Wikilinks, MOC-Properties, Tags
+            if (this.settings.enableGraphExpansion && this.graphStore) {
+                this.graphExtractor = new GraphExtractor(
+                    this.app,
+                    this.graphStore,
+                    this.settings.mocPropertyNames ?? [],
+                );
+                // Full extraction on startup (fast: reads metadataCache only, no file I/O)
+                this.app.workspace.onLayoutReady(() => {
+                    this.graphExtractor?.extractAll(this.app.vault);
+                });
+            }
+
+            // Implicit Connections (FEATURE-1503): discover semantically similar notes
+            if (this.settings.enableImplicitConnections && this.vectorStore && this.graphStore) {
+                this.implicitConnectionService = new ImplicitConnectionService(
+                    this.knowledgeDB,
+                    this.vectorStore,
+                    this.graphStore,
+                );
+                // Auto-compute after startup if index exists
+                if (this.semanticIndex.isIndexed) {
+                    this.app.workspace.onLayoutReady(() => {
+                        void this.implicitConnectionService?.computeAll(this.settings.implicitThreshold);
+                    });
+                }
+            }
+
+            // Local Reranking (FEATURE-1504): cross-encoder via transformers.js (WASM)
+            if (this.settings.enableReranking) {
+                this.rerankerService = new RerankerService();
+                // Pre-load model at startup so first search is fast
+                this.app.workspace.onLayoutReady(() => {
+                    void this.rerankerService?.loadModel();
+                });
             }
         }
 
@@ -404,25 +448,50 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.registerEvent(this.app.vault.on('modify', (file) => {
                 if (!(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
+                // Graph + implicit: update edges/tags and recompute implicit connections
+                if (file.extension === 'md') {
+                    this.graphExtractor?.extractFile(file);
+                    this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
+                }
             }));
             this.registerEvent(this.app.vault.on('create', (file) => {
                 if (!(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
+                if (file.extension === 'md') {
+                    this.graphExtractor?.extractFile(file);
+                    this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
+                }
             }));
             this.registerEvent(this.app.vault.on('delete', (file) => {
                 if (!(file instanceof TFile) || !isIndexable(file)) return;
                 void this.semanticIndex?.removeFile(file.path);
+                this.graphExtractor?.removeFile(file.path);
             }));
             this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
                 if (!(file instanceof TFile) || !isIndexable(file)) return;
                 void this.semanticIndex?.removeFile(oldPath);
+                this.graphExtractor?.removeFile(oldPath);
+                if (file instanceof TFile && file.extension === 'md') {
+                    this.graphExtractor?.extractFile(file);
+                    this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
+                }
                 this.scheduleFileIndex(file.path);
             }));
         }
 
+        // Memory DB (FEATURE-1505/1508): SQLite storage at {vault-parent}/.obsidian-agent/memory.db
+        {
+            this.memoryDB = new MemoryDB(this.app.vault, pluginDir, this.globalFs.getRoot());
+            await this.memoryDB.open().catch((e) =>
+                console.warn('[Plugin] MemoryDB open failed (non-fatal):', e)
+            );
+        }
+
         // Agent Skill Mastery — Procedural Recipes (ADR-017)
         if (this.settings.mastery.enabled) {
-            this.recipeStore = new RecipeStore(this.globalFs);
+            const getLearnedEnabled = () => this.settings.mastery.learnedRecipesEnabled;
+
+            this.recipeStore = new RecipeStore(this.globalFs, getLearnedEnabled, this.memoryDB);
             await this.recipeStore.initialize().catch((e) =>
                 console.warn('[Plugin] RecipeStore init failed (non-fatal):', e)
             );
@@ -432,6 +501,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.episodicExtractor = new EpisodicExtractor(
                 this.globalFs,
                 () => this.semanticIndex,
+                this.memoryDB,
             );
             await this.episodicExtractor.initialize().catch((e) =>
                 console.warn('[Plugin] EpisodicExtractor init failed (non-fatal):', e)
@@ -444,6 +514,8 @@ export default class ObsidianAgentPlugin extends Plugin {
                     if (!model) return null;
                     return buildApiHandler(modelToLLMProvider(model));
                 },
+                getLearnedEnabled,
+                this.memoryDB,
             );
             await this.recipePromotionService.initialize().catch((e) =>
                 console.warn('[Plugin] RecipePromotionService init failed (non-fatal):', e)
@@ -466,7 +538,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Memory service + extraction queue
         if (this.settings.memory.enabled) {
-            this.memoryService = new MemoryService(this.globalFs);
+            this.memoryService = new MemoryService(this.globalFs, this.memoryDB);
             await this.memoryService.initialize().catch((e) =>
                 console.warn('[Plugin] MemoryService init failed (non-fatal):', e)
             );
@@ -507,11 +579,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // LLM provider (null if no API key configured)
         this.initApiHandler();
 
-        // 3. Register UI views
-        this.registerView(
-            VIEW_TYPE_AGENT_SIDEBAR,
-            (leaf) => new AgentSidebarView(leaf, this)
-        );
+        // 3. Register UI views (registerView moved to synchronous onload())
 
         // Ribbon icon in left activity bar (using built-in lucide icon)
         this.addRibbonIcon('bot', 'Obsilo agent', () => {
@@ -536,20 +604,8 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 4. Register commands
         this.addCommand({
             id: 'open-agent-sidebar',
-            name: 'Obsilo agent',
+            name: 'Open agent sidebar',
             callback: () => this.activateView()
-        });
-
-        this.addCommand({
-            id: 'open-agent-sidebar-focus',
-            name: 'Obsilo agent: Focus message input',
-            hotkeys: [
-                {
-                    modifiers: ['Mod'],
-                    key: 'L',
-                },
-            ],
-            callback: () => void this.openAgentSidebarAndFocus(),
         });
 
         // Development: Test tool execution
@@ -570,10 +626,18 @@ export default class ObsidianAgentPlugin extends Plugin {
             if (tab) this.openSettingsAt(tab, sub);
         });
 
-        // Push global data to vault plugin dir so Obsidian Sync can pick it up (ADR-020)
-        this.syncBridge?.pushToVault().catch((e) =>
-            console.warn('[Plugin] Initial SyncBridge push failed (non-fatal):', e)
-        );
+        // MCP Server (EPIC-014): Expose Obsilo as MCP Server for Claude Desktop/Code
+        if (this.settings.enableMcpServer) {
+            const { McpBridge } = await import('./mcp/McpBridge');
+            this.mcpBridge = new McpBridge(this);
+            await this.mcpBridge.start().catch((e: unknown) =>
+                console.warn('[Plugin] MCP Server start failed (non-fatal):', e)
+            );
+            // Remote relay (if configured)
+            if (this.settings.enableRemoteRelay && this.settings.relayUrl) {
+                this.mcpBridge.connectRelay();
+            }
+        }
 
         console.debug('Obsilo Agent plugin loaded successfully');
     }
@@ -583,33 +647,25 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     onunload(): void {
         console.debug('Unloading Obsilo Agent plugin');
-
-        // Unregister any global hotkey
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron only available in Obsidian desktop renderer
-            const electron = require('electron');
-            const gs = electron?.globalShortcut ?? electron?.remote?.globalShortcut;
-            if (gs && this.globalHotkeyRegisteredAccelerator) {
-                if (gs.isRegistered?.(this.globalHotkeyRegisteredAccelerator)) {
-                    gs.unregister(this.globalHotkeyRegisteredAccelerator);
-                }
-                this.globalHotkeyRegisteredAccelerator = null;
-            }
-        } catch {
-            // ignore
-        }
-
         // Fire-and-forget async cleanup (Plugin API expects synchronous return)
         void (async () => {
             // Flush any pending chat-links before shutdown
             for (const convId of [...this.pendingChatLinks.keys()]) {
                 await this.flushPendingChatLinks(convId).catch(() => {});
             }
-            // Push global data back to vault plugin dir for Obsidian Sync (ADR-020)
-            await this.syncBridge?.pushToVault().catch((e) =>
-                console.warn('[Plugin] SyncBridge push failed (non-fatal):', e)
-            );
             await this.mcpClient?.disconnectAll();
+            // Stop background processes before closing DB
+            this.semanticIndex?.cancelEnrichment();
+            this.implicitConnectionService?.cancel();
+            this.rerankerService?.unload();
+            this.mcpBridge?.stop();
+            // Close databases (final save + cleanup)
+            await this.memoryDB?.close().catch((e) =>
+                console.warn('[Plugin] MemoryDB close failed (non-fatal):', e)
+            );
+            await this.knowledgeDB?.close().catch((e) =>
+                console.warn('[Plugin] KnowledgeDB close failed (non-fatal):', e)
+            );
         })();
         // Synchronous cleanup stays outside the IIFE
         this.pendingChatLinks.clear();
@@ -826,53 +882,6 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
             await this.saveData(this.encryptSettingsForSave(this.settings));
         }
-
-        // Ensure required defaults exist for newly added settings
-        this.settings.globalHotkeyEnabled = this.settings.globalHotkeyEnabled ?? DEFAULT_SETTINGS.globalHotkeyEnabled;
-        this.settings.globalHotkeyAccelerator = this.settings.globalHotkeyAccelerator ?? DEFAULT_SETTINGS.globalHotkeyAccelerator;
-    }
-
-    private registerGlobalHotkeyFromSettings(): void {
-        let electron: any;
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron only available in Obsidian desktop renderer
-            electron = require('electron');
-        } catch {
-            electron = null;
-        }
-
-        const gs = electron?.globalShortcut ?? electron?.remote?.globalShortcut;
-        if (!gs) return;
-
-        // Unregister previous accelerator if needed
-        if (this.globalHotkeyRegisteredAccelerator) {
-            try {
-                if (gs.isRegistered?.(this.globalHotkeyRegisteredAccelerator)) {
-                    gs.unregister(this.globalHotkeyRegisteredAccelerator);
-                }
-            } catch {
-                // ignore
-            }
-            this.globalHotkeyRegisteredAccelerator = null;
-        }
-
-        if (!this.settings.globalHotkeyEnabled) return;
-
-        const accel = (this.settings.globalHotkeyAccelerator || '').trim();
-        if (!accel) return;
-
-        try {
-            const ok = gs.register(accel, () => {
-                void this.openAgentSidebarAndFocus();
-            });
-            if (ok) {
-                this.globalHotkeyRegisteredAccelerator = accel;
-            } else {
-                console.warn('[GlobalHotkey] Failed to register accelerator:', accel);
-            }
-        } catch (e) {
-            console.warn('[GlobalHotkey] Error registering accelerator:', accel, e);
-        }
     }
 
     /**
@@ -979,6 +988,17 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (settings.kiloToken) {
             settings.kiloToken = this.safeStorage.decrypt(settings.kiloToken);
         }
+        // Remote relay tokens (AUDIT-005 M-2)
+        if (settings.cloudflareApiToken) {
+            settings.cloudflareApiToken = this.safeStorage.decrypt(settings.cloudflareApiToken);
+        }
+        if (settings.relayToken) {
+            settings.relayToken = this.safeStorage.decrypt(settings.relayToken);
+        }
+        // Local MCP server token (AUDIT-006 H-1)
+        if (settings.mcpServerToken) {
+            settings.mcpServerToken = this.safeStorage.decrypt(settings.mcpServerToken);
+        }
     }
 
     /**
@@ -1021,6 +1041,17 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (copy.kiloToken && !this.safeStorage.isEncrypted(copy.kiloToken)) {
             copy.kiloToken = this.safeStorage.encrypt(copy.kiloToken);
         }
+        // Remote relay tokens (AUDIT-005 M-2)
+        if (copy.cloudflareApiToken && !this.safeStorage.isEncrypted(copy.cloudflareApiToken)) {
+            copy.cloudflareApiToken = this.safeStorage.encrypt(copy.cloudflareApiToken);
+        }
+        if (copy.relayToken && !this.safeStorage.isEncrypted(copy.relayToken)) {
+            copy.relayToken = this.safeStorage.encrypt(copy.relayToken);
+        }
+        // Local MCP server token (AUDIT-006 H-1)
+        if (copy.mcpServerToken && !this.safeStorage.isEncrypted(copy.mcpServerToken)) {
+            copy.mcpServerToken = this.safeStorage.encrypt(copy.mcpServerToken);
+        }
         copy._encrypted = true;
         return copy;
     }
@@ -1034,11 +1065,6 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (this.globalSettingsService) {
             await this.globalSettingsService.saveGlobal(this.settings);
         }
-        // Push global data back to plugin dir for Obsidian Sync
-        this.syncBridge?.pushToVault().catch((e) =>
-            console.warn('[Plugin] SyncBridge push failed (non-fatal):', e)
-        );
-        this.registerGlobalHotkeyFromSettings();
         this.initApiHandler();
     }
 
@@ -1107,37 +1133,28 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Activate the agent sidebar view
      */
     async activateView() {
-        if (this.activateViewInFlight) return this.activateViewInFlight;
+        const { workspace } = this.app;
 
-        this.activateViewInFlight = (async () => {
-            const { workspace } = this.app;
+        let leaf: WorkspaceLeaf | null = null;
+        const leaves = workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
 
-            let leaf: WorkspaceLeaf | null = null;
-            const leaves = workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+        // Cleanup: detach duplicate leaves (keep only the first one in the right sidebar)
+        if (leaves.length > 1) {
+            for (let i = 1; i < leaves.length; i++) {
+                leaves[i].detach();
+            }
+        }
+
+        if (leaves.length > 0) {
+            const existing = leaves[0];
+            // If the leaf ended up in the wrong sidebar (e.g. left), migrate it to the right
             const rightSplit = workspace.rightSplit;
-
-            const rightLeaf = rightSplit ? leaves.find((l) => l.getRoot() === rightSplit) : undefined;
-            const primary = rightLeaf ?? leaves[0];
-
-            if (primary) {
-                for (const l of leaves) {
-                    if (l !== primary) l.detach();
-                }
-
-                const isInRight = rightSplit && primary.getRoot() === rightSplit;
-                if (isInRight) {
-                    leaf = primary;
-                } else {
-                    primary.detach();
-                    leaf = workspace.getRightLeaf(false);
-                    if (leaf) {
-                        await leaf.setViewState({
-                            type: VIEW_TYPE_AGENT_SIDEBAR,
-                            active: true,
-                        });
-                    }
-                }
+            const isInRight = rightSplit && existing.getRoot() === rightSplit;
+            if (isInRight) {
+                leaf = existing;
             } else {
+                // Detach from wrong location and recreate in right sidebar
+                existing.detach();
                 leaf = workspace.getRightLeaf(false);
                 if (leaf) {
                     await leaf.setViewState({
@@ -1146,21 +1163,27 @@ export default class ObsidianAgentPlugin extends Plugin {
                     });
                 }
             }
-
+        } else {
+            // Create new leaf in right sidebar
+            leaf = workspace.getRightLeaf(false);
             if (leaf) {
-                void workspace.revealLeaf(leaf);
-
-                const rs = workspace.rightSplit;
-                if (rs && typeof rs.setSize === 'function') {
-                    const targetWidth = Math.round(window.innerWidth * 0.30);
-                    rs.setSize(targetWidth);
-                }
+                await leaf.setViewState({
+                    type: VIEW_TYPE_AGENT_SIDEBAR,
+                    active: true,
+                });
             }
-        })().finally(() => {
-            this.activateViewInFlight = null;
-        });
+        }
 
-        return this.activateViewInFlight;
+        // Reveal the view and set sidebar width to 30% of window
+        if (leaf) {
+            void workspace.revealLeaf(leaf);
+
+            const rightSplit = workspace.rightSplit;
+            if (rightSplit && typeof rightSplit.setSize === 'function') {
+                const targetWidth = Math.round(window.innerWidth * 0.30);
+                rightSplit.setSize(targetWidth);
+            }
+        }
     }
 
     /**
@@ -1246,60 +1269,117 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Called after migration to .obsilo-sync/ to free ~600 MB from the vault.
      * Preserves: skills/ (bundled), checkpoints/, dev-env/, main.js, manifest.json, etc.
      */
-    private async cleanupLegacyPluginDirData(pluginDir: string): Promise<void> {
-        const adapter = this.app.vault.adapter;
-        const dirsToRemove = ['history', 'logs', 'recipes', 'episodes', 'patterns', 'rules', 'workflows', 'memory', 'semantic-index'];
-        const filesToRemove = ['pending-extractions.json'];
+    /**
+     * FEATURE-1508: Migrate data from ~/.obsidian-agent/ to {vault-parent}/.obsidian-agent/
+     * and knowledge.db to {vault}/.obsidian-agent/. One-time, idempotent.
+     */
+    private async migrateToParentDir(vaultBasePath: string): Promise<void> {
+        const fs = await import('fs');
+        const path = await import('path');
+        const os = await import('os');
 
-        for (const dir of dirsToRemove) {
-            const dirPath = `${pluginDir}/${dir}`;
-            try {
-                if (await adapter.exists(dirPath)) {
-                    const listing = await adapter.list(dirPath);
-                    for (const f of listing.files) {
-                        await adapter.remove(f);
-                    }
-                    // Remove subdirectories recursively
-                    for (const sub of listing.folders) {
-                        const subListing = await adapter.list(sub);
-                        for (const sf of subListing.files) {
-                            await adapter.remove(sf);
-                        }
-                        await adapter.rmdir(sub, false).catch(() => {});
-                    }
-                    await adapter.rmdir(dirPath, false).catch(() => {});
-                    console.debug(`[Plugin] Cleaned up legacy ${dir}/ from plugin dir`);
-                }
-            } catch (e) {
-                console.warn(`[Plugin] Failed to clean up ${dirPath} (non-fatal):`, e);
-            }
-        }
+        const oldRoot = path.join(os.homedir(), '.obsidian-agent');
+        const newRoot = this.globalFs.getRoot();
 
-        for (const file of filesToRemove) {
-            const filePath = `${pluginDir}/${file}`;
-            try {
-                if (await adapter.exists(filePath)) {
-                    await adapter.remove(filePath);
-                }
-            } catch (e) {
-                console.warn(`[Plugin] Failed to clean up ${filePath} (non-fatal):`, e);
-            }
-        }
+        // Skip if old and new are the same (shouldn't happen, but safety check)
+        if (oldRoot === newRoot) return;
 
-        // Also clean up legacy vault-root semantic index (.obsidian-agent/semantic-index/)
-        const legacyIndexDir = '.obsidian-agent/semantic-index';
+        // Skip if old root doesn't exist
         try {
-            if (await adapter.exists(legacyIndexDir)) {
-                const listing = await adapter.list(legacyIndexDir);
-                for (const f of listing.files) {
-                    await adapter.remove(f);
-                }
-                await adapter.rmdir(legacyIndexDir, false).catch(() => {});
-                console.debug('[Plugin] Cleaned up legacy .obsidian-agent/semantic-index/');
-            }
-        } catch (e) {
-            console.warn('[Plugin] Failed to clean up legacy semantic index (non-fatal):', e);
+            await fs.promises.access(oldRoot);
+        } catch {
+            console.debug('[Plugin] No legacy ~/.obsidian-agent/ found — skip migration');
+            // Still clean up legacy vault dirs
+            await this.cleanupLegacyVaultDirs();
+            return;
         }
+
+        console.debug(`[Plugin] Migrating storage: ${oldRoot} -> ${newRoot}`);
+        await fs.promises.mkdir(newRoot, { recursive: true });
+
+        // Copy directories
+        const dirsToMigrate = ['memory', 'history', 'logs', 'rules', 'skills', 'workflows'];
+        let migrated = 0;
+        for (const dir of dirsToMigrate) {
+            const src = path.join(oldRoot, dir);
+            const dst = path.join(newRoot, dir);
+            try {
+                await fs.promises.access(src);
+                // Only copy if destination doesn't exist (don't overwrite)
+                try { await fs.promises.access(dst); } catch {
+                    await fs.promises.cp(src, dst, { recursive: true });
+                    migrated++;
+                }
+            } catch { /* source dir doesn't exist — skip */ }
+        }
+
+        // Copy individual files
+        const filesToMigrate = ['settings.json', 'pending-extractions.json'];
+        for (const file of filesToMigrate) {
+            const src = path.join(oldRoot, file);
+            const dst = path.join(newRoot, file);
+            try {
+                await fs.promises.access(src);
+                try { await fs.promises.access(dst); } catch {
+                    await fs.promises.copyFile(src, dst);
+                    migrated++;
+                }
+            } catch { /* skip */ }
+        }
+
+        // Migrate knowledge.db to vault-local
+        const oldKnowledgeDb = path.join(oldRoot, 'knowledge.db');
+        const newKnowledgeDb = path.join(vaultBasePath, '.obsidian-agent', 'knowledge.db');
+        try {
+            await fs.promises.access(oldKnowledgeDb);
+            await fs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });
+            try { await fs.promises.access(newKnowledgeDb); } catch {
+                await fs.promises.copyFile(oldKnowledgeDb, newKnowledgeDb);
+                migrated++;
+                console.debug('[Plugin] Migrated knowledge.db to vault-local');
+            }
+        } catch { /* skip */ }
+
+        // Migrate memory.db to new global root
+        const oldMemoryDb = path.join(vaultBasePath, '.obsidian-agent', 'memory.db');
+        const newMemoryDb = path.join(newRoot, 'memory.db');
+        try {
+            await fs.promises.access(oldMemoryDb);
+            try { await fs.promises.access(newMemoryDb); } catch {
+                await fs.promises.copyFile(oldMemoryDb, newMemoryDb);
+                migrated++;
+                console.debug('[Plugin] Migrated memory.db to vault-parent');
+            }
+        } catch { /* skip */ }
+
+        console.debug(`[Plugin] Storage migration complete: ${migrated} items migrated`);
+
+        // Clean up legacy vault directories
+        await this.cleanupLegacyVaultDirs();
+    }
+
+    /** Remove legacy vault directories (.obsilo-sync, .obsilo, .obsidian/.obsilo, semantic-index). */
+    private async cleanupLegacyVaultDirs(): Promise<void> {
+        const adapter = this.app.vault.adapter;
+        const legacyDirs = ['.obsilo-sync', '.obsilo'];
+        for (const dir of legacyDirs) {
+            try {
+                if (await adapter.exists(dir)) {
+                    await adapter.rmdir(dir, true);
+                    console.debug(`[Plugin] Removed legacy ${dir}/`);
+                }
+            } catch (e) {
+                console.warn(`[Plugin] Failed to remove ${dir} (non-fatal):`, e);
+            }
+        }
+        // .obsidian/.obsilo
+        const dotObsilo = `${this.app.vault.configDir}/.obsilo`;
+        try {
+            if (await adapter.exists(dotObsilo)) {
+                await adapter.rmdir(dotObsilo, true);
+                console.debug('[Plugin] Removed legacy config-dir/.obsilo/');
+            }
+        } catch { /* non-fatal */ }
     }
 
     private scheduleFileIndex(filePath: string): void {
