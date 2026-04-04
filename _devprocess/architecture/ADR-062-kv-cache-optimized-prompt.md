@@ -160,26 +160,32 @@ const sections: string[] = [
 ];
 ```
 
-### Adapter-Interface
+### Cache-Hints (Provider-intern, kein separater Adapter noetig)
+
+Der Coding-Review (2026-04-05) ergab: Ein separates PromptCacheAdapter Interface
+ist Over-Engineering. Die Provider haben bereits die noetige Logik:
+
+- **Anthropic:** `anthropic.ts:87-90` setzt bereits `cache_control` auf den System Prompt.
+  Keine Aenderung noetig -- durch das Section-Reordering ist der stabile Prefix automatisch
+  am Anfang und wird korrekt gecached.
+- **OpenAI/DeepSeek:** Automatisches Prefix-Caching. Kein Code noetig.
+- **GitHub Copilot:** Kein Caching (Gateway-managed). Kein Code noetig.
+
+Die einzige Aenderung ist das Section-Reordering in `systemPrompt.ts`.
+Kein neues Interface, kein neues Modul, keine Provider-Aenderungen.
+
+### DateTime + VaultContext trennen
+
+Aktuell in Zeile 140: `getDateTimeSection(includeTime) + getVaultContextSection()`
+sind als EIN String konkateniert. Fuer das Reordering muessen sie getrennt werden:
 
 ```typescript
-interface PromptCacheAdapter {
-    /** Inject provider-specific cache hints into the system prompt or messages. */
-    applyCacheHints(systemPrompt: string, breakpointOffset: number): string | object;
-}
-```
+// ALT (Zeile 140):
+getDateTimeSection(includeTime) + getVaultContextSection(),
 
-Anthropic-Adapter: Setzt cache_control Breakpoint (bestehendes Pattern erweitern).
-OpenAI/DeepSeek-Adapter: No-op (automatisches Prefix-Caching, kein Marker noetig).
-Fallback: Kein Adapter = keine Cache-Hints (Prompt bleibt identischer String).
-
-### Breakpoint-Position berechnen
-
-```typescript
-// In systemPrompt.ts: Markiere die Grenze zwischen stabil und dynamisch
-const stableSections = sections.slice(0, CACHE_BREAKPOINT_INDEX);
-const dynamicSections = sections.slice(CACHE_BREAKPOINT_INDEX);
-const breakpointOffset = stableSections.filter(Boolean).join('\n').length;
+// NEU (zwei separate Eintraege):
+getVaultContextSection(),   // -> Position 15 (dynamisch, Dateistruktur aendert sich)
+getDateTimeSection(includeTime),  // -> Position 16 (LETZTE Section)
 ```
 
 ## Consequences

@@ -90,10 +90,18 @@ bekannten Steps, flexible Loop fuer alles Unvorhergesehene.
    JA ↓
 
 2. "Planner" LLM-Call:
-   System: "Du hast ein bewährtes Recipe für diese Aufgabe."
-   User: Recipe-Steps + User-Message
+   System: cachedSystemPrompt (identisch zur normalen Loop -- Tools, Routing etc.)
+   User: User-Message + Recipe als explizite Instruktion:
+         "You have a proven recipe for this task. Fill in the concrete parameters:
+          Step 1: {tool} -- {note}
+          Step 2: {tool} -- {note}
+          Output ONLY valid JSON: [{tool, input}, ...]"
    Output: JSON mit konkreten Tool-Calls [{tool, input}, ...]
    (1 LLM-Call, ~30k Tokens)
+   
+   WICHTIG: Der Planner nutzt den gleichen System Prompt wie die normale Loop.
+   Er braucht die Tool-Definitionen um gueltige inputSchemas zu erzeugen.
+   Nur die User-Message unterscheidet sich (enthaelt Recipe-Steps).
 
 3. Deterministische Tool-Batch-Ausfuehrung:
    Fuer jeden Step aus dem Plan:
