@@ -1,6 +1,6 @@
 # ADR-063: Context Externalization -- Dateisystem als erweiterter Kontext
 
-**Status:** Proposed
+**Status:** Accepted (modified by review)
 **Date:** 2026-04-04
 **Deciders:** Sebastian Hanke
 **Feature:** FEATURE-1802 (Context Externalization)
@@ -188,3 +188,18 @@ Crash-Recovery: Beim Plugin-Start alle `tmp/` Unterverzeichnisse aelter als 1h l
 - FEATURE-1802: Context Externalization
 - Manus Context Engineering: "Use the filesystem as context"
 - Manus: "Our compression strategies are always designed to be recoverable"
+
+## Implementation Notes (2026-04-05)
+
+Implemented as designed with these additions:
+- Tool-Routing-Rules updated with externalization hint (point 10 in guidelines)
+- read_file results ARE externalized (changed from original "never externalize")
+- File naming uses global call counter instead of iteration (prevents collisions)
+- Externalization disabled during Fast Path batch (ADR-061 interaction)
+
+Measured: 601k chars externalized in a complex task, preventing ~1M+ token accumulation.
+
+Key files:
+- `src/core/tool-execution/ResultExternalizer.ts` (externalization logic)
+- `src/core/tool-execution/ToolExecutionPipeline.ts` (integration point)
+- `src/core/prompts/sections/toolDecisionGuidelines.ts` (agent instruction)

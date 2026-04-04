@@ -1,6 +1,6 @@
 # ADR-062: KV-Cache-Optimized Prompt Structure & Provider-Agnostic Caching
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-04
 **Deciders:** Sebastian Hanke
 **Feature:** FEATURE-1801 (Prompt Caching)
@@ -216,6 +216,19 @@ getDateTimeSection(includeTime),  // -> Position 16 (LETZTE Section)
 
 - ADR-008: Modular Prompt Sections (bestehende Section-Architektur)
 - ADR-061: Fast Path (profitiert vom Cache, interagiert via History)
+
+## Implementation Notes (2026-04-05)
+
+Implemented as designed. Section order in systemPrompt.ts changed to stable-first.
+DateTime moved from position 1 to position 17 (last). Plugin Skills moved to dynamic block.
+No separate PromptCacheAdapter needed — provider-internal logic suffices.
+
+Test results:
+- Simple task: 634k → 60k tokens (90.5% reduction)  
+- GitHub Copilot (168k limit): was crashing, now works at 60k
+
+Key files:
+- `src/core/systemPrompt.ts` (section reordering)
 
 ## References
 

@@ -1,6 +1,6 @@
 # ADR-061: Fast Path Execution -- Recipe-gesteuertes Batching
 
-**Status:** Proposed
+**Status:** Accepted (modified by review)
 **Date:** 2026-04-04
 **Deciders:** Sebastian Hanke
 **Feature:** FEATURE-1800 (Fast Path Execution)
@@ -207,6 +207,25 @@ basierend auf dem realen Zustand der Codebase.
 - ADR-058: Semantic Recipe Promotion (liefert die Recipes)
 - ADR-017: Procedural Recipes (Format-Definition)
 - ADR-001: ToolExecutionPipeline (wird genutzt, nicht umgangen)
+
+## Implementation Notes (2026-04-05)
+
+**Implemented as Two-Stage Fast Path** (modified from original single-planner proposal):
+
+Stage 1: Search-Planner parametrizes search/discovery tools → parallel batch execution
+Stage 2: Read-Planner sees search results → parametrizes read tools → parallel batch  
+Stage 3: Normal loop for write/present (1-2 iterations)
+
+Additional features implemented:
+- Tool schemas included in planner prompts (LLM knows exact parameter names)
+- Context hint after batch ("do NOT re-search")
+- Todo list as recency anchor (appended to last user message before each LLM call)
+- successCount >= 3 gate (only well-tested recipes trigger Fast Path)
+- Externalization disabled during batch (Presenter needs full content)
+
+Key files:
+- `src/core/FastPathExecutor.ts` (two-stage planner + batch execution)
+- `src/core/AgentTask.ts` (pre-loop integration, todo anchor, context hint)
 
 ## References
 

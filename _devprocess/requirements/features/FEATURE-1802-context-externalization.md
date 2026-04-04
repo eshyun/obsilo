@@ -4,6 +4,7 @@
 > **Epic**: EPIC-018 - Token-Kostenreduktion
 > **Priority**: P1-High
 > **Effort Estimate**: M (4-7 Tage)
+> **Status**: Implemented
 
 ## Feature Description
 
