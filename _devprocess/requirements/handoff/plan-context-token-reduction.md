@@ -71,6 +71,11 @@
 3. **Maskieren statt Entfernen**: Tool-Liste bleibt konstant
 4. **Dateisystem als Kontext**: Grosse Daten extern, Referenzen intern
 5. **Deterministische Serialisierung**: Stabile Key-Reihenfolge in JSON
+6. **Todo-Liste als Recency-Anker**: Aktueller Task-Status wird automatisch als
+   letzte User-Message vor jedem LLM-Call angehaengt (nicht als Tool-Call, sondern
+   als System-Nachricht). Nutzt den Recency Bias des Modells um Zielabweichung
+   bei langen Tasks zu verhindern. Kompensiert den Primacy-Effect-Verlust durch
+   Section-Reordering (ADR-062). Implementiert in FEATURE-1800 (Fast Path).
 
 ## Neue Module und Dateien
 

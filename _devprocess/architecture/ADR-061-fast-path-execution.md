@@ -115,9 +115,17 @@ bekannten Steps, flexible Loop fuer alles Unvorhergesehene.
 GESAMT: 2-3 LLM-Calls statt 8 = ~70k Tokens statt 634k
 ```
 
+**Todo-Liste als Recency-Anker (Manus-Pattern):**
+Wenn eine Todo-Liste existiert (update_todo_list wurde aufgerufen oder Fast Path
+erzeugt einen Plan), wird der aktuelle Stand automatisch als letzte User-Message
+vor jedem LLM-Call angehaengt. Das bringt den Aufgaben-Fokus in die Recency-Zone
+des Modells und verhindert "lost-in-the-middle" bei langen Tasks. Kein zusaetzlicher
+Tool-Call noetig -- passiert in AgentTask.run() vor dem API-Call.
+
 **KV-Cache-Kompatibilitaet (Manus):**
 - Tool-Liste bleibt UNVERAENDERT zwischen Planner und Loop
 - History ist Append-only (Batch-Results werden angehaengt)
+- Todo-Anker ist Append (letzte Message), nicht Modification
 - Kein `tool_choice` Filtering noetig (Planner bestimmt Tools, Batch fuehrt aus)
 
 **Hinweis:** Dies ist ein VORSCHLAG. Claude Code entscheidet final
