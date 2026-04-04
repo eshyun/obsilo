@@ -307,6 +307,12 @@ Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Stat
 | FIX-04 | P1 | Tool-Picker Event-Listener Memory Leak | `src/ui/sidebar/ToolPickerPopover.ts` | Resolved -- close() entfernt alle Listener |
 | FIX-05 | P1 | SearchFilesTool Regex lastIndex Bug (global Flag) | `src/core/tools/vault/SearchFilesTool.ts` | Resolved -- safeRegex() ohne global Flag |
 | FIX-06 | P2 | Consecutive-Mistake-Counter Reset bei Mode-Switch fehlt | `src/core/AgentTask.ts` | Resolved -- consecutiveMistakes + repetitionDetector Reset |
+| FIX-07 | P2 | Reranker ONNX-Runtime Fehler beim Model-Load in Electron | `src/core/knowledge/RerankerService.ts` | Resolved -- Fail-Once-Guard (_failed Flag, kein Retry nach erstem Fehlschlag) |
+| FIX-08 | P2 | ImplicitConnections "Statement closed" Race Condition beim Startup | `src/core/knowledge/ImplicitConnectionService.ts` | Resolved -- isOpen() Guard vor computeAll() |
+| FIX-09 | P1 | Session-Summaries nicht abrufbar (Summaries in DB, aber MemoryRetriever las nur .md-Dateien) | `src/core/memory/MemoryRetriever.ts`, `src/core/memory/MemoryService.ts` | Resolved -- ADR-060: MemoryRetriever liest jetzt aus DB, getStats() zaehlt DB-Sessions |
+| FIX-10 | P2 | learnedRecipesEnabled hat keinen UI-Toggle in Settings (nur in settings.json aenderbar) | `src/ui/settings/` | Teilweise -- Force-True in main.ts, UI-Toggle ausstehend |
+| FIX-11 | P1 | ChatLink stampt ungueltiges Frontmatter in erstellte Notizen (YAMLParseError: Nested mappings in compact mappings) | `src/main.ts` (flushPendingChatLinks) | Resolved -- YAML-Fehler werden concise geloggt, Note wird uebersprungen |
+| FIX-12 | P0 | Token Overflow: Standard-Task (suche+zusammenfasse) sprengt 168k-Limit bei GitHub Copilot Sonnet 4.6 (183k Tokens) | System Prompt + Tool Defs + Tool Results | Offen -- Root Cause: 47 Tools + 48 Plugin Skills + unkomprimierte Search-Results. Siehe FEATURE-1600 (Deferred Tool Loading) |
 
 ### Security Findings (abgeglichen mit AUDIT-003 vom 2026-03-06)
 
@@ -334,6 +340,21 @@ Referenz: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md`
 | M-2 (alt) | IgnoreService Glob-to-Regex ReDoS | Resolved -- Length Guard |
 | M-4 (alt) | Plugin API Allowlist Bypass (dynamic require) | Resolved -- kein require(), Property-Lookup + Allowlist |
 | M-5 (alt) | Path Traversal in GlobalFileService | Resolved -- resolvePath() mit Prefix-Check |
+
+### Memory & Self-Learning Verbesserungen (2026-04-03, ADR-058/059/060)
+
+| Komponente | Aenderung | ADR | Status |
+|------------|-----------|-----|--------|
+| RecipePromotionService | Komplett umgeschrieben: Embedding-basiertes Intent-Matching statt exakte Tool-Sequenzen | ADR-058 | Implemented |
+| RecipeMatchingService | Description-Keyword-Fallback als Phase 2 wenn Trigger-Matching < 3 Ergebnisse | ADR-058 | Implemented |
+| LongTermExtractor | Budget-Constraint (800 chars/Datei) im Prompt, Recency-Header [YYYY-MM] | ADR-059 | Implemented |
+| MemoryRetriever | DB-Fallback fuer Session-Summaries (statt nur .md-Dateien) | ADR-060 | Implemented |
+| MemoryService | getStats() zaehlt Sessions aus DB, MAX_CHARS_PER_FILE exportiert | ADR-060 | Implemented |
+| RerankerService | Fail-Once-Guard (_failed Flag) | FIX-07 | Implemented |
+| ImplicitConnectionService | isOpen() Guard vor computeAll() | FIX-08 | Implemented |
+| main.ts (ChatLink) | YAML-Parse-Fehler concise geloggt, Note uebersprungen | FIX-11 | Implemented |
+| main.ts (learnedRecipes) | Force-True statt nullish-coalescing Default | FIX-10 | Implemented |
+| SuggestionService | Dead Code -- nie instanziiert, nie aufgerufen | -- | Offen (Backlog) |
 
 ### Technische Schulden
 
