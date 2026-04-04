@@ -93,26 +93,35 @@ Aufwand fuer den Mehrwert.
 **Section-Reihenfolge (neu):**
 
 ```
-STABIL (Position 1-9, aendert sich NIE innerhalb einer Session):
-  1. Mode Definition
+STABIL (Position 1-8, aendert sich NIE innerhalb einer Task-Session):
+  1. Mode Definition (aendert sich nur bei switch_mode, selten)
   2. Capabilities
   3. Obsidian Conventions
   4. Tools Section (~8k Tokens, groesster stabiler Block)
-  5. Plugin Skills (stabil innerhalb einer Session)
-  6. Tool Routing Rules
-  7. Objective
-  8. Response Format
-  9. Security Boundary
+  5. Tool Routing Rules
+  6. Objective
+  7. Response Format
+  8. Security Boundary
   ═══ CACHE BREAKPOINT ═══
 
-DYNAMISCH (Position 10-15, aendert sich pro Message/Session):
+DYNAMISCH (Position 9-16, kann sich pro Message/Session aendern):
+  9. Plugin Skills (aendert sich wenn Plugins enabled/disabled werden)
   10. Active Skills (LLM-klassifiziert, pro Message anders)
   11. Memory Context (aendert sich ueber Sessions)
   12. Procedural Recipes (pro Message unterschiedlich)
   13. Self-Authored Skills
   14. Custom Instructions + Rules
-  15. Vault Context + DateTime
+  15. Vault Context (Dateistruktur kann sich aendern)
+  16. DateTime (MUSS am Ende stehen -- Zeitstempel invalidiert Cache!)
 ```
+
+NOTE: Plugin Skills wurden bewusst in den dynamischen Block verschoben.
+Obwohl sie innerhalb einer Task-Session meist stabil sind, koennen sie
+sich zwischen Tasks aendern (Plugin enabled/disabled). Da der KV-Cache
+bei Anthropic eine TTL von 5 Minuten hat, wuerde ein Plugin-Toggle
+zwischen zwei Tasks den gesamten stabilen Block invalidieren.
+Die Tools Section (~8k Tokens) bleibt im stabilen Block und ist der
+groesste Cache-Gewinn.
 
 **Primacy Effect Mitigation:**
 Skills rutschen von Position 3 auf Position 10. Der "Primacy Effect" geht
@@ -126,20 +135,20 @@ ausreichend stark ist.
 ### systemPrompt.ts Aenderung
 
 ```typescript
-// Neue Section-Reihenfolge (KV-Cache-optimiert)
+// Neue Section-Reihenfolge (KV-Cache-optimiert, ADR-062)
 const sections: string[] = [
     // STABIL (cached) ─────────────────────────
     getModeDefinitionSection(mode),
     getCapabilitiesSection(webEnabled),
     getObsidianConventionsSection(),
     getToolsSection(mode.toolGroups, mcpClient, allowedMcpServers, webEnabled, !isSubtask),
-    getPluginSkillsSection(pluginSkillsSection),
     getToolRoutingSection(configDir),
     getObjectiveSection(),
     isSubtask ? '' : getResponseFormatSection(),
     getSecurityBoundarySection(),
     // ═══ CACHE BREAKPOINT (injiziert via Adapter) ═══
     // DYNAMISCH (nicht cached) ────────────────
+    getPluginSkillsSection(pluginSkillsSection),
     isSubtask ? '' : getSkillsSection(skillsSection),
     isSubtask ? '' : getMemorySection(memoryContext),
     (isSubtask || !recipesSection) ? '' : recipesSection,
@@ -184,16 +193,18 @@ const breakpointOffset = stableSections.filter(Boolean).join('\n').length;
 
 ### Negative
 - Skills verlieren Primacy Effect (Position 3 → 10)
-- Plugin Skills rutschen VOR Tool Routing (waren danach)
+- Plugin Skills im dynamischen Block (koennen nicht gecached werden, ~500 Tokens)
 - DateTime am Ende statt am Anfang (LLM sieht es spaeter)
+- Stabiler Block ist kleiner (~20k statt ~25k Tokens), aber zuverlaessiger stabil
 
 ### Risks
 - **Primacy-Effect-Verlust verschlechtert Skill-Befolgung**: Mitigation durch
   empirischen A/B-Test VOR dem Release. Falls messbare Verschlechterung:
   Skills-Precedence-Reminder als letzten dynamischen Block hinzufuegen.
-- **Cache-Invalidierung durch Plugin-Skills-Aenderung**: Plugin Skills aendern
-  sich wenn Plugins enabled/disabled werden. Mitigation: Innerhalb einer Task-Session
-  aendern sich Plugins nicht. Cache ist pro-Session stabil.
+- **Cache-Invalidierung durch Mode-Wechsel**: Mode Definition steht im stabilen Block.
+  Bei switch_mode aendert sich der Prefix. Mitigation: switch_mode ist selten
+  (meist 0-1x pro Task) und invalidiert den Cache fuer die restlichen Iterationen.
+  Akzeptabler Trade-off.
 
 ## Related Decisions
 

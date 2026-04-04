@@ -46,6 +46,11 @@ baut direkt auf dem Semantic Recipe Promotion System (ADR-058) auf.
 **moechte ich** erkennen koennen ob der Agent einen Fast Path oder die normale Loop nutzt
 **um** das Verhalten nachvollziehen zu koennen
 
+### Story 4: Aufgabenfokus bei langen Tasks
+**Als** Obsilo-Nutzer mit komplexen Multi-Step-Aufgaben
+**moechte ich** dass der Agent sein Ziel nicht aus den Augen verliert
+**um** konsistente Ergebnisse auch nach vielen Schritten zu bekommen
+
 ---
 
 ## Success Criteria (Tech-Agnostic)
@@ -79,6 +84,13 @@ baut direkt auf dem Semantic Recipe Promotion System (ADR-058) auf.
 - **Fallback**: Wenn Fast Path fehlschlaegt -> nahtloser Uebergang zu normaler ReAct-Loop
 - **Error Handling**: Tool-Fehler im Batch werden gesammelt und dem LLM im finalen Call uebergeben
 - **Recipe Confidence**: Nur Recipes mit successCount >= 3 qualifizieren fuer Fast Path
+
+### Kontextsteuerung (Manus Context Engineering)
+- **Todo-Liste als Recency-Anker**: Wenn eine Todo-Liste existiert, wird der aktuelle
+  Stand automatisch als letzte User-Message vor dem API-Call angehaengt. Nutzt den
+  Recency Bias des Modells, verhindert Zielabweichung bei langen Tasks (10+ Iterationen).
+  Kein zusaetzlicher Tool-Call noetig. Ersetzt NICHT das update_todo_list Tool
+  (das bleibt fuer aktive Updates). Kompatibel mit Fast Path (Plan-Status am Ende).
 
 ### Observability
 - **Logging**: `[FastPath]` Prefix fuer alle Fast-Path-Logs
@@ -148,28 +160,6 @@ baut direkt auf dem Semantic Recipe Promotion System (ADR-058) auf.
 - LLM kann in einem Call die abstrakten Recipe-Steps mit konkreten Parametern fuellen
 - Parallele read-tool Execution ist sicher (bestehendes Promise.all Pattern)
 - Recipes haben genug Kontext (Steps + Description) fuer sinnvolle Parametrisierung
-
-### Story 4: Aufgabenfokus bei langen Tasks
-**Als** Obsilo-Nutzer mit komplexen Multi-Step-Aufgaben
-**moechte ich** dass der Agent sein Ziel nicht aus den Augen verliert
-**um** konsistente Ergebnisse auch nach vielen Schritten zu bekommen
-
----
-
-### Kontextsteuerung: Todo-Liste als Aufmerksamkeits-Anker
-
-Inspiriert durch Manus (Context Engineering): Die aktuelle Todo-Liste wird
-automatisch am Ende des Kontexts platziert -- nicht als Tool-Call-Result
-mitten in der History, sondern als **letzte Information vor dem naechsten
-LLM-Call**. Dadurch nutzt sie den Recency Bias des Modells und verhindert
-Zielabweichung bei langen Tasks (10+ Iterationen).
-
-**Implementierung:**
-- Wenn eine Todo-Liste existiert: aktuellen Stand als letztes User-Message
-  (oder System-Nachricht) vor dem API-Call anhaengen
-- Kein zusaetzlicher Tool-Call noetig (spart Tokens)
-- Kompatibel mit Fast Path (Plan-Status am Ende des Kontexts)
-- Ersetzt NICHT das update_todo_list Tool (das bleibt fuer aktive Updates)
 
 ## Out of Scope
 - Recipes fuer Tasks mit komplexer Verzweigungslogik (if/else Schritte)

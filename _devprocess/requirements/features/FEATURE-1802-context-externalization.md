@@ -120,7 +120,7 @@ Fuer JEDES Tool-Result:
 |------|-------------------------------|------------------------|
 | search_files | "Found 50 matches. Top 5: [path (N matches)]... Full results: .obsidian-agent/tmp/{id}/search.md" | Alle 50 Matches mit Kontext-Snippets |
 | semantic_search | "8 results. Top 3: [path (score)]... Full results: .obsidian-agent/tmp/{id}/semantic.md" | Alle Results mit vollen Excerpts |
-| read_file | Unveraendert (wenn <Threshold) ODER "File summary: {first 500 chars}... Full content: already in vault at {path}" | Keine Datei noetig (Original existiert im Vault) |
+| read_file | Unveraendert (wenn <Threshold) ODER "Content of {path} ({N chars}). Headings: {h1, h2...}. Use read_file({path}) to re-read." | Keine temp-Datei noetig (Original existiert im Vault) |
 | web_search | "5 results. Top 3: [title (url)]... Full results: .obsidian-agent/tmp/{id}/web.md" | Alle Ergebnisse mit Snippets |
 | web_fetch | "Fetched {url} ({N chars}). Summary: {first 500 chars}... Full content: .obsidian-agent/tmp/{id}/fetch.md" | Voller Seiteninhalt |
 

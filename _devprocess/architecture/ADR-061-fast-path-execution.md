@@ -122,6 +122,33 @@ vor jedem LLM-Call angehaengt. Das bringt den Aufgaben-Fokus in die Recency-Zone
 des Modells und verhindert "lost-in-the-middle" bei langen Tasks. Kein zusaetzlicher
 Tool-Call noetig -- passiert in AgentTask.run() vor dem API-Call.
 
+**Interaktion mit Context Externalization (ADR-063):**
+
+Wenn ADR-063 aktiv ist, werden grosse Tool-Results in temp-Dateien externalisiert.
+Im Fast Path entstehen zwei Szenarien:
+
+1. **Planner-Call** (Step 2): Sieht keine Tool-Results (nur User-Message + Recipe).
+   Kein Conflict -- Planner braucht keine Results.
+
+2. **Presenter-Call / Loop** (Step 5): Sieht die Batch-Results. Diese koennen
+   externalisiert sein (kompakte Referenzen statt volle Inhalte).
+
+   **Problem:** Wenn der Agent nur Referenzen sieht, kann die finale Zusammenfassung
+   oberflaechlich werden -- er hat den vollen Inhalt nie im Kontext gesehen.
+
+   **Loesung: Staged Externalization im Fast Path.**
+   - Waehrend der Batch-Execution (Step 3): Tool-Results werden VOLL in die History
+     geschrieben (keine Externalization). Der Batch ist kurz (3-5 Tools) und wird
+     nur 1x an die API gesendet (im Presenter-Call).
+   - NACH dem Presenter-Call: Die History-Eintraege der Batch-Results werden fuer
+     nachfolgende Iterationen NICHT nachtraeglich komprimiert (Append-only).
+     Aber: Da der Fast Path nur 2-3 Calls hat, akkumulieren die Results kaum.
+
+   **Warum das funktioniert:** Der Hauptvorteil von Externalization ist bei 8-Iterations-
+   Tasks (Results werden 5-6x erneut gesendet). Bei Fast Path mit 2-3 Calls ist
+   die Akkumulation minimal. Die vollen Results einmal im Presenter-Call zu senden
+   kostet weniger als ein zusaetzlicher read_file-Roundtrip.
+
 **KV-Cache-Kompatibilitaet (Manus):**
 - Tool-Liste bleibt UNVERAENDERT zwischen Planner und Loop
 - History ist Append-only (Batch-Results werden angehaengt)

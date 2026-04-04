@@ -112,13 +112,16 @@ interface ExternalizationFormatter {
 // search_files: "Found N matches. Top 5: [path (count)]... Full: {path}"
 // semantic_search: "N results. Top 3: [path (score)]... Full: {path}"
 // web_fetch: "Fetched {url} (N chars). Summary: {first 500 chars}... Full: {path}"
-// read_file: Keine Externalization (Original-Datei existiert im Vault)
+// read_file: "Content of {path} ({N chars}). Headings: {h1, h2...}. Use read_file({path}) to re-read."
 ```
 
 **Sonderfaelle:**
-- `read_file`: Wird NIE externalisiert. Die Originaldatei existiert bereits im Vault.
-  Stattdessen: `read_file` Result truncation (bestehende MAX_CONTENT_CHARS=20000) reicht.
-- Tool Result Cache: Cached das VOLLE Result (vor Externalization). Wiederholter
+- **Fast Path (ADR-061):** Waehrend einer Fast-Path Batch-Execution wird
+  Externalization DEAKTIVIERT. Der Batch hat nur 2-3 Calls, die Results
+  akkumulieren kaum. Der Presenter-Call braucht die vollen Inhalte um eine
+  qualitativ hochwertige Zusammenfassung zu erstellen. Externalization lohnt
+  sich erst bei 5+ Iterationen (normale ReAct-Loop).
+- **Tool Result Cache:** Cached das VOLLE Result (vor Externalization). Wiederholter
   identischer Call liefert gecachtes volles Result → wird erneut externalisiert
   (deterministische, identische Referenz).
 

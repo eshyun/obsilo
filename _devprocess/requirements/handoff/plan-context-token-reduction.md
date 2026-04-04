@@ -62,7 +62,8 @@
    Ueber Threshold (2000 chars): Volles Result in temp-Datei, kompakte Referenz im
    Kontext. Agent laedt bei Bedarf per read_file nach. Einheitliches Pattern fuer alle Tools.
    - Rationale: 50-70% weniger History-Tokens, Append-only, wiederherstellbar
-   - Key: read_file wird NICHT externalisiert (Originaldatei existiert im Vault)
+   - Key: read_file wird externalisiert mit Heading-Summary (Original bleibt im Vault nachladbar)
+   - Key: Im Fast Path (ADR-061) ist Externalization deaktiviert (Presenter braucht volle Inhalte)
 
 ## KV-Cache Design-Prinzipien (Manus, gelten fuer ALLE Aenderungen)
 

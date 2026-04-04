@@ -82,7 +82,7 @@ KRITISCH: Ein einziger veraenderter Token im Prefix invalidiert den GESAMTEN
 Cache fuer alles danach. Daher: Alles Dynamische ans Ende.
 
 ```
-STABIL (cached, aendert sich nie innerhalb einer Session):
+STABIL (cached, aendert sich nie innerhalb einer Task-Session):
   1. Mode Definition
   2. Capabilities
   3. Obsidian Conventions
@@ -93,19 +93,20 @@ STABIL (cached, aendert sich nie innerhalb einer Session):
   8. Security Boundary
   --- CACHE BREAKPOINT ---
 
-DYNAMISCH (nicht cached, aendert sich pro Message/Session):
-  9. Active Skills (pro Message unterschiedlich via LLM-Klassifikation)
-  10. Memory Context (aendert sich ueber Sessions)
-  11. Procedural Recipes (pro Message unterschiedlich)
-  12. Plugin Skills
-  13. Custom Instructions
-  14. Rules
+DYNAMISCH (nicht cached, kann sich pro Message/Session aendern):
+  9. Plugin Skills (aendert sich wenn Plugins enabled/disabled werden)
+  10. Active Skills (pro Message unterschiedlich via LLM-Klassifikation)
+  11. Memory Context (aendert sich ueber Sessions)
+  12. Procedural Recipes (pro Message unterschiedlich)
+  13. Self-Authored Skills
+  14. Custom Instructions + Rules
   15. Vault Context (Dateistruktur kann sich aendern)
   16. DateTime (MUSS am Ende stehen -- Zeitstempel invalidiert Cache!)
 ```
 
 WICHTIG: DateTime steht aktuell an Position 1 und zerstoert den Cache bei
-JEDEM Call. Muss ans Ende verschoben werden.
+JEDEM Call. Muss ans Ende verschoben werden. Plugin Skills wurden bewusst
+in den dynamischen Block verschoben (koennen sich zwischen Tasks aendern).
 
 ---
 
