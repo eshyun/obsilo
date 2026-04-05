@@ -24,7 +24,7 @@ An agent that learns from experience
 The most effective measure didn't come from prompt optimization. It came from a system that lets the agent remember.
 
 If the agent has already solved the same kind of task three times successfully, it doesn't need to figure it out from scratch every time. For that it needs a memory that works in three layers.
-
+  
 Episodes are recordings of individual task executions. What did the user ask, which tools did the agent use in which order, was the result any good? The agent records every interaction that involved at least two tools. The last 500 episodes are kept, older ones discarded.
 
 Recipes are abstracted instructions that emerge from episodes. When three or more similar episodes were successful, a single LLM call generates a generalized procedure from the concrete examples: which steps in which order, with which parameters. I ship eight static recipes for common vault operations as the plugin author. Learned recipes are generated automatically, capped at 50.
