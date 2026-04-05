@@ -312,7 +312,7 @@ Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Stat
 | FIX-09 | P1 | Session-Summaries nicht abrufbar (Summaries in DB, aber MemoryRetriever las nur .md-Dateien) | `src/core/memory/MemoryRetriever.ts`, `src/core/memory/MemoryService.ts` | Resolved -- ADR-060: MemoryRetriever liest jetzt aus DB, getStats() zaehlt DB-Sessions |
 | FIX-10 | P2 | learnedRecipesEnabled hat keinen UI-Toggle in Settings (nur in settings.json aenderbar) | `src/ui/settings/` | Teilweise -- Force-True in main.ts, UI-Toggle ausstehend |
 | FIX-11 | P1 | ChatLink stampt ungueltiges Frontmatter in erstellte Notizen (YAMLParseError: Nested mappings in compact mappings) | `src/main.ts` (flushPendingChatLinks) | Resolved -- YAML-Fehler werden concise geloggt, Note wird uebersprungen |
-| FIX-12 | P0 | Token Overflow: Standard-Task (suche+zusammenfasse) sprengt 168k-Limit bei GitHub Copilot Sonnet 4.6 (183k Tokens) | System Prompt + Tool Defs + Tool Results | Offen -- Root Cause: 47 Tools + 48 Plugin Skills + unkomprimierte Search-Results. Siehe FEATURE-1600 (Deferred Tool Loading) |
+| FIX-12 | P0 | Token Overflow: Standard-Task (suche+zusammenfasse) sprengt 168k-Limit bei GitHub Copilot Sonnet 4.6 (183k Tokens) | System Prompt + Tool Defs + Tool Results | Resolved -- EPIC-018: Section-Reordering (ADR-062), Context Externalization (ADR-063), Fast Path (ADR-061). Ergebnis: 60k statt 634k fuer einfache Tasks, 257k statt >800k fuer komplexe Tasks |
 
 ### Security Findings (abgeglichen mit AUDIT-003 vom 2026-03-06)
 
