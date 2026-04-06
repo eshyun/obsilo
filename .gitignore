@@ -79,3 +79,4 @@ codeql-db/
 codeql-results.*
 
 browser-data/
+CLAUDE.md
