@@ -80,3 +80,5 @@ codeql-results.*
 
 browser-data/
 CLAUDE.md
+
+codedb.snapshot
