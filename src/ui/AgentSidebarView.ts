@@ -1,4 +1,13 @@
-import { ItemView, WorkspaceLeaf, setIcon, Menu, MarkdownRenderer, MarkdownView, Notice, TFile } from 'obsidian';
+import {
+    ItemView,
+    WorkspaceLeaf,
+    setIcon,
+    Menu,
+    MarkdownRenderer,
+    MarkdownView,
+    Notice,
+    TFile,
+} from 'obsidian';
 import type ObsidianAgentPlugin from '../main';
 import { AgentTask } from '../core/AgentTask';
 import { ModeService } from '../core/modes/ModeService';
@@ -98,10 +107,9 @@ export class AgentSidebarView extends ItemView {
         this.plugin = plugin;
         this.modeService = new ModeService(plugin);
         this.toolPicker = new ToolPickerPopover(plugin, this.modeService);
-        this.vaultFilePicker = new VaultFilePicker(
-            this.app,
-            async (files) => { for (const f of files) await this.attachments.addVaultFile(f); },
-        );
+        this.vaultFilePicker = new VaultFilePicker(this.app, async (files) => {
+            for (const f of files) await this.attachments.addVaultFile(f);
+        });
     }
 
     getViewType(): string {
@@ -113,7 +121,7 @@ export class AgentSidebarView extends ItemView {
     }
 
     getIcon(): string {
-        return 'bot';
+        return 'sparkles';
     }
 
     async onOpen(): Promise<void> {
@@ -129,7 +137,9 @@ export class AgentSidebarView extends ItemView {
         try {
             const currentModeSlug = this.modeService.getActiveMode().slug;
             const modeModelKey = this.resolveEnabledModelKey(currentModeSlug);
-            const resolvedModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modeModelKey);
+            const resolvedModel = this.plugin.settings.activeModels.find(
+                (m) => getModelKey(m) === modeModelKey
+            );
 
             if (resolvedModel) {
                 const apiHandler = buildApiHandlerForModel(resolvedModel);
@@ -245,10 +255,16 @@ export class AgentSidebarView extends ItemView {
         if (store) {
             this.historyPanel = new HistoryPanel(
                 store,
-                (id) => { void this.loadConversation(id); },
-                (id) => { void this.deleteConversation(id); },
-                (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
-                this.activeConversationId,
+                (id) => {
+                    void this.loadConversation(id);
+                },
+                (id) => {
+                    void this.deleteConversation(id);
+                },
+                (convId, title) => {
+                    void this.stampChatLinkToActiveFile(convId, title);
+                },
+                this.activeConversationId
             );
             this.historyPanel.mount(chatWrapper);
         }
@@ -285,7 +301,7 @@ export class AgentSidebarView extends ItemView {
             this.app,
             () => this.textarea,
             () => this.inputArea,
-            (file) => this.attachments.addVaultFile(file),
+            (file) => this.attachments.addVaultFile(file)
         );
 
         this.textarea.addEventListener('input', () => {
@@ -326,7 +342,11 @@ export class AgentSidebarView extends ItemView {
         // Capture-phase handler at document level: some macOS/Electron key combos (Cmd+Enter)
         // can be consumed by parent handlers before reaching the textarea.
         document.addEventListener('keydown', handleChatKeydown, { capture: true });
-        this.register(() => document.removeEventListener('keydown', handleChatKeydown, { capture: true } as AddEventListenerOptions));
+        this.register(() =>
+            document.removeEventListener('keydown', handleChatKeydown, {
+                capture: true,
+            } as AddEventListenerOptions)
+        );
 
         // Paste handler — capture images pasted from clipboard (e.g. screenshots)
         this.textarea.addEventListener('paste', (e: ClipboardEvent) => {
@@ -382,7 +402,9 @@ export class AgentSidebarView extends ItemView {
             attr: { 'aria-label': t('ui.sidebar.selectTools') },
         });
         setIcon(this.toolPickerButton.createSpan('toolbar-icon'), 'pocket-knife');
-        this.toolPickerButton.addEventListener('click', (e) => this.toolPicker.show(e, this.toolPickerButton!, this.containerEl));
+        this.toolPickerButton.addEventListener('click', (e) =>
+            this.toolPicker.show(e, this.toolPickerButton!, this.containerEl)
+        );
         this.updateToolPickerButton();
 
         // Web search toggle (globe icon) — quick toggle for webTools.enabled
@@ -391,7 +413,9 @@ export class AgentSidebarView extends ItemView {
             attr: { 'aria-label': t('ui.sidebar.toggleWebSearch') },
         });
         setIcon(this.webToggleButton.createSpan('toolbar-icon'), 'globe');
-        this.webToggleButton.addEventListener('click', () => { void this.toggleWebSearch(); });
+        this.webToggleButton.addEventListener('click', () => {
+            void this.toggleWebSearch();
+        });
         this.updateWebToggleButton();
 
         // Attach file button (ghost style)
@@ -435,7 +459,9 @@ export class AgentSidebarView extends ItemView {
             attr: { 'aria-label': t('ui.sidebar.send') },
         });
         setIcon(this.sendButton.createSpan('toolbar-icon'), 'send-horizontal');
-        this.sendButton.addEventListener('click', () => { void this.handleSendMessage(); });
+        this.sendButton.addEventListener('click', () => {
+            void this.handleSendMessage();
+        });
     }
 
     private updateContextBadge(): void {
@@ -491,14 +517,15 @@ export class AgentSidebarView extends ItemView {
         if (!this.modelButton) return;
         this.modelButton.empty();
         const effectiveKey = this.getEffectiveModelKey();
-        const model = this.plugin.settings.activeModels.find((m) => getModelKey(m) === effectiveKey);
+        const model = this.plugin.settings.activeModels.find(
+            (m) => getModelKey(m) === effectiveKey
+        );
         const label = model ? (model.displayName ?? model.name) : t('ui.sidebar.noModel');
-        const hasModeOverride = !!this.plugin.settings.modeModelKeys?.[this.plugin.settings.currentMode];
+        const hasModeOverride =
+            !!this.plugin.settings.modeModelKeys?.[this.plugin.settings.currentMode];
         this.modelButton.createSpan('model-label').setText(label);
         setIcon(this.modelButton.createSpan('mode-chevron'), 'chevron-down');
-        this.modelButton.title = hasModeOverride
-            ? t('ui.sidebar.modeOverride', { label })
-            : label;
+        this.modelButton.title = hasModeOverride ? t('ui.sidebar.modeOverride', { label }) : label;
 
         // Update context tracker when model changes
         if (this.contextTracker && model) {
@@ -512,7 +539,10 @@ export class AgentSidebarView extends ItemView {
                     );
                 }
             } catch (e) {
-                console.debug('[AgentSidebarView] Failed to update context window for model change:', e);
+                console.debug(
+                    '[AgentSidebarView] Failed to update context window for model change:',
+                    e
+                );
             }
         }
     }
@@ -527,16 +557,23 @@ export class AgentSidebarView extends ItemView {
 
         if (enabled.length === 0) {
             menu.addItem((item) =>
-                item.setTitle(t('ui.sidebar.noModelsEnabled')).setIcon('settings').onClick(() => {
-                    this.app.setting?.open();
-                    setTimeout(() => this.app.setting?.openTabById('obsilo-agent'), 50);
-                }),
+                item
+                    .setTitle(t('ui.sidebar.noModelsEnabled'))
+                    .setIcon('settings')
+                    .onClick(() => {
+                        this.app.setting?.open();
+                        setTimeout(() => this.app.setting?.openTabById('obsilo-agent'), 50);
+                    })
             );
         } else {
             // Option to clear mode override (use global default)
             if (modeOverrideKey) {
-                const globalModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === globalKey);
-                const globalLabel = globalModel ? (globalModel.displayName ?? globalModel.name) : t('ui.sidebar.globalDefault');
+                const globalModel = this.plugin.settings.activeModels.find(
+                    (m) => getModelKey(m) === globalKey
+                );
+                const globalLabel = globalModel
+                    ? (globalModel.displayName ?? globalModel.name)
+                    : t('ui.sidebar.globalDefault');
                 menu.addItem((item) =>
                     item
                         .setTitle(t('ui.sidebar.useGlobalDefault', { label: globalLabel }))
@@ -547,7 +584,7 @@ export class AgentSidebarView extends ItemView {
                             }
                             await this.plugin.saveSettings();
                             this.updateModelButton();
-                        }),
+                        })
                 );
                 menu.addSeparator();
             }
@@ -560,11 +597,12 @@ export class AgentSidebarView extends ItemView {
                         .setChecked(effectiveKey === key)
                         .onClick(async () => {
                             // Set as mode-specific override (not global default)
-                            if (!this.plugin.settings.modeModelKeys) this.plugin.settings.modeModelKeys = {};
+                            if (!this.plugin.settings.modeModelKeys)
+                                this.plugin.settings.modeModelKeys = {};
                             this.plugin.settings.modeModelKeys[modeSlug] = key;
                             await this.plugin.saveSettings();
                             this.updateModelButton();
-                        }),
+                        })
                 );
             });
         }
@@ -593,7 +631,12 @@ export class AgentSidebarView extends ItemView {
         const isEnabled = this.plugin.settings.webTools?.enabled ?? false;
         const newState = !isEnabled;
         if (!this.plugin.settings.webTools) {
-            this.plugin.settings.webTools = { enabled: false, provider: 'none', braveApiKey: '', tavilyApiKey: '' };
+            this.plugin.settings.webTools = {
+                enabled: false,
+                provider: 'none',
+                braveApiKey: '',
+                tavilyApiKey: '',
+            };
         }
         this.plugin.settings.webTools.enabled = newState;
         await this.plugin.saveSettings();
@@ -705,14 +748,18 @@ export class AgentSidebarView extends ItemView {
     /** Max total chars of skill content injected into system prompt. */
     private static readonly MAX_TOTAL_SKILL_CHARS = 40_000;
 
-    private async buildSkillsSection(userMessage: string, allowedSkillNames?: string[]): Promise<{ section: string; activeSkillNames: string[] } | undefined> {
+    private async buildSkillsSection(
+        userMessage: string,
+        allowedSkillNames?: string[]
+    ): Promise<{ section: string; activeSkillNames: string[] } | undefined> {
         const skillsManager = this.plugin.skillsManager;
         if (!skillsManager) return undefined;
 
         // Build effective toggles: combine manual toggles with per-mode allow-list
         const toggles = { ...(this.plugin.settings.manualSkillToggles ?? {}) };
         if (allowedSkillNames) {
-            const allUserSkills: { path: string; name: string }[] = await skillsManager.discoverSkills();
+            const allUserSkills: { path: string; name: string }[] =
+                await skillsManager.discoverSkills();
             const allowedSet = new Set(allowedSkillNames);
             for (const skill of allUserSkills) {
                 if (!allowedSet.has(skill.name)) {
@@ -723,18 +770,31 @@ export class AgentSidebarView extends ItemView {
 
         // 1. Collect ALL available skills into a unified catalog
         const userSkills = await skillsManager.discoverSkills();
-        const filteredUserSkills = Object.keys(toggles).length > 0
-            ? userSkills.filter(s => toggles[s.path] !== false)
-            : userSkills;
+        const filteredUserSkills =
+            Object.keys(toggles).length > 0
+                ? userSkills.filter((s) => toggles[s.path] !== false)
+                : userSkills;
 
         const selfLoader = this.plugin.selfAuthoredSkillLoader;
         const bundledSkills = selfLoader?.getAllSkills() ?? [];
 
         // Build catalog entries: { name, description, source }
-        interface CatalogEntry { name: string; description: string; src: 'user' | 'bundled' }
+        interface CatalogEntry {
+            name: string;
+            description: string;
+            src: 'user' | 'bundled';
+        }
         const catalog: CatalogEntry[] = [
-            ...filteredUserSkills.map(s => ({ name: s.name, description: s.description, src: 'user' as const })),
-            ...bundledSkills.map(s => ({ name: s.name, description: s.description, src: 'bundled' as const })),
+            ...filteredUserSkills.map((s) => ({
+                name: s.name,
+                description: s.description,
+                src: 'user' as const,
+            })),
+            ...bundledSkills.map((s) => ({
+                name: s.name,
+                description: s.description,
+                src: 'bundled' as const,
+            })),
         ];
 
         if (catalog.length === 0) return undefined;
@@ -745,7 +805,11 @@ export class AgentSidebarView extends ItemView {
 
         // 3. Fallback: keyword + trigger matching if LLM returned nothing
         if (matchedNames.size === 0) {
-            matchedNames = this.matchSkillsByKeywordAndTrigger(userMessage, filteredUserSkills, bundledSkills);
+            matchedNames = this.matchSkillsByKeywordAndTrigger(
+                userMessage,
+                filteredUserSkills,
+                bundledSkills
+            );
             console.debug('[buildSkillsSection] Fallback matched skills:', [...matchedNames]);
         }
 
@@ -754,7 +818,7 @@ export class AgentSidebarView extends ItemView {
         // 4. Rank matched skills: bundled +20, user +10 (higher = injected first)
         const ranked: { name: string; priority: number }[] = [];
         for (const name of matchedNames) {
-            const isBundled = bundledSkills.some(s => s.name === name);
+            const isBundled = bundledSkills.some((s) => s.name === name);
             ranked.push({ name, priority: isBundled ? 20 : 10 });
         }
         ranked.sort((a, b) => b.priority - a.priority);
@@ -768,7 +832,7 @@ export class AgentSidebarView extends ItemView {
             if (parts.length >= AgentSidebarView.MAX_INJECTED_SKILLS) break;
 
             // Try user skill first
-            const userSkill = filteredUserSkills.find(s => s.name === name);
+            const userSkill = filteredUserSkills.find((s) => s.name === name);
             if (userSkill) {
                 try {
                     const raw = await skillsManager.readFile(userSkill.path);
@@ -776,9 +840,13 @@ export class AgentSidebarView extends ItemView {
                     if (body.length > 16000) body = body.slice(0, 16000) + '\n...(truncated)';
                     if (totalChars + body.length > AgentSidebarView.MAX_TOTAL_SKILL_CHARS) break;
                     totalChars += body.length;
-                    parts.push(`  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(userSkill.description)}</description>\n    <instructions>${xmlEsc(body)}</instructions>\n  </skill>`);
+                    parts.push(
+                        `  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(userSkill.description)}</description>\n    <instructions>${xmlEsc(body)}</instructions>\n  </skill>`
+                    );
                     activeSkillNames.push(name);
-                } catch { /* skip unreadable */ }
+                } catch {
+                    /* skip unreadable */
+                }
                 continue;
             }
 
@@ -788,10 +856,14 @@ export class AgentSidebarView extends ItemView {
                 if (bundled) {
                     const body = selfLoader.getSkillBody(name);
                     if (body) {
-                        const trimmed = body.length > 16000 ? body.slice(0, 16000) + '\n...(truncated)' : body;
-                        if (totalChars + trimmed.length > AgentSidebarView.MAX_TOTAL_SKILL_CHARS) break;
+                        const trimmed =
+                            body.length > 16000 ? body.slice(0, 16000) + '\n...(truncated)' : body;
+                        if (totalChars + trimmed.length > AgentSidebarView.MAX_TOTAL_SKILL_CHARS)
+                            break;
                         totalChars += trimmed.length;
-                        parts.push(`  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(bundled.description)}</description>\n    <instructions>${xmlEsc(trimmed)}</instructions>\n  </skill>`);
+                        parts.push(
+                            `  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(bundled.description)}</description>\n    <instructions>${xmlEsc(trimmed)}</instructions>\n  </skill>`
+                        );
                         activeSkillNames.push(name);
                     }
                 }
@@ -801,9 +873,13 @@ export class AgentSidebarView extends ItemView {
         if (parts.length === 0) return undefined;
         const skipped = ranked.length - parts.length;
         if (skipped > 0) {
-            console.debug(`[buildSkillsSection] Capped: injected ${parts.length}, skipped ${skipped} lower-priority skills`);
+            console.debug(
+                `[buildSkillsSection] Capped: injected ${parts.length}, skipped ${skipped} lower-priority skills`
+            );
         }
-        console.debug(`[buildSkillsSection] Injecting ${parts.length} skill(s): ${activeSkillNames.join(', ')}`);
+        console.debug(
+            `[buildSkillsSection] Injecting ${parts.length} skill(s): ${activeSkillNames.join(', ')}`
+        );
         return {
             section: `<available_skills>\n${parts.join('\n')}\n</available_skills>`,
             activeSkillNames,
@@ -817,7 +893,7 @@ export class AgentSidebarView extends ItemView {
      */
     private async classifySkillsWithLlm(
         userMessage: string,
-        catalog: Array<{ name: string; description: string }>,
+        catalog: Array<{ name: string; description: string }>
     ): Promise<Set<string>> {
         try {
             const model = this.plugin.getActiveModel();
@@ -826,7 +902,7 @@ export class AgentSidebarView extends ItemView {
             const handler = buildApiHandlerForModel(model);
             if (!handler.classifyText) return new Set();
 
-            const skillList = catalog.map(s => `- ${s.name}: ${s.description}`).join('\n');
+            const skillList = catalog.map((s) => `- ${s.name}: ${s.description}`).join('\n');
 
             const prompt =
                 `User message: "${userMessage.slice(0, 400)}"\n\n` +
@@ -842,16 +918,21 @@ export class AgentSidebarView extends ItemView {
             if (cleaned === 'none' || !cleaned) return new Set();
 
             // Parse comma-separated response, match against catalog
-            const requested = cleaned.split(/[,\n]+/).map(s => s.trim().replace(/^-\s*/, ''));
+            const requested = cleaned.split(/[,\n]+/).map((s) => s.trim().replace(/^-\s*/, ''));
             const matched = new Set<string>();
 
             for (const req of requested) {
                 if (!req || req === 'none') continue;
                 // Exact match
-                const exact = catalog.find(s => s.name.toLowerCase() === req);
-                if (exact) { matched.add(exact.name); continue; }
+                const exact = catalog.find((s) => s.name.toLowerCase() === req);
+                if (exact) {
+                    matched.add(exact.name);
+                    continue;
+                }
                 // Partial match (LLM might abbreviate)
-                const partial = catalog.find(s => req.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(req));
+                const partial = catalog.find(
+                    (s) => req.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(req)
+                );
                 if (partial) matched.add(partial.name);
             }
 
@@ -869,7 +950,7 @@ export class AgentSidebarView extends ItemView {
     private matchSkillsByKeywordAndTrigger(
         userMessage: string,
         userSkills: import('../core/context/SkillsManager').SkillMeta[],
-        bundledSkills: import('../core/skills/SelfAuthoredSkillLoader').SelfAuthoredSkill[],
+        bundledSkills: import('../core/skills/SelfAuthoredSkillLoader').SelfAuthoredSkill[]
     ): Set<string> {
         const matched = new Set<string>();
         const msgLower = userMessage.toLowerCase();
@@ -879,10 +960,13 @@ export class AgentSidebarView extends ItemView {
         // User skills: trigger regex + keyword
         for (const s of userSkills) {
             if (s.trigger) {
-                if (safeRegex(s.trigger, 'i').test(msgLower)) { matched.add(s.name); continue; }
+                if (safeRegex(s.trigger, 'i').test(msgLower)) {
+                    matched.add(s.name);
+                    continue;
+                }
             }
             const descWords = s.description.toLowerCase().match(wordPattern) ?? [];
-            if (descWords.some(w => msgWords.has(w))) matched.add(s.name);
+            if (descWords.some((w) => msgWords.has(w))) matched.add(s.name);
         }
 
         // Bundled skills: trigger regex
@@ -896,7 +980,9 @@ export class AgentSidebarView extends ItemView {
     private autoResizeTextarea(): void {
         if (!this.textarea) return;
         this.textarea.setCssProps({ '--agent-textarea-h': 'auto' });
-        this.textarea.setCssProps({ '--agent-textarea-h': Math.min(this.textarea.scrollHeight, 15 * 24) + 'px' });
+        this.textarea.setCssProps({
+            '--agent-textarea-h': Math.min(this.textarea.scrollHeight, 15 * 24) + 'px',
+        });
     }
 
     /**
@@ -915,7 +1001,11 @@ export class AgentSidebarView extends ItemView {
     private showNoModelSetupMessage(): void {
         if (!this.chatContainer) return;
         if (!this.onboarding) this.onboarding = new OnboardingFlow(this.plugin, this.app);
-        this.onboarding.showNoModelSetupMessage(this.chatContainer, this, this.getOnboardingCallbacks());
+        this.onboarding.showNoModelSetupMessage(
+            this.chatContainer,
+            this,
+            this.getOnboardingCallbacks()
+        );
     }
 
     /** Build callbacks for OnboardingFlow to communicate back to the View. */
@@ -976,7 +1066,10 @@ export class AgentSidebarView extends ItemView {
         if (this.onboarding?.isAwaitingKey) {
             this.textarea.value = '';
             this.autoResizeTextarea();
-            const consumed = await this.onboarding.handleKeyInput(text, this.getOnboardingCallbacks());
+            const consumed = await this.onboarding.handleKeyInput(
+                text,
+                this.getOnboardingCallbacks()
+            );
             if (consumed) return;
         }
 
@@ -986,26 +1079,28 @@ export class AgentSidebarView extends ItemView {
         if (!this.activeConversationId && this.plugin.conversationStore) {
             const mode = this.modeService.getActiveMode().slug;
             const modelKey = this.resolveEnabledModelKey(mode);
-            const model = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modelKey);
+            const model = this.plugin.settings.activeModels.find(
+                (m) => getModelKey(m) === modelKey
+            );
             this.activeConversationId = await this.plugin.conversationStore.create(
                 mode,
-                model?.displayName ?? model?.name ?? modelKey,
+                model?.displayName ?? model?.name ?? modelKey
             );
         }
 
         // Track user UI message for history persistence (skip for hidden messages)
         if (!isHidden) {
             this.uiMessages.push({ role: 'user', text, ts: new Date().toISOString() });
-
         }
 
         // Snapshot attachments, clear the chip bar, render user bubble with previews
         const attachments = [...this.attachments.pending];
         this.attachments.clear();
         if (!isHidden) {
-            const activeFileForBubble = (this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext)
-                ? this.app.workspace.getActiveFile()
-                : null;
+            const activeFileForBubble =
+                this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext
+                    ? this.app.workspace.getActiveFile()
+                    : null;
             this.addUserMessage(text, attachments, activeFileForBubble);
         }
         this.textarea.value = '';
@@ -1013,16 +1108,22 @@ export class AgentSidebarView extends ItemView {
 
         // Feature 4: Inject active file context into the message sent to LLM
         // Only if setting is on and user hasn't dismissed the context for this turn
-        const activeFile = (this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext)
-            ? this.app.workspace.getActiveFile()
-            : null;
+        const activeFile =
+            this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext
+                ? this.app.workspace.getActiveFile()
+                : null;
         const vaultCtx = this.buildVaultContext();
         const selectionCtx = this.pendingSelectionContext;
         this.pendingSelectionContext = null;
-        const textWithContext = text
-            + (activeFile ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>` : '')
-            + (selectionCtx ? `\n\n<context>\nSelected text in editor:\n${selectionCtx}\n</context>` : '')
-            + (vaultCtx ? `\n\n${vaultCtx}` : '');
+        const textWithContext =
+            text +
+            (activeFile
+                ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                : '') +
+            (selectionCtx
+                ? `\n\n<context>\nSelected text in editor:\n${selectionCtx}\n</context>`
+                : '') +
+            (vaultCtx ? `\n\n${vaultCtx}` : '');
 
         // Build ContentBlock[] when there are attachments, plain string otherwise
         let messageToSend: string | ContentBlock[];
@@ -1054,12 +1155,14 @@ export class AgentSidebarView extends ItemView {
             if (workflowLoader) {
                 const processedText = await workflowLoader.processSlashCommand(
                     text,
-                    this.plugin.settings.workflowToggles ?? {},
+                    this.plugin.settings.workflowToggles ?? {}
                 );
                 if (processedText !== text) {
-                    messageToSend = processedText + (activeFile
-                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                        : '');
+                    messageToSend =
+                        processedText +
+                        (activeFile
+                            ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                            : '');
                     slashResolved = true;
                 }
             }
@@ -1071,7 +1174,7 @@ export class AgentSidebarView extends ItemView {
                 const rest = spaceIdx === -1 ? '' : text.slice(spaceIdx + 1).trim();
 
                 const prompt = (this.plugin.settings.customPrompts ?? []).find(
-                    (p) => p.slug === slug && p.enabled !== false,
+                    (p) => p.slug === slug && p.enabled !== false
                 );
                 if (prompt) {
                     const activeFileName = activeFile?.name;
@@ -1080,9 +1183,11 @@ export class AgentSidebarView extends ItemView {
                         userInput: rest,
                         activeFile: activeFileName,
                     });
-                    messageToSend = resolved + (activeFile
-                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                        : '');
+                    messageToSend =
+                        resolved +
+                        (activeFile
+                            ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                            : '');
                 }
             }
         }
@@ -1090,7 +1195,9 @@ export class AgentSidebarView extends ItemView {
         // Resolve mode-specific model (Sticky Models: each mode remembers its last-used model)
         const currentModeSlug = this.modeService.getActiveMode().slug;
         const modeModelKey = this.resolveEnabledModelKey(currentModeSlug);
-        const resolvedModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modeModelKey);
+        const resolvedModel = this.plugin.settings.activeModels.find(
+            (m) => getModelKey(m) === modeModelKey
+        );
 
         let resolvedApiHandler = this.plugin.apiHandler;
         if (resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
@@ -1104,11 +1211,15 @@ export class AgentSidebarView extends ItemView {
 
         if (!resolvedApiHandler) {
             const activeKey = this.plugin.settings.activeModelKey;
-            const activeModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === activeKey);
+            const activeModel = this.plugin.settings.activeModels.find(
+                (m) => getModelKey(m) === activeKey
+            );
 
             if (activeModel?.provider === 'ollama') {
                 this.addAssistantMessage(
-                    t('ui.error.ollamaNotRunning', { model: activeModel.displayName ?? activeModel.name }),
+                    t('ui.error.ollamaNotRunning', {
+                        model: activeModel.displayName ?? activeModel.name,
+                    })
                 );
             } else {
                 // No model or no API key — show setup guidance
@@ -1123,18 +1234,19 @@ export class AgentSidebarView extends ItemView {
 
         // Prepare streaming message elements (thinking → tools → response text → footer)
         // `let` so onQuestion can create fresh elements for each onboarding turn.
-        let { messageEl, thinkingEl, toolsEl, contentEl, footerEl } = this.createStreamingMessageEl();
+        let { messageEl, thinkingEl, toolsEl, contentEl, footerEl } =
+            this.createStreamingMessageEl();
         // Text accumulated during/after tool phase.
         // Use chunk arrays to avoid quadratic transient allocations from string concatenation
         // during long streaming responses.
         let accumulatedTextParts: string[] = [];
         const getAccumulatedText = (): string => accumulatedTextParts.join('');
-        let accumulatedToolContent = '';  // content written by file-writing tools (for task extraction)
+        let accumulatedToolContent = ''; // content written by file-writing tools (for task extraction)
         let accumulatedThinkingParts: string[] = [];
         const getAccumulatedThinking = (): string => accumulatedThinkingParts.join('');
-        let hasTools = false;           // have any tools been called in this task?
-        let isThinking = false;         // thinking is currently active
-        let activityActionCount = 0;    // number of completed tool calls (for activity badge)
+        let hasTools = false; // have any tools been called in this task?
+        let isThinking = false; // thinking is currently active
+        let activityActionCount = 0; // number of completed tool calls (for activity badge)
 
         // Streaming text container: during Q&A streaming we append raw text chunks
         // directly into this element (O(1) per chunk, zero re-parses).
@@ -1149,14 +1261,21 @@ export class AgentSidebarView extends ItemView {
         const scheduleScroll = () => {
             if (scrollPending) return;
             scrollPending = true;
-            requestAnimationFrame(() => { scrollPending = false; this.chatContainer?.scrollTo({ top: this.chatContainer.scrollHeight }); });
+            requestAnimationFrame(() => {
+                scrollPending = false;
+                this.chatContainer?.scrollTo({ top: this.chatContainer.scrollHeight });
+            });
         };
 
         // Debounced tool group label updates: batches rapid DOM updates during
         // parallel tool execution to reduce flicker and reflows.
         let groupUpdatePending = false;
         const pendingGroupUpdates = new Set<{ nameEl: HTMLElement; name: string; count: number }>();
-        const scheduleGroupUpdate = (group: { nameEl: HTMLElement; name: string; count: number }) => {
+        const scheduleGroupUpdate = (group: {
+            nameEl: HTMLElement;
+            name: string;
+            count: number;
+        }) => {
             pendingGroupUpdates.add(group);
             if (groupUpdatePending) return;
             groupUpdatePending = true;
@@ -1199,7 +1318,10 @@ export class AgentSidebarView extends ItemView {
         const updateStepsSummary = (allDone: boolean) => {
             if (!stepsSummaryLabelEl || !stepsSummaryIconEl) return;
             const n = stepsTotal;
-            const label = n === 1 ? t('ui.sidebar.actionSingular') : t('ui.sidebar.actionPlural', { count: n });
+            const label =
+                n === 1
+                    ? t('ui.sidebar.actionSingular')
+                    : t('ui.sidebar.actionPlural', { count: n });
             if (allDone) {
                 stepsSummaryLabelEl.setText(label);
                 setIcon(stepsSummaryIconEl, stepsHasError ? 'x' : 'check');
@@ -1212,9 +1334,17 @@ export class AgentSidebarView extends ItemView {
         // Tools that are safe to group visually — consecutive same-type calls collapse into one row.
         // Write tools are intentionally excluded so each destructive action stays visible individually.
         const GROUPABLE_TOOLS = new Set([
-            'read_file', 'list_files', 'search_files', 'get_frontmatter',
-            'get_linked_notes', 'search_by_tag', 'get_vault_stats', 'get_daily_note',
-            'web_fetch', 'web_search', 'semantic_search',
+            'read_file',
+            'list_files',
+            'search_files',
+            'get_frontmatter',
+            'get_linked_notes',
+            'search_by_tag',
+            'get_vault_stats',
+            'get_daily_note',
+            'web_fetch',
+            'web_search',
+            'semantic_search',
         ]);
 
         // Active tool group — tracks the open <details> container for consecutive same-type tools.
@@ -1237,7 +1367,11 @@ export class AgentSidebarView extends ItemView {
             (stepsBodyEl ?? toolsEl).querySelector('.tool-computing-row')?.remove();
             if (stepsSummaryLabelEl && stepsTotal > 0) {
                 const n = stepsTotal;
-                stepsSummaryLabelEl.setText(n === 1 ? t('ui.sidebar.actionSingular') : t('ui.sidebar.actionPlural', { count: n }));
+                stepsSummaryLabelEl.setText(
+                    n === 1
+                        ? t('ui.sidebar.actionSingular')
+                        : t('ui.sidebar.actionPlural', { count: n })
+                );
             }
         };
 
@@ -1272,7 +1406,8 @@ export class AgentSidebarView extends ItemView {
                         const row = (stepsBodyEl ?? toolsEl).createDiv('tool-computing-row');
                         setIcon(row.createSpan('tool-computing-icon'), 'loader');
                         row.createSpan('tool-computing-text').setText(t('ui.sidebar.analyzing'));
-                        if (stepsSummaryLabelEl) stepsSummaryLabelEl.setText(t('ui.sidebar.analyzingShort'));
+                        if (stepsSummaryLabelEl)
+                            stepsSummaryLabelEl.setText(t('ui.sidebar.analyzingShort'));
                         scheduleScroll();
                     }
                 },
@@ -1306,12 +1441,18 @@ export class AgentSidebarView extends ItemView {
                         const spinner = thinkingEl.querySelector('.thinking-spinner');
                         const label = thinkingEl.querySelector('.thinking-label');
                         if (spinner instanceof HTMLElement) setIcon(spinner, 'chevron-right');
-                        if (label instanceof HTMLElement) label.setText(t('ui.sidebar.reasoningCollapsed'));
+                        if (label instanceof HTMLElement)
+                            label.setText(t('ui.sidebar.reasoningCollapsed'));
                         const body = thinkingEl.querySelector<HTMLElement>('.thinking-content');
                         if (body) body.classList.add('agent-u-hidden');
-                        if (header instanceof HTMLElement) header.addEventListener('click', () => {
-                            if (body) body.classList.toggle('agent-u-hidden');
-                        }, { once: true });
+                        if (header instanceof HTMLElement)
+                            header.addEventListener(
+                                'click',
+                                () => {
+                                    if (body) body.classList.toggle('agent-u-hidden');
+                                },
+                                { once: true }
+                            );
                     }
                     accumulatedTextParts.push(chunk);
                     if (!hasTools) {
@@ -1347,7 +1488,10 @@ export class AgentSidebarView extends ItemView {
                     updateStepsSummary(false);
 
                     const brief = this.getToolBriefParam(input);
-                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const time = new Date().toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    });
                     // Tool calls render into the steps block body, not directly into toolsEl
                     const renderTarget = stepsBodyEl!;
 
@@ -1360,15 +1504,28 @@ export class AgentSidebarView extends ItemView {
 
                         if (!activeToolGroup) {
                             // Create new group container inside the steps block
-                            const details = renderTarget.createEl('details', { cls: 'tool-call-details' });
-                            const summary = details.createEl('summary', { cls: 'tool-call-summary' });
+                            const details = renderTarget.createEl('details', {
+                                cls: 'tool-call-details',
+                            });
+                            const summary = details.createEl('summary', {
+                                cls: 'tool-call-summary',
+                            });
                             setIcon(summary.createSpan('tool-icon'), this.getToolIcon(name));
                             const nameEl = summary.createSpan('tool-name');
                             nameEl.setText(this.formatGroupedLabel(name, 1));
                             summary.createSpan('tool-time').setText(time);
-                            const statusEl = summary.createSpan({ cls: 'tool-status tool-running' });
+                            const statusEl = summary.createSpan({
+                                cls: 'tool-status tool-running',
+                            });
                             const bodyEl = details.createDiv('tool-group-body');
-                            activeToolGroup = { name, detailsEl: details, nameEl, statusEl, bodyEl, count: 1 };
+                            activeToolGroup = {
+                                name,
+                                detailsEl: details,
+                                nameEl,
+                                statusEl,
+                                bodyEl,
+                                count: 1,
+                            };
                         } else {
                             // Group already exists — update count and reset status
                             activeToolGroup.count++;
@@ -1386,13 +1543,14 @@ export class AgentSidebarView extends ItemView {
                         const queue = toolElsByName.get(name) ?? [];
                         queue.push(itemEl);
                         toolElsByName.set(name, queue);
-
                     } else {
                         // ── Standalone tool ───────────────────────────────────────────
                         // Any non-groupable tool breaks the active group
                         activeToolGroup = null;
 
-                        const details = renderTarget.createEl('details', { cls: 'tool-call-details' });
+                        const details = renderTarget.createEl('details', {
+                            cls: 'tool-call-details',
+                        });
                         const summary = details.createEl('summary', { cls: 'tool-call-summary' });
                         setIcon(summary.createSpan('tool-icon'), this.getToolIcon(name));
                         summary.createSpan('tool-name').setText(this.formatToolLabel(name));
@@ -1412,7 +1570,14 @@ export class AgentSidebarView extends ItemView {
                         toolElsByName.set(name, pendingEls);
                     }
 
-                    const writeOps = ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file'];
+                    const writeOps = [
+                        'write_file',
+                        'edit_file',
+                        'append_to_file',
+                        'create_folder',
+                        'delete_file',
+                        'move_file',
+                    ];
                     if (writeOps.includes(name)) taskWriteCount++;
 
                     // Collect content from file-writing tools for task extraction (ADR-026)
@@ -1450,10 +1615,12 @@ export class AgentSidebarView extends ItemView {
                                 '.tool-group-item:not(.item-done):not(.item-error)'
                             ).length;
                             if (stillRunning === 0) {
-                                const groupStatus = detailsEl.querySelector<HTMLElement>('.tool-status');
+                                const groupStatus =
+                                    detailsEl.querySelector<HTMLElement>('.tool-status');
                                 if (groupStatus) {
                                     groupStatus.removeClass('tool-running');
-                                    const anyError = bodyEl.querySelectorAll('.item-error').length > 0;
+                                    const anyError =
+                                        bodyEl.querySelectorAll('.item-error').length > 0;
                                     groupStatus.addClass(anyError ? 'tool-error' : 'tool-done');
                                     groupStatus.setText(anyError ? '✗' : '✓');
                                 }
@@ -1462,14 +1629,15 @@ export class AgentSidebarView extends ItemView {
                                 if (isError) detailsEl.open = false;
                             }
                         }
-
                     } else if (el instanceof HTMLDetailsElement) {
                         // ── Standalone tool result ────────────────────────────────────
                         const details = el;
 
                         // Parse and strip <diff_stats added="X" removed="Y"/> tag
                         let displayContent = content;
-                        const diffMatch = content.match(/<diff_stats added="(\d+)" removed="(\d+)"\/>/);
+                        const diffMatch = content.match(
+                            /<diff_stats added="(\d+)" removed="(\d+)"\/>/
+                        );
                         if (diffMatch && !isError) {
                             const diffAdded = parseInt(diffMatch[1], 10);
                             const diffRemoved = parseInt(diffMatch[2], 10);
@@ -1494,9 +1662,10 @@ export class AgentSidebarView extends ItemView {
                         }
                         const outputEl = details.querySelector('.tool-call-output');
                         if (outputEl && displayContent) {
-                            const truncated = displayContent.length > 2000
-                                ? displayContent.slice(0, 2000) + '\n…(truncated)'
-                                : displayContent;
+                            const truncated =
+                                displayContent.length > 2000
+                                    ? displayContent.slice(0, 2000) + '\n…(truncated)'
+                                    : displayContent;
                             outputEl.createEl('pre').setText(truncated);
                         }
                         details.open = isError;
@@ -1510,10 +1679,17 @@ export class AgentSidebarView extends ItemView {
                     // Use closest('.assistant-message') so the lookup works both before
                     // and after the DOM-move (toolsEl.parentElement changes on move).
                     activityActionCount++;
-                    const actBadge = toolsEl.closest('.assistant-message')?.querySelector<HTMLElement>('.todo-activity-badge') ?? null;
-                    if (actBadge) actBadge.setText(t('ui.sidebar.activityCount', { count: activityActionCount }));
+                    const actBadge =
+                        toolsEl
+                            .closest('.assistant-message')
+                            ?.querySelector<HTMLElement>('.todo-activity-badge') ?? null;
+                    if (actBadge)
+                        actBadge.setText(
+                            t('ui.sidebar.activityCount', { count: activityActionCount })
+                        );
                     if (isError) {
-                        const actDetails = toolsEl.closest<HTMLDetailsElement>('.todo-activity-log');
+                        const actDetails =
+                            toolsEl.closest<HTMLDetailsElement>('.todo-activity-log');
                         if (actDetails) actDetails.open = true;
                     }
                 },
@@ -1528,7 +1704,10 @@ export class AgentSidebarView extends ItemView {
                     outputEl.createEl('pre').setText(content);
                 },
                 onUsage: (inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens) => {
-                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const time = new Date().toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    });
                     let text = `${time}  ·  ${inputTokens.toLocaleString()} in · ${outputTokens.toLocaleString()} out`;
                     if (cacheReadTokens && cacheReadTokens > 0) {
                         text += ` · ${cacheReadTokens.toLocaleString()} cached`;
@@ -1578,12 +1757,22 @@ export class AgentSidebarView extends ItemView {
                     // the async save is still in flight.
                     this.plugin.settings.currentMode = newModeSlug;
                     this.updateModeButton();
-                    new Notice(t('notice.modeSwitched', { mode: this.getModeDisplayName(newModeSlug) }));
+                    new Notice(
+                        t('notice.modeSwitched', { mode: this.getModeDisplayName(newModeSlug) })
+                    );
                     // Auto-index on mode switch if configured
-                    if (this.plugin.settings.semanticAutoIndex === 'mode-switch' && this.plugin.semanticIndex) {
-                        this.plugin.semanticIndex.buildIndex().catch((e) =>
-                            console.warn('[AgentSidebarView] Auto-index on mode switch failed:', e)
-                        );
+                    if (
+                        this.plugin.settings.semanticAutoIndex === 'mode-switch' &&
+                        this.plugin.semanticIndex
+                    ) {
+                        this.plugin.semanticIndex
+                            .buildIndex()
+                            .catch((e) =>
+                                console.warn(
+                                    '[AgentSidebarView] Auto-index on mode switch failed:',
+                                    e
+                                )
+                            );
                     }
                 },
                 onCheckpoint: (checkpoint) => {
@@ -1601,8 +1790,16 @@ export class AgentSidebarView extends ItemView {
                         // Hide during re-render to avoid flash of raw → markdown transition
                         contentEl.classList.add('agent-u-visibility-hidden');
                         contentEl.empty();
-                        void MarkdownRenderer.render(this.app, accumulatedText, contentEl, '', this);
-                        requestAnimationFrame(() => { contentEl.classList.remove('agent-u-visibility-hidden'); });
+                        void MarkdownRenderer.render(
+                            this.app,
+                            accumulatedText,
+                            contentEl,
+                            '',
+                            this
+                        );
+                        requestAnimationFrame(() => {
+                            contentEl.classList.remove('agent-u-visibility-hidden');
+                        });
                     }
                     // Wrap resolve: after the user answers, show their answer as a
                     // chat bubble and create a fresh message element for the next
@@ -1613,13 +1810,22 @@ export class AgentSidebarView extends ItemView {
                         messageEl.removeClass('message-streaming');
                         const accumulatedText = getAccumulatedText();
                         if (accumulatedText) {
-                            this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                            this.uiMessages.push({
+                                role: 'assistant',
+                                text: accumulatedText,
+                                ts: new Date().toISOString(),
+                            });
                         }
                         // Render user answer as a regular chat message
                         this.addUserMessage(answer);
-                        this.uiMessages.push({ role: 'user', text: answer, ts: new Date().toISOString() });
+                        this.uiMessages.push({
+                            role: 'user',
+                            text: answer,
+                            ts: new Date().toISOString(),
+                        });
                         // Create fresh assistant message element for the next response
-                        ({ messageEl, thinkingEl, toolsEl, contentEl, footerEl } = this.createStreamingMessageEl());
+                        ({ messageEl, thinkingEl, toolsEl, contentEl, footerEl } =
+                            this.createStreamingMessageEl());
                         // Reset per-turn state
                         accumulatedTextParts = [];
                         accumulatedToolContent = '';
@@ -1648,7 +1854,10 @@ export class AgentSidebarView extends ItemView {
                     // Auto-complete any unfinished todo items — agent often skips
                     // a final update_todo_list call before attempt_completion
                     if (lastTodoItems.length > 0) {
-                        const allDone = lastTodoItems.map((i) => ({ ...i, status: 'done' as const }));
+                        const allDone = lastTodoItems.map((i) => ({
+                            ...i,
+                            status: 'done' as const,
+                        }));
                         this.renderTodoBox(toolsEl, allDone);
                     }
                     scheduleScroll();
@@ -1664,13 +1873,18 @@ export class AgentSidebarView extends ItemView {
                             success: true,
                             resultSummary: getAccumulatedText().slice(0, 300),
                         };
-                        this.plugin.episodicExtractor.recordEpisode(episode).then((ep) => {
-                            if (ep && this.plugin.recipePromotionService) {
-                                this.plugin.recipePromotionService.checkForPromotion(ep).catch((e) =>
-                                    console.warn('[Mastery] Promotion check failed:', e)
-                                );
-                            }
-                        }).catch((e) => console.warn('[Mastery] Episode recording failed:', e));
+                        this.plugin.episodicExtractor
+                            .recordEpisode(episode)
+                            .then((ep) => {
+                                if (ep && this.plugin.recipePromotionService) {
+                                    this.plugin.recipePromotionService
+                                        .checkForPromotion(ep)
+                                        .catch((e) =>
+                                            console.warn('[Mastery] Promotion check failed:', e)
+                                        );
+                                }
+                            })
+                            .catch((e) => console.warn('[Mastery] Episode recording failed:', e));
                     }
                 },
                 onComplete: () => {
@@ -1678,7 +1892,10 @@ export class AgentSidebarView extends ItemView {
                     removeLoading();
                     // Auto-complete todos on natural task end (mirrors onAttemptCompletion)
                     if (lastTodoItems.length > 0) {
-                        const allDone = lastTodoItems.map((i) => ({ ...i, status: 'done' as const }));
+                        const allDone = lastTodoItems.map((i) => ({
+                            ...i,
+                            status: 'done' as const,
+                        }));
                         this.renderTodoBox(toolsEl, allDone);
                     }
                     // Finalize the steps block: remove any trailing "Analyzing…" row,
@@ -1694,9 +1911,11 @@ export class AgentSidebarView extends ItemView {
                             stepsBodyEl?.querySelector('.tool-computing-row')?.remove();
                             updateStepsSummary(true);
                             // Collapse individual tool <details> that were left open during streaming
-                            stepsBodyEl?.querySelectorAll('details.tool-call-details').forEach((d) => {
-                                if (d instanceof HTMLDetailsElement) d.open = false;
-                            });
+                            stepsBodyEl
+                                ?.querySelectorAll('details.tool-call-details')
+                                .forEach((d) => {
+                                    if (d instanceof HTMLDetailsElement) d.open = false;
+                                });
                         }
                     }
 
@@ -1729,11 +1948,17 @@ export class AgentSidebarView extends ItemView {
                         // Tools ran but the model returned no text — show a neutral placeholder
                         // so the user doesn't stare at an empty message bubble.
                         contentEl.empty();
-                        contentEl.createEl('p', { cls: 'message-empty-response', text: t('ui.sidebar.emptyResponse') });
+                        contentEl.createEl('p', {
+                            cls: 'message-empty-response',
+                            text: t('ui.sidebar.emptyResponse'),
+                        });
                     }
                     // Show timestamp in footer even without token usage
                     if (footerEl.classList.contains('agent-u-hidden')) {
-                        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const time = new Date().toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        });
                         footerEl.setText(time);
                         footerEl.classList.remove('agent-u-hidden');
                     }
@@ -1747,15 +1972,24 @@ export class AgentSidebarView extends ItemView {
                     if (parsedFollowups.length > 0) {
                         const followupList = messageEl.createDiv('followup-list');
                         if (followupHeading) {
-                            followupList.createEl('div', { cls: 'followup-heading', text: followupHeading });
+                            followupList.createEl('div', {
+                                cls: 'followup-heading',
+                                text: followupHeading,
+                            });
                         }
                         for (const raw of parsedFollowups) {
                             // Clean [[wikilinks]] → display name only (no folder prefix)
-                            const displayText = raw.replace(/\[\[([^\]]+)\]\]/g, (_m, link: string) => {
-                                const name = link.contains('|') ? link.split('|').pop()! : link;
-                                return name.contains('/') ? name.split('/').pop()! : name;
+                            const displayText = raw.replace(
+                                /\[\[([^\]]+)\]\]/g,
+                                (_m, link: string) => {
+                                    const name = link.contains('|') ? link.split('|').pop()! : link;
+                                    return name.contains('/') ? name.split('/').pop()! : name;
+                                }
+                            );
+                            const item = followupList.createEl('button', {
+                                cls: 'followup-item',
+                                text: displayText,
                             });
-                            const item = followupList.createEl('button', { cls: 'followup-item', text: displayText });
                             item.addEventListener('click', () => {
                                 if (this.textarea) {
                                     this.textarea.value = displayText;
@@ -1768,7 +2002,11 @@ export class AgentSidebarView extends ItemView {
                     this.currentAbortController = null;
                     this.setRunningState(false);
                     scheduleScroll();
-                    if (taskWriteCount > 0 && (this.plugin.settings.enableCheckpoints ?? true) && !hasRenderedCheckpoints) {
+                    if (
+                        taskWriteCount > 0 &&
+                        (this.plugin.settings.enableCheckpoints ?? true) &&
+                        !hasRenderedCheckpoints
+                    ) {
                         this.showUndoBar(taskId, taskWriteCount);
                     }
                     // Post-task review: show all changes for review/undo
@@ -1781,7 +2019,11 @@ export class AgentSidebarView extends ItemView {
                     }
                     // Track assistant UI message for history persistence
                     if (accumulatedText) {
-                        this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                        this.uiMessages.push({
+                            role: 'assistant',
+                            text: accumulatedText,
+                            ts: new Date().toISOString(),
+                        });
                     }
                     // Auto-save conversation to ConversationStore
                     this.saveCurrentConversation();
@@ -1794,11 +2036,19 @@ export class AgentSidebarView extends ItemView {
 
                     // Auto-title: set fallback title for immediate history display (ADR-022)
                     // Semantic titling happens later in finalizeConversation() on conversation end.
-                    if (this.activeConversationId && this.uiMessages.length <= 2 && this.plugin.conversationStore) {
+                    if (
+                        this.activeConversationId &&
+                        this.uiMessages.length <= 2 &&
+                        this.plugin.conversationStore
+                    ) {
                         const firstUserMsg = this.uiMessages.find((m) => m.role === 'user');
                         if (firstUserMsg) {
-                            const fallback = firstUserMsg.text.slice(0, 60).replace(/\n/g, ' ').trim() || t('ui.sidebar.newConversation');
-                            void this.plugin.conversationStore.updateMeta(this.activeConversationId, { title: fallback }).catch(() => {});
+                            const fallback =
+                                firstUserMsg.text.slice(0, 60).replace(/\n/g, ' ').trim() ||
+                                t('ui.sidebar.newConversation');
+                            void this.plugin.conversationStore
+                                .updateMeta(this.activeConversationId, { title: fallback })
+                                .catch(() => {});
                             this.historyPanel?.refresh();
                         }
                     }
@@ -1810,7 +2060,9 @@ export class AgentSidebarView extends ItemView {
 
                     // Show error inside the steps block (not as a separate red banner)
                     ensureStepsBlock();
-                    const errorRow = (stepsBodyEl ?? toolsEl).createDiv('tool-step-row tool-step-error');
+                    const errorRow = (stepsBodyEl ?? toolsEl).createDiv(
+                        'tool-step-row tool-step-error'
+                    );
                     const iconEl = errorRow.createSpan('tool-step-icon');
                     setIcon(iconEl, 'x-circle');
                     const textEl = errorRow.createDiv('tool-step-text');
@@ -1835,8 +2087,8 @@ export class AgentSidebarView extends ItemView {
             this.plugin.settings.advancedApi.condensingThreshold ?? 80,
             this.plugin.settings.advancedApi.powerSteeringFrequency ?? 0,
             this.plugin.settings.advancedApi.maxIterations ?? 25,
-            0,  // depth: root task starts at 0
-            this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2,
+            0, // depth: root task starts at 0
+            this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2
         );
 
         // Load enabled rules for this task (Sprint 3.2)
@@ -1856,12 +2108,19 @@ export class AgentSidebarView extends ItemView {
         let skillsSection: string | undefined;
         let activeSkillNames: string[] = [];
         if (!isOnboarding) {
-            const userMessageText = typeof messageToSend === 'string'
-                ? messageToSend
-                : (Array.isArray(messageToSend) ? messageToSend.find((b): b is ContentBlock & { type: 'text'; text: string } => b.type === 'text')?.text ?? '' : '');
+            const userMessageText =
+                typeof messageToSend === 'string'
+                    ? messageToSend
+                    : Array.isArray(messageToSend)
+                      ? (messageToSend.find(
+                            (b): b is ContentBlock & { type: 'text'; text: string } =>
+                                b.type === 'text'
+                        )?.text ?? '')
+                      : '';
             const modeAllowed = this.plugin.settings.modeSkillAllowList?.[activeMode.slug];
             // empty/undefined = all allowed; non-empty = only those skill names
-            const allowedSkillNames = modeAllowed && modeAllowed.length > 0 ? modeAllowed : undefined;
+            const allowedSkillNames =
+                modeAllowed && modeAllowed.length > 0 ? modeAllowed : undefined;
             const skillResult = await this.buildSkillsSection(userMessageText, allowedSkillNames);
             if (skillResult) {
                 skillsSection = skillResult.section;
@@ -1876,18 +2135,21 @@ export class AgentSidebarView extends ItemView {
             if (workflowLoader) {
                 const processedText = await workflowLoader.processSlashCommand(
                     `/${forcedWorkflowSlug} ${text}`,
-                    this.plugin.settings.workflowToggles ?? {},
+                    this.plugin.settings.workflowToggles ?? {}
                 );
                 if (processedText !== `/${forcedWorkflowSlug} ${text}`) {
-                    messageToSend = processedText + (activeFile
-                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                        : '');
+                    messageToSend =
+                        processedText +
+                        (activeFile
+                            ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                            : '');
                 }
             }
         }
 
         // Build plugin skills section from VaultDNA (PAS-1) — skip during onboarding
-        const pluginSkillsSection = isOnboarding ? undefined
+        const pluginSkillsSection = isOnboarding
+            ? undefined
             : this.plugin.skillRegistry?.getPluginSkillsPromptSection();
 
         const allowedMcpServers = this.plugin.settings.modeMcpServers?.[activeMode.slug];
@@ -1906,7 +2168,10 @@ export class AgentSidebarView extends ItemView {
 
                 // Onboarding: inject step-specific setup instructions when setup is incomplete
                 if (this.plugin.memoryService) {
-                    const onboarding = new OnboardingService(this.plugin.memoryService, this.plugin);
+                    const onboarding = new OnboardingService(
+                        this.plugin.memoryService,
+                        this.plugin
+                    );
                     const onboardingPrompt = onboarding.getOnboardingPrompt();
                     if (onboardingPrompt) parts.unshift(onboardingPrompt);
                 }
@@ -1921,7 +2186,7 @@ export class AgentSidebarView extends ItemView {
                             this.plugin.globalFs,
                             this.plugin.memoryService,
                             () => this.plugin.semanticIndex,
-                            this.plugin.memoryDB,
+                            this.plugin.memoryDB
                         );
                         const sessionContext = await retriever.retrieveSessionContext(text);
                         if (sessionContext) parts.push(sessionContext);
@@ -1939,20 +2204,28 @@ export class AgentSidebarView extends ItemView {
         if (this.plugin.settings.mastery.enabled && this.plugin.recipeMatchingService) {
             try {
                 const matches = this.plugin.recipeMatchingService.match(text, activeMode.slug);
-                console.debug(`[Mastery] Recipe matching: ${matches.length} match(es) for mode "${activeMode.slug}"`, matches.map(m => `${m.recipe.id} (${m.score.toFixed(2)})`));
+                console.debug(
+                    `[Mastery] Recipe matching: ${matches.length} match(es) for mode "${activeMode.slug}"`,
+                    matches.map((m) => `${m.recipe.id} (${m.score.toFixed(2)})`)
+                );
                 if (matches.length > 0) {
                     recipesSection = this.plugin.recipeMatchingService.buildPromptSection(matches);
-                    console.debug(`[Mastery] Recipe section injected (${recipesSection.length} chars)`);
+                    console.debug(
+                        `[Mastery] Recipe section injected (${recipesSection.length} chars)`
+                    );
                 }
             } catch (e) {
                 console.warn('[Mastery] Recipe matching failed (non-fatal):', e);
             }
         } else {
-            console.debug(`[Mastery] Skipped: enabled=${this.plugin.settings.mastery.enabled}, service=${!!this.plugin.recipeMatchingService}`);
+            console.debug(
+                `[Mastery] Skipped: enabled=${this.plugin.settings.mastery.enabled}, service=${!!this.plugin.recipeMatchingService}`
+            );
         }
 
         // Self-authored skills metadata for system prompt (Pipeline fix)
-        const selfAuthoredSkillsSection = this.plugin.selfAuthoredSkillLoader?.getMetadataSummary() || undefined;
+        const selfAuthoredSkillsSection =
+            this.plugin.selfAuthoredSkillLoader?.getMetadataSummary() || undefined;
 
         await task.run({
             userMessage: messageToSend,
@@ -1993,7 +2266,9 @@ export class AgentSidebarView extends ItemView {
             return;
         }
 
-        new Notice('Manual context condensing is not yet fully implemented. Please use automatic condensing.');
+        new Notice(
+            'Manual context condensing is not yet fully implemented. Please use automatic condensing.'
+        );
         // TODO: Implement manual condensing trigger
         // This requires either:
         // 1. Storing reference to current AgentTask
@@ -2056,9 +2331,9 @@ export class AgentSidebarView extends ItemView {
     private saveCurrentConversation(): void {
         const store = this.plugin.conversationStore;
         if (!store || !this.activeConversationId || this.uiMessages.length === 0) return;
-        store.save(this.activeConversationId, this.conversationHistory, this.uiMessages).catch((e) =>
-            console.warn('[History] Save failed:', e)
-        );
+        store
+            .save(this.activeConversationId, this.conversationHistory, this.uiMessages)
+            .catch((e) => console.warn('[History] Save failed:', e));
     }
 
     /**
@@ -2081,41 +2356,43 @@ export class AgentSidebarView extends ItemView {
                 this.showTaskNotesRecommendation();
             }
 
-            new TaskSelectionModal(
-                this.app,
-                items,
-                useTaskNotes,
-                async (selected) => {
-                    try {
-                        const creator = useTaskNotes
-                            ? new TaskNotesAdapter(this.app)
-                            : new TaskNoteCreator(this.app);
-                        const created = await creator.createNotes(selected, settings, sourceNote);
-                        if (created.length > 0) {
-                            const format = useTaskNotes ? t('notice.taskNotesCreatedFormatSuffix') : '';
-                            new Notice(t('notice.taskNotesCreated', { count: created.length, format }));
-                        }
-                    } catch (err) {
-                        console.warn('[TaskExtraction] Failed to create task notes:', err);
-                        new Notice(t('notice.taskNotesError'));
+            new TaskSelectionModal(this.app, items, useTaskNotes, async (selected) => {
+                try {
+                    const creator = useTaskNotes
+                        ? new TaskNotesAdapter(this.app)
+                        : new TaskNoteCreator(this.app);
+                    const created = await creator.createNotes(selected, settings, sourceNote);
+                    if (created.length > 0) {
+                        const format = useTaskNotes ? t('notice.taskNotesCreatedFormatSuffix') : '';
+                        new Notice(t('notice.taskNotesCreated', { count: created.length, format }));
                     }
-                },
-            ).open();
+                } catch (err) {
+                    console.warn('[TaskExtraction] Failed to create task notes:', err);
+                    new Notice(t('notice.taskNotesError'));
+                }
+            }).open();
         } catch (err) {
             console.error('[TaskExtraction] Scan failed:', err);
-            new Notice(t('notice.taskExtractionError', { error: err instanceof Error ? err.message : String(err) }));
+            new Notice(
+                t('notice.taskExtractionError', {
+                    error: err instanceof Error ? err.message : String(err),
+                })
+            );
         }
     }
 
     /** Checks whether the TaskNotes community plugin is currently enabled */
     private isTaskNotesActive(): boolean {
-        const plugins = (this.app as unknown as { plugins?: { enabledPlugins?: Set<string> } }).plugins;
+        const plugins = (this.app as unknown as { plugins?: { enabledPlugins?: Set<string> } })
+            .plugins;
         return plugins?.enabledPlugins?.has('tasknotes') ?? false;
     }
 
     /** Shows a non-blocking recommendation notice for the TaskNotes plugin */
     private showTaskNotesRecommendation(): void {
-        const plugins = (this.app as unknown as { plugins?: { manifests?: Record<string, unknown> } }).plugins;
+        const plugins = (
+            this.app as unknown as { plugins?: { manifests?: Record<string, unknown> } }
+        ).plugins;
         const isInstalled = !!plugins?.manifests?.['tasknotes'];
 
         const message = isInstalled
@@ -2159,16 +2436,22 @@ export class AgentSidebarView extends ItemView {
             transcript += line;
         }
 
-        const title = this.uiMessages.find((m) => m.role === 'user')?.text.slice(0, 60).replace(/\n/g, ' ').trim()
-            || t('ui.sidebar.conversation');
+        const title =
+            this.uiMessages
+                .find((m) => m.role === 'user')
+                ?.text.slice(0, 60)
+                .replace(/\n/g, ' ')
+                .trim() || t('ui.sidebar.conversation');
 
-        queue.enqueue({
-            conversationId: this.activeConversationId,
-            transcript,
-            title,
-            queuedAt: new Date().toISOString(),
-            type: 'session',
-        }).catch((e) => console.warn('[Memory] Enqueue failed:', e));
+        queue
+            .enqueue({
+                conversationId: this.activeConversationId,
+                transcript,
+                title,
+                queuedAt: new Date().toISOString(),
+                type: 'session',
+            })
+            .catch((e) => console.warn('[Memory] Enqueue failed:', e));
     }
 
     /**
@@ -2208,7 +2491,7 @@ export class AgentSidebarView extends ItemView {
      */
     private async finalizeConversation(
         conversationId: string,
-        messages: Array<{ role: string; text: string }>,
+        messages: Array<{ role: string; text: string }>
     ): Promise<void> {
         const settings = this.plugin.settings;
         const store = this.plugin.conversationStore;
@@ -2228,18 +2511,26 @@ export class AgentSidebarView extends ItemView {
                 try {
                     const api = buildApiHandlerForModel(model);
                     const stream = api.createMessage(
-                        'Create a short title (maximum 5-8 words) for this conversation. '
-                        + 'The title must capture the essence, not summarize. '
-                        + 'Output ONLY the title. No quotes, no prefix, no explanation. '
-                        + 'Same language as the user.',
-                        [{ role: 'user', content: `User: ${userMsg.slice(0, 300)}\nAssistant: ${assistantMsg.slice(0, 300)}` }],
-                        [],
+                        'Create a short title (maximum 5-8 words) for this conversation. ' +
+                            'The title must capture the essence, not summarize. ' +
+                            'Output ONLY the title. No quotes, no prefix, no explanation. ' +
+                            'Same language as the user.',
+                        [
+                            {
+                                role: 'user',
+                                content: `User: ${userMsg.slice(0, 300)}\nAssistant: ${assistantMsg.slice(0, 300)}`,
+                            },
+                        ],
+                        []
                     );
                     let title = '';
                     for await (const chunk of stream) {
                         if (chunk.type === 'text') title += chunk.text;
                     }
-                    title = title.trim().replace(/^["']|["']$/g, '').replace(/\n.*/s, '');
+                    title = title
+                        .trim()
+                        .replace(/^["']|["']$/g, '')
+                        .replace(/\n.*/s, '');
                     if (title.length > 60) title = title.slice(0, 57) + '...';
                     if (title) {
                         console.debug(`[ChatLink] Semantic title: "${title}"`);
@@ -2338,7 +2629,9 @@ export class AgentSidebarView extends ItemView {
         footerEl: HTMLElement;
     } {
         if (!this.chatContainer) throw new Error('Chat container not initialized');
-        const messageEl = this.chatContainer.createDiv('message assistant-message message-streaming');
+        const messageEl = this.chatContainer.createDiv(
+            'message assistant-message message-streaming'
+        );
         // Reasoning/thinking section (hidden until thinking chunks arrive)
         const thinkingEl = messageEl.createDiv('thinking-block');
         thinkingEl.classList.add('agent-u-hidden');
@@ -2362,7 +2655,9 @@ export class AgentSidebarView extends ItemView {
      */
     private getErrorTitle(error: Error): string {
         const msg = error.message.toLowerCase();
-        const status = (error as Error & { status?: number; statusCode?: number }).status ?? (error as Error & { statusCode?: number }).statusCode;
+        const status =
+            (error as Error & { status?: number; statusCode?: number }).status ??
+            (error as Error & { statusCode?: number }).statusCode;
         if (status === 401 || msg.includes('api key') || msg.includes('authentication')) {
             return t('ui.error.invalidKey');
         }
@@ -2392,7 +2687,11 @@ export class AgentSidebarView extends ItemView {
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
     }
 
-    private addUserMessage(text: string, attachments: AttachmentItem[] = [], activeFile?: TFile | null): void {
+    private addUserMessage(
+        text: string,
+        attachments: AttachmentItem[] = [],
+        activeFile?: TFile | null
+    ): void {
         if (!this.chatContainer) return;
         const msgEl = this.chatContainer.createDiv('message user-message');
         // Render attachment previews above the text bubble
@@ -2430,7 +2729,10 @@ export class AgentSidebarView extends ItemView {
     private addUserMessageActions(msgEl: HTMLElement, text: string): void {
         const bar = msgEl.createDiv('user-message-actions');
         const makeBtn = (icon: string, tooltip: string, onClick: () => void) => {
-            const btn = bar.createEl('button', { cls: 'message-action-btn', attr: { 'aria-label': tooltip } });
+            const btn = bar.createEl('button', {
+                cls: 'message-action-btn',
+                attr: { 'aria-label': tooltip },
+            });
             setIcon(btn, icon);
             btn.title = tooltip;
             btn.addEventListener('click', onClick);
@@ -2458,9 +2760,13 @@ export class AgentSidebarView extends ItemView {
             }
             // Also trim uiMessages and conversationHistory to match
             const userMsgIndices: number[] = [];
-            this.uiMessages.forEach((m, i) => { if (m.role === 'user') userMsgIndices.push(i); });
+            this.uiMessages.forEach((m, i) => {
+                if (m.role === 'user') userMsgIndices.push(i);
+            });
             // Count which user message this is in the DOM
-            const userBubblesBefore = allMessages.slice(0, idx).filter(el => el.classList.contains('user-message')).length;
+            const userBubblesBefore = allMessages
+                .slice(0, idx)
+                .filter((el) => el.classList.contains('user-message')).length;
             const uiIdx = userMsgIndices[userBubblesBefore];
             if (uiIdx !== undefined) {
                 this.uiMessages.splice(uiIdx);
@@ -2490,8 +2796,6 @@ export class AgentSidebarView extends ItemView {
         this.updateModelButton(); // model may differ per mode
     }
 
-
-
     // ── Ellipsis options menu ─────────────────────────────────────────────────
 
     private showOptionsMenu(e: MouseEvent): void {
@@ -2504,8 +2808,14 @@ export class AgentSidebarView extends ItemView {
             item.setIcon('refresh-cw');
             item.onClick(async () => {
                 const activeFile = this.app.workspace.getActiveFile();
-                if (!activeFile) { new Notice(t('notice.noActiveFile')); return; }
-                if (!this.plugin.semanticIndex) { new Notice(t('notice.semanticDisabled')); return; }
+                if (!activeFile) {
+                    new Notice(t('notice.noActiveFile'));
+                    return;
+                }
+                if (!this.plugin.semanticIndex) {
+                    new Notice(t('notice.semanticDisabled'));
+                    return;
+                }
                 await this.plugin.semanticIndex.updateFile(activeFile.path);
                 new Notice(t('notice.indexRefreshed'));
             });
@@ -2516,12 +2826,21 @@ export class AgentSidebarView extends ItemView {
             item.setTitle(t('ui.menu.forceReindex'));
             item.setIcon('database');
             item.onClick(() => {
-                if (!this.plugin.semanticIndex) { new Notice(t('notice.semanticDisabled')); return; }
-                if (this.plugin.semanticIndex.building) { new Notice(t('notice.indexingInProgress')); return; }
+                if (!this.plugin.semanticIndex) {
+                    new Notice(t('notice.semanticDisabled'));
+                    return;
+                }
+                if (this.plugin.semanticIndex.building) {
+                    new Notice(t('notice.indexingInProgress'));
+                    return;
+                }
                 new Notice(t('notice.reindexingVault'));
-                this.plugin.semanticIndex.buildIndex(undefined, true).then(() =>
-                    new Notice(t('notice.vaultIndexRebuilt'))
-                ).catch((e: Error) => new Notice(t('notice.reindexFailed', { error: e.message })));
+                this.plugin.semanticIndex
+                    .buildIndex(undefined, true)
+                    .then(() => new Notice(t('notice.vaultIndexRebuilt')))
+                    .catch(
+                        (e: Error) => new Notice(t('notice.reindexFailed', { error: e.message }))
+                    );
             });
         });
 
@@ -2570,7 +2889,6 @@ export class AgentSidebarView extends ItemView {
         menu.showAtMouseEvent(e);
     }
 
-
     // -------------------------------------------------------------------------
     // Tool display helpers (Kilo Code style)
     // -------------------------------------------------------------------------
@@ -2593,17 +2911,35 @@ export class AgentSidebarView extends ItemView {
      */
     private formatGroupedLabel(name: string, count: number): string {
         const labels: Record<string, [string, string]> = {
-            read_file:        [t('ui.toolActivity.readFile'),       t('ui.toolActivity.readFiles')],
-            list_files:       [t('ui.toolActivity.listFiles'),      t('ui.toolActivity.listFiles')],
-            search_files:     [t('ui.toolActivity.searching'),      t('ui.toolActivity.searching')],
-            get_frontmatter:  [t('ui.toolActivity.readingMetadata'),t('ui.toolActivity.readingMetadata')],
-            get_linked_notes: [t('ui.toolActivity.findingLinks'),   t('ui.toolActivity.findingLinks')],
-            search_by_tag:    [t('ui.toolActivity.searchingByTag'), t('ui.toolActivity.searchingByTag')],
-            get_vault_stats:  [t('ui.toolActivity.vaultOverview'),  t('ui.toolActivity.vaultOverview')],
-            get_daily_note:   [t('ui.toolActivity.readingDailyNote'),t('ui.toolActivity.readingDailyNotes')],
-            web_fetch:        [t('ui.toolActivity.fetchingPage'),   t('ui.toolActivity.fetchingPages')],
-            web_search:       [t('ui.toolActivity.searchingWeb'),   t('ui.toolActivity.searchingWeb')],
-            semantic_search:  [t('ui.toolActivity.semanticSearch'), t('ui.toolActivity.semanticSearches')],
+            read_file: [t('ui.toolActivity.readFile'), t('ui.toolActivity.readFiles')],
+            list_files: [t('ui.toolActivity.listFiles'), t('ui.toolActivity.listFiles')],
+            search_files: [t('ui.toolActivity.searching'), t('ui.toolActivity.searching')],
+            get_frontmatter: [
+                t('ui.toolActivity.readingMetadata'),
+                t('ui.toolActivity.readingMetadata'),
+            ],
+            get_linked_notes: [
+                t('ui.toolActivity.findingLinks'),
+                t('ui.toolActivity.findingLinks'),
+            ],
+            search_by_tag: [
+                t('ui.toolActivity.searchingByTag'),
+                t('ui.toolActivity.searchingByTag'),
+            ],
+            get_vault_stats: [
+                t('ui.toolActivity.vaultOverview'),
+                t('ui.toolActivity.vaultOverview'),
+            ],
+            get_daily_note: [
+                t('ui.toolActivity.readingDailyNote'),
+                t('ui.toolActivity.readingDailyNotes'),
+            ],
+            web_fetch: [t('ui.toolActivity.fetchingPage'), t('ui.toolActivity.fetchingPages')],
+            web_search: [t('ui.toolActivity.searchingWeb'), t('ui.toolActivity.searchingWeb')],
+            semantic_search: [
+                t('ui.toolActivity.semanticSearch'),
+                t('ui.toolActivity.semanticSearches'),
+            ],
         };
         const [singular, plural] = labels[name] ?? [name, name];
         return count === 1 ? singular : `${plural} (${count})`;
@@ -2639,7 +2975,10 @@ export class AgentSidebarView extends ItemView {
      * Parse and extract [sources]...[/sources] block from the model's response.
      * Returns cleaned text (without the block) and an array of parsed sources.
      */
-    private parseSources(text: string): { cleanText: string; sources: { num: number; note: string; context: string }[] } {
+    private parseSources(text: string): {
+        cleanText: string;
+        sources: { num: number; note: string; context: string }[];
+    } {
         const blockRe = /\[sources\]\s*\n?([\s\S]*?)(?:\[\/sources\]|$)/;
         const match = text.match(blockRe);
         if (!match) return { cleanText: text, sources: [] };
@@ -2682,16 +3021,22 @@ export class AgentSidebarView extends ItemView {
      * Parse and extract [followups]...[/followups] block from the model's response.
      * Returns cleaned text and an array of follow-up action strings.
      */
-    private parseFollowups(text: string): { cleanText: string; heading: string; followups: string[] } {
-        const blockRe = /\[followups(?:\s+heading="([^"]*)")?\]\s*\n?([\s\S]*?)(?:\[\/followups\]|$)/;
+    private parseFollowups(text: string): {
+        cleanText: string;
+        heading: string;
+        followups: string[];
+    } {
+        const blockRe =
+            /\[followups(?:\s+heading="([^"]*)")?\]\s*\n?([\s\S]*?)(?:\[\/followups\]|$)/;
         const match = text.match(blockRe);
         if (!match) return { cleanText: text, heading: '', followups: [] };
 
         const cleanText = text.replace(blockRe, '').trimEnd();
         const heading = match[1] || '';
-        const followups = match[2].split('\n')
-            .map(line => line.replace(/^[-*]\s*/, '').trim())
-            .filter(line => line.length > 0);
+        const followups = match[2]
+            .split('\n')
+            .map((line) => line.replace(/^[-*]\s*/, '').trim())
+            .filter((line) => line.length > 0);
 
         return { cleanText, heading, followups };
     }
@@ -2745,10 +3090,14 @@ export class AgentSidebarView extends ItemView {
             }
         } else if (format === 'details') {
             if (sources.length > 0) {
-                blocks.push(`<details>\n<summary>Sources</summary>\n\n${renderSourcesList()}\n\n</details>`);
+                blocks.push(
+                    `<details>\n<summary>Sources</summary>\n\n${renderSourcesList()}\n\n</details>`
+                );
             }
             if (followups.length > 0) {
-                blocks.push(`<details>\n<summary>${followupHeading}</summary>\n\n${renderFollowupsList()}\n\n</details>`);
+                blocks.push(
+                    `<details>\n<summary>${followupHeading}</summary>\n\n${renderFollowupsList()}\n\n</details>`
+                );
             }
         } else if (format === 'codefence') {
             if (sources.length > 0) {
@@ -2770,7 +3119,9 @@ export class AgentSidebarView extends ItemView {
             }
         }
 
-        const out = [base, ...blocks.filter(Boolean)].filter((s) => s && s.trim().length > 0).join('\n\n');
+        const out = [base, ...blocks.filter(Boolean)]
+            .filter((s) => s && s.trim().length > 0)
+            .join('\n\n');
         return out.trimEnd() + '\n';
     }
 
@@ -2778,10 +3129,13 @@ export class AgentSidebarView extends ItemView {
      * Convert inline [N] references in rendered HTML to clickable citation badges.
      * Only converts numbers that match a parsed source.
      */
-    private wireCitationBadges(contentEl: HTMLElement, sources: { num: number; note: string; context: string }[]): void {
+    private wireCitationBadges(
+        contentEl: HTMLElement,
+        sources: { num: number; note: string; context: string }[]
+    ): void {
         if (sources.length === 0) return;
 
-        const sourceNums = new Set(sources.map(s => s.num));
+        const sourceNums = new Set(sources.map((s) => s.num));
         const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT);
         const replacements: { node: Text; text: string }[] = [];
 
@@ -2805,12 +3159,14 @@ export class AgentSidebarView extends ItemView {
                 if (!sourceNums.has(num)) continue;
                 const matchIndex = m.index ?? 0;
 
-                const source = sources.find(s => s.num === num);
+                const source = sources.find((s) => s.num === num);
                 if (!source) continue;
 
                 // Text before this match
                 if (matchIndex > lastIndex) {
-                    fragment.appendChild(document.createTextNode(text.slice(lastIndex, matchIndex)));
+                    fragment.appendChild(
+                        document.createTextNode(text.slice(lastIndex, matchIndex))
+                    );
                 }
 
                 // Citation badge
@@ -2853,7 +3209,10 @@ export class AgentSidebarView extends ItemView {
                 popup.setCssProps({ '--popup-left': `${pad}px` });
             }
             if (r.bottom > window.innerHeight) {
-                popup.setCssProps({ '--popup-top': `${window.innerHeight - r.height - pad}px`, '--popup-bottom': '' });
+                popup.setCssProps({
+                    '--popup-top': `${window.innerHeight - r.height - pad}px`,
+                    '--popup-bottom': '',
+                });
             }
             if (r.top < 0) {
                 popup.setCssProps({ '--popup-top': `${pad}px`, '--popup-bottom': '' });
@@ -2893,8 +3252,11 @@ export class AgentSidebarView extends ItemView {
     /**
      * Show a popup card for a single source (badge click).
      */
-    private showSourcePopup(anchor: HTMLElement, source: { num: number; note: string; context: string }): void {
-        document.querySelectorAll('.source-popup').forEach(el => {
+    private showSourcePopup(
+        anchor: HTMLElement,
+        source: { num: number; note: string; context: string }
+    ): void {
+        document.querySelectorAll('.source-popup').forEach((el) => {
             if (el instanceof HTMLElement) this.detachPopupCloseHandler(el);
             el.remove();
         });
@@ -2921,7 +3283,10 @@ export class AgentSidebarView extends ItemView {
         }
 
         const rect = anchor.getBoundingClientRect();
-        popup.setCssProps({ '--popup-top': `${rect.bottom + 4}px`, '--popup-left': `${Math.max(4, rect.left - 40)}px` });
+        popup.setCssProps({
+            '--popup-top': `${rect.bottom + 4}px`,
+            '--popup-left': `${Math.max(4, rect.left - 40)}px`,
+        });
 
         document.body.appendChild(popup);
         this.clampPopupToViewport(popup);
@@ -2931,8 +3296,11 @@ export class AgentSidebarView extends ItemView {
     /**
      * Show a panel listing all sources (sources indicator click).
      */
-    private showSourcesPanel(anchor: HTMLElement, sources: { num: number; note: string; context: string }[]): void {
-        document.querySelectorAll('.source-popup').forEach(el => {
+    private showSourcesPanel(
+        anchor: HTMLElement,
+        sources: { num: number; note: string; context: string }[]
+    ): void {
+        document.querySelectorAll('.source-popup').forEach((el) => {
             if (el instanceof HTMLElement) this.detachPopupCloseHandler(el);
             el.remove();
         });
@@ -2971,7 +3339,10 @@ export class AgentSidebarView extends ItemView {
         }
 
         const rect = anchor.getBoundingClientRect();
-        popup.setCssProps({ '--popup-bottom': `${window.innerHeight - rect.top + 4}px`, '--popup-left': `${rect.left}px` });
+        popup.setCssProps({
+            '--popup-bottom': `${window.innerHeight - rect.top + 4}px`,
+            '--popup-left': `${rect.left}px`,
+        });
 
         document.body.appendChild(popup);
         this.clampPopupToViewport(popup);
@@ -2981,7 +3352,11 @@ export class AgentSidebarView extends ItemView {
     /**
      * Add the response action icon bar below a completed assistant message.
      */
-    private addResponseActions(messageEl: HTMLElement, responseText: string, sources?: { num: number; note: string; context: string }[]): void {
+    private addResponseActions(
+        messageEl: HTMLElement,
+        responseText: string,
+        sources?: { num: number; note: string; context: string }[]
+    ): void {
         const bar = messageEl.createDiv('message-actions');
 
         // Sources indicator (left-aligned, before action buttons)
@@ -2997,7 +3372,10 @@ export class AgentSidebarView extends ItemView {
         }
 
         const makeBtn = (icon: string, tooltip: string, onClick: () => void) => {
-            const btn = bar.createEl('button', { cls: 'message-action-btn', attr: { 'aria-label': tooltip } });
+            const btn = bar.createEl('button', {
+                cls: 'message-action-btn',
+                attr: { 'aria-label': tooltip },
+            });
             setIcon(btn, icon);
             btn.title = tooltip;
             btn.addEventListener('click', onClick);
@@ -3084,7 +3462,7 @@ export class AgentSidebarView extends ItemView {
      */
     private renderTodoBox(
         toolsEl: HTMLElement,
-        items: import('../core/tools/agent/UpdateTodoListTool').TodoItem[],
+        items: import('../core/tools/agent/UpdateTodoListTool').TodoItem[]
     ): void {
         const messageEl = toolsEl.closest<HTMLElement>('.assistant-message');
         if (!messageEl) return;
@@ -3107,7 +3485,10 @@ export class AgentSidebarView extends ItemView {
             planListEl = planBoxEl.createDiv('todo-box-list');
 
             const activityDetails = planBoxEl.createEl('details', { cls: 'todo-activity-log' });
-            activityDetails.createEl('summary', { cls: 'todo-activity-summary', text: t('ui.sidebar.activity') });
+            activityDetails.createEl('summary', {
+                cls: 'todo-activity-summary',
+                text: t('ui.sidebar.activity'),
+            });
             // DOM-move: relocate toolsEl (with any already-rendered tool calls) into collapsed details
             activityDetails.appendChild(toolsEl);
         } else {
@@ -3140,9 +3521,12 @@ export class AgentSidebarView extends ItemView {
         question: string,
         options: string[] | undefined,
         resolve: (answer: string) => void,
-        allowMultiple = false,
+        allowMultiple = false
     ): void {
-        if (!this.chatContainer) { resolve(''); return; }
+        if (!this.chatContainer) {
+            resolve('');
+            return;
+        }
 
         const card = this.chatContainer.createDiv('followup-list');
         card.createDiv('followup-heading').setText(question);
@@ -3154,7 +3538,10 @@ export class AgentSidebarView extends ItemView {
                 const selected = new Set<string>();
                 const optionEls: HTMLElement[] = [];
                 options.forEach((opt) => {
-                    const item = card.createEl('button', { cls: 'followup-item followup-item-multi', text: opt });
+                    const item = card.createEl('button', {
+                        cls: 'followup-item followup-item-multi',
+                        text: opt,
+                    });
                     optionEls.push(item);
                     item.addEventListener('click', () => {
                         if (selected.has(opt)) {
@@ -3179,7 +3566,10 @@ export class AgentSidebarView extends ItemView {
                 // Single-select mode: click to answer
                 options.forEach((opt) => {
                     const item = card.createEl('button', { cls: 'followup-item', text: opt });
-                    item.addEventListener('click', () => { cleanup(); resolve(opt); });
+                    item.addEventListener('click', () => {
+                        cleanup();
+                        resolve(opt);
+                    });
                 });
             }
         }
@@ -3189,7 +3579,10 @@ export class AgentSidebarView extends ItemView {
             cls: 'question-input',
             attr: { type: 'text', placeholder: t('ui.question.placeholder') },
         });
-        const submitBtn = inputRow.createEl('button', { cls: 'question-submit-btn', text: t('ui.question.answer') });
+        const submitBtn = inputRow.createEl('button', {
+            cls: 'question-submit-btn',
+            text: t('ui.question.answer'),
+        });
         const submit = () => {
             const val = input.value.trim();
             if (!val) return;
@@ -3197,7 +3590,9 @@ export class AgentSidebarView extends ItemView {
             resolve(val);
         };
         submitBtn.addEventListener('click', submit);
-        input.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') submit(); });
+        input.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') submit();
+        });
         this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight });
     }
 
@@ -3208,9 +3603,12 @@ export class AgentSidebarView extends ItemView {
      */
     private buildHumanReadableExplanation(
         toolName: string,
-        input: Record<string, unknown>,
+        input: Record<string, unknown>
     ): { text: string; target?: string } {
-        const str = (key: string): string => { const v = input[key]; return typeof v === 'string' ? v : ''; };
+        const str = (key: string): string => {
+            const v = input[key];
+            return typeof v === 'string' ? v : '';
+        };
 
         switch (toolName) {
             case 'write_file':
@@ -3226,7 +3624,10 @@ export class AgentSidebarView extends ItemView {
             case 'move_file': {
                 const from = str('source');
                 const to = str('destination');
-                return { text: t('ui.approval.explain.moveFile'), target: to ? `${from} ${t('ui.approval.explain.moveFileTo')} ${to}` : from };
+                return {
+                    text: t('ui.approval.explain.moveFile'),
+                    target: to ? `${from} ${t('ui.approval.explain.moveFileTo')} ${to}` : from,
+                };
             }
             case 'create_folder':
                 return { text: t('ui.approval.explain.createFolder'), target: str('path') };
@@ -3245,7 +3646,10 @@ export class AgentSidebarView extends ItemView {
             case 'use_mcp_tool': {
                 const server = str('server_name');
                 const tool = str('tool_name');
-                return { text: t('ui.approval.explain.mcpTool'), target: tool ? `${tool} (${server})` : server };
+                return {
+                    text: t('ui.approval.explain.mcpTool'),
+                    target: tool ? `${tool} (${server})` : server,
+                };
             }
             case 'call_plugin_api':
                 return { text: t('ui.approval.explain.pluginApi'), target: str('plugin_id') };
@@ -3259,7 +3663,10 @@ export class AgentSidebarView extends ItemView {
             case 'manage_source':
                 return { text: t('ui.approval.explain.selfModify') };
             default:
-                return { text: t('ui.approval.explain.fallback'), target: this.formatToolLabel(toolName) };
+                return {
+                    text: t('ui.approval.explain.fallback'),
+                    target: this.formatToolLabel(toolName),
+                };
         }
     }
 
@@ -3286,22 +3693,30 @@ export class AgentSidebarView extends ItemView {
 
     private async showApprovalCard(
         toolName: string,
-        input: Record<string, unknown>,
+        input: Record<string, unknown>
     ): Promise<import('../core/tool-execution/ToolExecutionPipeline').ApprovalResult> {
         // All tools use the same inline approval card during execution.
         // Approvals are always rendered in chatContainer (not toolsEl) to ensure visibility
         // even when .agent-steps-block is collapsed.
         // Post-task DiffReviewModal is shown in onComplete for collected review.
         return new Promise((resolve) => {
-            if (!this.chatContainer) { resolve({ decision: 'approved' }); return; }
+            if (!this.chatContainer) {
+                resolve({ decision: 'approved' });
+                return;
+            }
 
             const group = this.getToolGroup(toolName);
             const groupLabels: Record<string, string> = {
-                'note-edit': t('ui.approval.noteEdits'), 'vault-change': t('ui.approval.vaultChanges'),
-                web: t('ui.approval.web'), mcp: t('ui.approval.mcp'), read: t('ui.approval.read'),
-                mode: t('ui.approval.modeSwitching'), subtask: t('ui.approval.subAgents'),
+                'note-edit': t('ui.approval.noteEdits'),
+                'vault-change': t('ui.approval.vaultChanges'),
+                web: t('ui.approval.web'),
+                mcp: t('ui.approval.mcp'),
+                read: t('ui.approval.read'),
+                mode: t('ui.approval.modeSwitching'),
+                subtask: t('ui.approval.subAgents'),
                 skill: t('ui.approval.pluginSkills'),
-                'plugin-api': t('ui.approval.pluginApi'), recipe: t('ui.approval.recipes'),
+                'plugin-api': t('ui.approval.pluginApi'),
+                recipe: t('ui.approval.recipes'),
                 sandbox: t('ui.approval.sandbox'),
             };
 
@@ -3310,11 +3725,17 @@ export class AgentSidebarView extends ItemView {
             const iconSpan = row.createSpan('tool-approval-icon');
             setIcon(iconSpan, 'shield-alert');
             row.createSpan('tool-approval-text').setText(
-                t('ui.approval.notEnabled', { tool: this.formatToolLabel(toolName), group: groupLabels[group] ?? group })
+                t('ui.approval.notEnabled', {
+                    tool: this.formatToolLabel(toolName),
+                    group: groupLabels[group] ?? group,
+                })
             );
 
             // Human-readable explanation
-            const { text: explanationText, target } = this.buildHumanReadableExplanation(toolName, input);
+            const { text: explanationText, target } = this.buildHumanReadableExplanation(
+                toolName,
+                input
+            );
             const explanationEl = row.createDiv('tool-approval-explanation');
             explanationEl.createSpan().setText(explanationText);
             if (target) {
@@ -3325,7 +3746,8 @@ export class AgentSidebarView extends ItemView {
             if (toolName === 'evaluate_expression' && typeof input['expression'] === 'string') {
                 const expr = input['expression'];
                 const previewLines = expr.split('\n').slice(0, 3);
-                const preview = previewLines.join('\n') + (expr.split('\n').length > 3 ? '\n...' : '');
+                const preview =
+                    previewLines.join('\n') + (expr.split('\n').length > 3 ? '\n...' : '');
                 const codePreview = row.createDiv('tool-approval-code-preview');
                 codePreview.createEl('code').setText(preview);
             }
@@ -3336,7 +3758,8 @@ export class AgentSidebarView extends ItemView {
                 text: t('ui.approval.explain.showDetails'),
             });
             const detailsContainer = row.createDiv('tool-approval-details');
-            detailsContainer.createEl('pre', { cls: 'tool-approval-details-content' })
+            detailsContainer
+                .createEl('pre', { cls: 'tool-approval-details-content' })
                 .setText(this.formatInputForDetails(input));
 
             detailsToggle.addEventListener('click', () => {
@@ -3357,25 +3780,43 @@ export class AgentSidebarView extends ItemView {
                 const warning = row.createDiv('tool-approval-config-warning');
                 const warnIcon = warning.createSpan('tool-approval-warning-icon');
                 setIcon(warnIcon, 'alert-triangle');
-                warning.createSpan('tool-approval-warning-text').setText(
-                    t('ui.approval.configDirWarning', { path: inputPath })
-                );
+                warning
+                    .createSpan('tool-approval-warning-text')
+                    .setText(t('ui.approval.configDirWarning', { path: inputPath }));
             }
 
             const actions = row.createDiv('tool-approval-actions');
-            const allowBtn = actions.createEl('button', { cls: 'tool-approval-btn approval-allow-once', text: t('ui.approval.allowOnce') });
-            const enableBtn = actions.createEl('button', { cls: 'tool-approval-btn approval-enable', text: t('ui.approval.enableInSettings') });
-            const denyBtn = actions.createEl('button', { cls: 'tool-approval-btn approval-deny-small', text: '✕' });
+            const allowBtn = actions.createEl('button', {
+                cls: 'tool-approval-btn approval-allow-once',
+                text: t('ui.approval.allowOnce'),
+            });
+            const enableBtn = actions.createEl('button', {
+                cls: 'tool-approval-btn approval-enable',
+                text: t('ui.approval.enableInSettings'),
+            });
+            const denyBtn = actions.createEl('button', {
+                cls: 'tool-approval-btn approval-deny-small',
+                text: '✕',
+            });
 
             const cleanup = () => row.remove();
 
-            allowBtn.addEventListener('click', () => { cleanup(); resolve({ decision: 'approved' }); });
-            denyBtn.addEventListener('click', () => { cleanup(); resolve({ decision: 'rejected' }); });
+            allowBtn.addEventListener('click', () => {
+                cleanup();
+                resolve({ decision: 'approved' });
+            });
+            denyBtn.addEventListener('click', () => {
+                cleanup();
+                resolve({ decision: 'rejected' });
+            });
             enableBtn.addEventListener('click', () => {
                 void (async () => {
                     this.plugin.settings.autoApproval.enabled = true;
                     const permKey = this.groupToPermKey(group);
-                    if (permKey) (this.plugin.settings.autoApproval as unknown as Record<string, boolean>)[permKey] = true;
+                    if (permKey)
+                        (this.plugin.settings.autoApproval as unknown as Record<string, boolean>)[
+                            permKey
+                        ] = true;
                     await this.plugin.saveSettings();
                     cleanup();
                     resolve({ decision: 'approved' });
@@ -3386,9 +3827,40 @@ export class AgentSidebarView extends ItemView {
         });
     }
 
-    private getToolGroup(toolName: string): 'note-edit' | 'vault-change' | 'web' | 'mcp' | 'read' | 'mode' | 'subtask' | 'skill' | 'plugin-api' | 'recipe' | 'sandbox' {
-        const readTools = ['read_file', 'list_files', 'search_files', 'get_frontmatter', 'get_linked_notes', 'get_vault_stats', 'search_by_tag', 'get_daily_note', 'query_base', 'semantic_search'];
-        const vaultChangeTools = ['create_folder', 'delete_file', 'move_file', 'generate_canvas', 'create_base', 'update_base'];
+    private getToolGroup(
+        toolName: string
+    ):
+        | 'note-edit'
+        | 'vault-change'
+        | 'web'
+        | 'mcp'
+        | 'read'
+        | 'mode'
+        | 'subtask'
+        | 'skill'
+        | 'plugin-api'
+        | 'recipe'
+        | 'sandbox' {
+        const readTools = [
+            'read_file',
+            'list_files',
+            'search_files',
+            'get_frontmatter',
+            'get_linked_notes',
+            'get_vault_stats',
+            'search_by_tag',
+            'get_daily_note',
+            'query_base',
+            'semantic_search',
+        ];
+        const vaultChangeTools = [
+            'create_folder',
+            'delete_file',
+            'move_file',
+            'generate_canvas',
+            'create_base',
+            'update_base',
+        ];
         const skillTools = ['execute_command', 'enable_plugin', 'resolve_capability_gap'];
         if (toolName === 'evaluate_expression') return 'sandbox';
         if (['web_fetch', 'web_search'].includes(toolName)) return 'web';
@@ -3426,7 +3898,7 @@ export class AgentSidebarView extends ItemView {
 
     private renderCheckpointMarker(
         container: HTMLElement,
-        checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
+        checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo
     ): void {
         const marker = container.createDiv('checkpoint-marker');
 
@@ -3454,13 +3926,16 @@ export class AgentSidebarView extends ItemView {
             const options = marker.createDiv('checkpoint-restore-options');
 
             const keepBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn', text: t('ui.checkpoint.keepChat'),
+                cls: 'checkpoint-option-btn',
+                text: t('ui.checkpoint.keepChat'),
             });
             const deleteBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn checkpoint-option-delete', text: t('ui.checkpoint.deleteFromHere'),
+                cls: 'checkpoint-option-btn checkpoint-option-delete',
+                text: t('ui.checkpoint.deleteFromHere'),
             });
             const cancelBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn', text: t('ui.checkpoint.cancel'),
+                cls: 'checkpoint-option-btn',
+                text: t('ui.checkpoint.cancel'),
             });
 
             cancelBtn.addEventListener('click', () => {
@@ -3485,7 +3960,7 @@ export class AgentSidebarView extends ItemView {
         checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
         marker: HTMLElement,
         optionsEl: HTMLElement,
-        deleteChatFromHere: boolean,
+        deleteChatFromHere: boolean
     ): Promise<void> {
         optionsEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
         optionsEl.empty();
@@ -3496,7 +3971,11 @@ export class AgentSidebarView extends ItemView {
             const result = await this.plugin.checkpointService?.restore(checkpoint);
             console.debug('[Checkpoint] Result:', JSON.stringify(result, null, 2));
             if (!result || result.restored.length === 0) {
-                optionsEl.setText(result?.errors?.length ? t('ui.checkpoint.error') : t('ui.checkpoint.nothingToRestore'));
+                optionsEl.setText(
+                    result?.errors?.length
+                        ? t('ui.checkpoint.error')
+                        : t('ui.checkpoint.nothingToRestore')
+                );
                 return;
             }
 
@@ -3550,7 +4029,9 @@ export class AgentSidebarView extends ItemView {
 
         // Truncate uiMessages at the corresponding assistant index
         const assistantIndices: number[] = [];
-        this.uiMessages.forEach((m, i) => { if (m.role === 'assistant') assistantIndices.push(i); });
+        this.uiMessages.forEach((m, i) => {
+            if (m.role === 'assistant') assistantIndices.push(i);
+        });
         const uiIdx = assistantIndices[assistantBubblesBefore];
         if (uiIdx !== undefined) {
             this.uiMessages.splice(uiIdx);
@@ -3576,7 +4057,7 @@ export class AgentSidebarView extends ItemView {
      * Shows the diff between snapshot (pre-write) and current vault state.
      */
     private async showCheckpointDiff(
-        checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
+        checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo
     ): Promise<void> {
         const service = this.plugin.checkpointService;
         if (!service) return;
@@ -3592,34 +4073,32 @@ export class AgentSidebarView extends ItemView {
             try {
                 const file = this.app.vault.getFileByPath(filePath);
                 if (file) after = await this.app.vault.read(file);
-            } catch { /* file deleted */ }
+            } catch {
+                /* file deleted */
+            }
 
             entries.push({ filePath, oldContent: before, newContent: after });
         }
 
         if (entries.length === 0) return;
 
-        new DiffReviewModal(
-            this.app,
-            entries,
-            {
-                mode: 'checkpoint',
-                checkpointInfo: checkpoint,
-                onRestore: async () => {
-                    const result = await service.restore(checkpoint);
-                    if (result && result.restored.length > 0) {
-                        const restoredFiles = result.restored.join(', ');
-                        const deletedNote = checkpoint.newFiles?.length
-                            ? ` Deleted: ${checkpoint.newFiles.join(', ')}.`
-                            : '';
-                        this.conversationHistory.push({
-                            role: 'user',
-                            content: `[System] Checkpoint restored. Files: ${restoredFiles}.${deletedNote} Vault state changed.`,
-                        });
-                    }
-                },
+        new DiffReviewModal(this.app, entries, {
+            mode: 'checkpoint',
+            checkpointInfo: checkpoint,
+            onRestore: async () => {
+                const result = await service.restore(checkpoint);
+                if (result && result.restored.length > 0) {
+                    const restoredFiles = result.restored.join(', ');
+                    const deletedNote = checkpoint.newFiles?.length
+                        ? ` Deleted: ${checkpoint.newFiles.join(', ')}.`
+                        : '';
+                    this.conversationHistory.push({
+                        role: 'user',
+                        content: `[System] Checkpoint restored. Files: ${restoredFiles}.${deletedNote} Vault state changed.`,
+                    });
+                }
             },
-        ).open();
+        }).open();
     }
 
     // -------------------------------------------------------------------------
@@ -3655,7 +4134,9 @@ export class AgentSidebarView extends ItemView {
             try {
                 const file = this.app.vault.getFileByPath(filePath);
                 if (file) newContent = await this.app.vault.read(file);
-            } catch { /* file may have been deleted */ }
+            } catch {
+                /* file may have been deleted */
+            }
 
             // Skip files that haven't actually changed
             if (oldContent === newContent) continue;
@@ -3675,7 +4156,9 @@ export class AgentSidebarView extends ItemView {
             try {
                 const file = this.app.vault.getFileByPath(filePath);
                 if (file) newContent = await this.app.vault.read(file);
-            } catch { continue; }
+            } catch {
+                continue;
+            }
             if (newContent) {
                 entries.push({ filePath, oldContent: '', newContent });
             }
@@ -3683,36 +4166,34 @@ export class AgentSidebarView extends ItemView {
 
         if (entries.length === 0) return;
 
-        new DiffReviewModal(
-            this.app,
-            entries,
-            { mode: 'review' },
-            (decisions) => {
-                void (async () => {
-                    // Apply user decisions: write back reverted/edited content
-                    for (const d of decisions) {
-                        if (!d.hasChanges) continue;
-                        try {
-                            const file = this.app.vault.getFileByPath(d.filePath);
-                            if (file instanceof TFile) {
-                                await this.app.vault.modify(file, d.finalContent);
-                            } else {
-                                await this.app.vault.adapter.write(d.filePath, d.finalContent);
-                            }
-                        } catch (e) {
-                            console.error(`[PostTaskReview] Failed to apply decision for ${d.filePath}:`, e);
+        new DiffReviewModal(this.app, entries, { mode: 'review' }, (decisions) => {
+            void (async () => {
+                // Apply user decisions: write back reverted/edited content
+                for (const d of decisions) {
+                    if (!d.hasChanges) continue;
+                    try {
+                        const file = this.app.vault.getFileByPath(d.filePath);
+                        if (file instanceof TFile) {
+                            await this.app.vault.modify(file, d.finalContent);
+                        } else {
+                            await this.app.vault.adapter.write(d.filePath, d.finalContent);
                         }
+                    } catch (e) {
+                        console.error(
+                            `[PostTaskReview] Failed to apply decision for ${d.filePath}:`,
+                            e
+                        );
                     }
-                    if (decisions.length > 0) {
-                        const files = decisions.map((d) => d.filePath).join(', ');
-                        this.conversationHistory.push({
-                            role: 'user',
-                            content: `[System] Post-task review: User reverted changes in ${decisions.length} file(s): ${files}. Vault state changed.`,
-                        });
-                    }
-                })();
-            },
-        ).open();
+                }
+                if (decisions.length > 0) {
+                    const files = decisions.map((d) => d.filePath).join(', ');
+                    this.conversationHistory.push({
+                        role: 'user',
+                        content: `[System] Post-task review: User reverted changes in ${decisions.length} file(s): ${files}. Vault state changed.`,
+                    });
+                }
+            })();
+        }).open();
     }
 
     // -------------------------------------------------------------------------
@@ -3722,17 +4203,18 @@ export class AgentSidebarView extends ItemView {
     private showUndoBar(taskId: string, writeCount: number): void {
         if (!this.chatContainer) return;
         const bar = this.chatContainer.createDiv('undo-bar');
-        bar.createSpan('undo-label').setText(
-            t('ui.undo.modified', { count: writeCount })
-        );
+        bar.createSpan('undo-label').setText(t('ui.undo.modified', { count: writeCount }));
         const undoBtn = bar.createEl('button', { cls: 'undo-btn', text: t('ui.undo.undoAll') });
         undoBtn.addEventListener('click', () => {
             void (async () => {
                 undoBtn.disabled = true;
                 undoBtn.setText(t('ui.undo.restoring'));
-                console.debug(`[Undo] Attempting restore for taskId=${taskId} hasService=${!!this.plugin.checkpointService}`);
+                console.debug(
+                    `[Undo] Attempting restore for taskId=${taskId} hasService=${!!this.plugin.checkpointService}`
+                );
                 try {
-                    const result = await this.plugin.checkpointService?.restoreLatestForTask(taskId);
+                    const result =
+                        await this.plugin.checkpointService?.restoreLatestForTask(taskId);
                     console.debug('[Undo] Restore result:', result);
                     bar.empty();
                     if (result && result.restored.length > 0) {
@@ -3763,5 +4245,9 @@ export class AgentSidebarView extends ItemView {
 
 /** Minimal XML-escape for skill injection (module-level helper). */
 function xmlEsc(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
